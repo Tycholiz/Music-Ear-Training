@@ -1,12 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
-import {
-  AnswerGrid,
-  ExerciseHeader,
-  ListCard,
-  ListRow,
-  ModalSheet,
-} from '../components'
+import { AnswerGrid, ExerciseHeader, ModalSheet } from '../components'
+import { IntervalMenu } from '../customize'
 import { piano } from '../audio'
 import {
   intervalScoreStore,
@@ -129,18 +124,12 @@ export default function Intervals() {
         onClose={() => setMenuOpen(false)}
         title="Menu"
       >
-        <div className="p-4">
-          <ListCard>
-            <ListRow
-              label="Reset Score"
-              destructive
-              onClick={() => {
-                resetScore()
-                setMenuOpen(false)
-              }}
-            />
-          </ListCard>
-        </div>
+        <IntervalMenu
+          onResetScore={() => {
+            resetScore()
+            setMenuOpen(false)
+          }}
+        />
       </ModalSheet>
     </main>
   )
