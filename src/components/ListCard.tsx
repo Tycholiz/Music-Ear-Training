@@ -1,3 +1,4 @@
+import { Link } from 'react-router'
 import type { ReactNode } from 'react'
 
 /**
@@ -40,6 +41,8 @@ export function ListRow({
   chevron = false,
   destructive = false,
   onClick,
+  to,
+  icon,
   children,
 }: {
   label?: ReactNode
@@ -50,13 +53,24 @@ export function ListRow({
   /** Render the label in the accent color, for actions like Reset Score. */
   destructive?: boolean
   onClick?: () => void
+  /**
+   * Render the row as a router link instead of a button. Rows that change the
+   * URL should be real links so they can be opened in a new tab and so the
+   * back button behaves.
+   */
+  to?: string
+  /** Leading glyph, shown before the label. */
+  icon?: ReactNode
   /** Custom row content, used instead of `label`. */
   children?: ReactNode
 }) {
   const content = children ?? (
     <>
-      <span className={destructive ? 'text-incorrect' : undefined}>
-        {label}
+      <span className="flex min-w-0 items-center gap-3">
+        {icon}
+        <span className={destructive ? 'text-incorrect' : undefined}>
+          {label}
+        </span>
       </span>
       <span className="flex items-center gap-1.5 text-content-muted">
         {value}
@@ -67,6 +81,14 @@ export function ListRow({
 
   const className =
     'flex w-full items-center justify-between gap-3 border-t border-separator px-4 py-3.5 text-left first:border-t-0'
+
+  if (to) {
+    return (
+      <Link to={to} className={`${className} active:bg-surface-raised`}>
+        {content}
+      </Link>
+    )
+  }
 
   if (!onClick) {
     return <div className={className}>{content}</div>
