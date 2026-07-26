@@ -47,3 +47,38 @@ button {
   -webkit-user-select: none;
   user-select: none;
 }
+
+/* ModalSheet screen transitions. Durations are mirrored by SCREEN_MS in
+   ModalSheet.tsx — keep the two in sync. */
+@keyframes modal-screen-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes modal-screen-out {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.modal-screen-in {
+  animation: modal-screen-in 250ms ease-out;
+}
+
+.modal-screen-out {
+  animation: modal-screen-out 250ms ease-in forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-screen-in,
+  .modal-screen-out {
+    animation-duration: 1ms;
+  }
+}
