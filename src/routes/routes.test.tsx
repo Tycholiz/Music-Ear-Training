@@ -51,9 +51,8 @@ describe('routing', () => {
 
   it('renders the chord exercise directly at /chords', () => {
     renderAt('/chords')
-    expect(
-      screen.getByRole('heading', { name: /chord ear training/i }),
-    ).toBeInTheDocument()
+    expect(screen.getByLabelText('Score')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Start' })).toBeVisible()
   })
 
   it('navigates from the list into an exercise and back', async () => {
