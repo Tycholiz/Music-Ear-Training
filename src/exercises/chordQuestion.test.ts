@@ -6,8 +6,10 @@ import {
   acceptableAnswers,
   canGenerateChord,
   chordCandidates,
+  chordRootPitch,
   generateChordQuestion,
   groupsForChordQuestion,
+  isAmbiguous,
   isChordCorrect,
 } from './chordQuestion'
 
@@ -200,7 +202,12 @@ describe('generateChordQuestion', () => {
 })
 
 describe('groupsForChordQuestion', () => {
-  const base = { notes: [60, 64, 67], chordId: 'major', inversion: 0 } as const
+  const base = {
+    notes: [60, 64, 67],
+    chordId: 'major',
+    inversion: 0,
+    root: 60,
+  } as const
 
   it('sounds a block chord all at once', () => {
     expect(groupsForChordQuestion({ ...base, playMode: 'block' })).toEqual([
@@ -212,6 +219,127 @@ describe('groupsForChordQuestion', () => {
     expect(
       groupsForChordQuestion({ ...base, playMode: 'arpeggiated' }),
     ).toEqual([[60], [64], [67]])
+  })
+
+  it('plays no reference tone when nothing enabled collides with it', () => {
+    // A plain major triad, unambiguous among the default chord set.
+    expect(
+      groupsForChordQuestion({ ...base, playMode: 'block' }, ALL_CHORD_IDS),
+    ).toEqual([[60, 64, 67]])
+  })
+
+  it('plays the root alone first when the chord is ambiguous', () => {
+    // C6 root position collides with Am7 among these two enabled chords.
+    const c6 = {
+      notes: [60, 64, 67, 69],
+      chordId: 'major-6th',
+      inversion: 0,
+      root: 60,
+    } as const
+
+    expect(
+      groupsForChordQuestion({ ...c6, playMode: 'block' }, [
+        'major-6th',
+        'minor-7th',
+      ]),
+    ).toEqual([[60], [60, 64, 67, 69]])
+
+    expect(
+      groupsForChordQuestion({ ...c6, playMode: 'arpeggiated' }, [
+        'major-6th',
+        'minor-7th',
+      ]),
+    ).toEqual([[60], [60], [64], [67], [69]])
+  })
+
+  it('plays the root at its inverted pitch, not the bass note', () => {
+    // C Eb G A is Cm6 root position, and also Am7b5 (half-diminished-7th)
+    // first inversion — the same collision as the acceptableAnswers test
+    // above, from the other chord's side. Root here is A (57), which the
+    // inversion moves to 69: distinct from the bass note actually sounding
+    // (60), which is what makes this worth a dedicated case.
+    const am7flat5FirstInversion = {
+      notes: [60, 63, 67, 69],
+      chordId: 'half-diminished-7th',
+      inversion: 1,
+      root: 57,
+      playMode: 'block' as const,
+    }
+
+    expect(
+      isAmbiguous(am7flat5FirstInversion, ['minor-6th', 'half-diminished-7th']),
+    ).toBe(true)
+    expect(chordRootPitch(am7flat5FirstInversion)).toBe(69)
+    expect(chordRootPitch(am7flat5FirstInversion)).not.toBe(
+      am7flat5FirstInversion.notes[0],
+    )
+
+    expect(
+      groupsForChordQuestion(am7flat5FirstInversion, [
+        'minor-6th',
+        'half-diminished-7th',
+      ]),
+    ).toEqual([[69], [60, 63, 67, 69]])
+  })
+})
+
+describe('chordRootPitch', () => {
+  it('is the lowest note when the chord is in root position', () => {
+    const config = settings({
+      chords: ALL_CHORD_IDS,
+      inversions: [0],
+      range: WIDE,
+    })
+    for (let i = 0; i < 300; i++) {
+      const question = generateChordQuestion(config)
+      expect(chordRootPitch(question)).toBe(question.notes[0])
+    }
+  })
+
+  it('is exactly one octave above the root, for every inversion and chord size', () => {
+    const config = settings({
+      chords: ALL_CHORD_IDS,
+      inversions: [1, 2, 3],
+      range: WIDE,
+    })
+    for (let i = 0; i < 1000; i++) {
+      const question = generateChordQuestion(config)
+      expect(chordRootPitch(question)).toBe(question.root + 12)
+      // It really is one of the pitches actually sounding, not an octave
+      // that happens to fall outside the voicing.
+      expect(question.notes).toContain(chordRootPitch(question))
+    }
+  })
+})
+
+describe('isAmbiguous', () => {
+  it('is false when only one enabled chord matches', () => {
+    const question = generateChordQuestion(
+      settings({ chords: ['major'], inversions: [0], range: WIDE }),
+    )
+    expect(isAmbiguous(question, ['major'])).toBe(false)
+  })
+
+  it('is true for the C6 / Am7 collision when both are enabled', () => {
+    const c6 = {
+      notes: [60, 64, 67, 69],
+      chordId: 'major-6th',
+      inversion: 0,
+      playMode: 'block' as const,
+      root: 60,
+    }
+    expect(isAmbiguous(c6, ['major-6th', 'minor-7th'])).toBe(true)
+  })
+
+  it('is false for the same collision when only one side is enabled', () => {
+    const c6 = {
+      notes: [60, 64, 67, 69],
+      chordId: 'major-6th',
+      inversion: 0,
+      playMode: 'block' as const,
+      root: 60,
+    }
+    expect(isAmbiguous(c6, ['major-6th'])).toBe(false)
   })
 })
 
@@ -305,6 +433,7 @@ describe('isChordCorrect', () => {
     chordId: 'major-6th',
     inversion: 0,
     playMode: 'block',
+    root: 60,
   } as const
 
   it('accepts the generated chord', () => {

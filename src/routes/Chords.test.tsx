@@ -19,6 +19,7 @@ const C6: ChordQuestion = {
   chordId: 'major-6th',
   inversion: 0,
   playMode: 'block',
+  root: 60,
 }
 
 /** A plain C major triad, which nothing else in the table matches. */
@@ -27,6 +28,7 @@ const C_MAJOR: ChordQuestion = {
   chordId: 'major',
   inversion: 0,
   playMode: 'block',
+  root: 60,
 }
 
 function renderExercise() {
@@ -139,6 +141,31 @@ describe('answering', () => {
       'bg-correct',
     )
     expect(screen.getByLabelText('Score')).toHaveTextContent('1/1')
+  })
+
+  it('plays the root alone first when the chord is ambiguous among enabled answers', async () => {
+    vi.mocked(exercises.generateChordQuestion).mockReturnValue(C6)
+    chordSettingsStore.write({
+      ...DEFAULT_CHORD_SETTINGS,
+      chords: ['major-6th', 'minor-7th', 'major'],
+    })
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await waitFor(() =>
+      expect(piano.play).toHaveBeenCalledWith([[60], [60, 64, 67, 69]]),
+    )
+  })
+
+  it('plays no reference tone when the chord is unambiguous', async () => {
+    // Default chord set: a plain C major triad matches nothing else.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await waitFor(() => expect(piano.play).toHaveBeenCalledOnce())
+    expect(piano.play).toHaveBeenCalledWith([[60, 64, 67]])
   })
 
   it('greens the button the user pressed, not the chord that was generated', async () => {

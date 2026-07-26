@@ -55,8 +55,8 @@ export default function Chords() {
 
   useEffect(() => {
     if (!round) return
-    void piano.play(groupsForChordQuestion(round.question))
-  }, [round])
+    void piano.play(groupsForChordQuestion(round.question, settings.chords))
+  }, [round, settings.chords])
 
   useEffect(() => {
     setRound(null)
@@ -103,7 +103,9 @@ export default function Chords() {
           <div className="flex justify-center py-1">
             <ReplayButton
               onClick={() =>
-                void piano.play(groupsForChordQuestion(round.question))
+                void piano.play(
+                  groupsForChordQuestion(round.question, settings.chords),
+                )
               }
             />
           </div>

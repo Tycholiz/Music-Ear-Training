@@ -24,7 +24,10 @@ import type { Random } from './intervalQuestion'
  *
  * There is no way for the ear to tell these apart, so marking one of them wrong
  * would simply be incorrect. `acceptableAnswers` returns every enabled chord
- * that could have produced the audio, and any of them counts.
+ * that could have produced the audio, and any of them counts. When a question
+ * is ambiguous this way, `groupsForChordQuestion` plays the root alone before
+ * the chord, so there's a reference tone without giving away which of the
+ * colliding chords was actually generated.
  */
 
 export interface ChordQuestion {
@@ -34,6 +37,11 @@ export interface ChordQuestion {
   chordId: string
   inversion: number
   playMode: ChordPlayMode
+  /**
+   * The MIDI note the chord was built on, before inversion is applied. Use
+   * `chordRootPitch` to get the root's actual sounding pitch in this voicing.
+   */
+  root: number
 }
 
 /** A chord and inversion that fit inside the configured range. */
@@ -104,15 +112,51 @@ export function generateChordQuestion(
     chordId: chord.id,
     inversion,
     playMode,
+    root,
   }
 }
 
-/** Audio shape for a chord question. */
-export function groupsForChordQuestion(question: ChordQuestion): NoteGroup[] {
+/**
+ * The root's actual pitch within this voicing, as opposed to the bass note.
+ *
+ * `invert` always raises the root by exactly one octave the moment the
+ * inversion moves off root position, and never raises it further as the
+ * inversion goes higher — the root is always the smallest of a chord's
+ * offsets, so it's always among the "lowest n" voices `invert` shifts,
+ * however many voices the chord has or however deep the inversion goes.
+ */
+export function chordRootPitch(question: ChordQuestion): number {
+  return question.root + (question.inversion > 0 ? 12 : 0)
+}
+
+/** Whether more than one enabled chord could have produced this question's audio. */
+export function isAmbiguous(
+  question: ChordQuestion,
+  enabledChords: readonly string[],
+): boolean {
+  return acceptableAnswers(question.notes, enabledChords).size > 1
+}
+
+/**
+ * Audio shape for a chord question.
+ *
+ * When more than one enabled chord could explain the notes played — see the
+ * collision cases at the top of this file — the root is played alone first,
+ * at the pitch it actually sounds at in this voicing, before the chord
+ * itself. That gives a reference for which chord was actually generated
+ * without giving away the inversion; every colliding answer is still
+ * accepted regardless.
+ */
+export function groupsForChordQuestion(
+  question: ChordQuestion,
+  enabledChords: readonly string[] = [],
+): NoteGroup[] {
   const notes = [...question.notes]
-  return question.playMode === 'arpeggiated'
-    ? sequence(notes)
-    : simultaneous(notes)
+  const chordGroups =
+    question.playMode === 'arpeggiated' ? sequence(notes) : simultaneous(notes)
+
+  if (!isAmbiguous(question, enabledChords)) return chordGroups
+  return [[chordRootPitch(question)], ...chordGroups]
 }
 
 function sameSet(a: ReadonlySet<number>, b: ReadonlySet<number>): boolean {
