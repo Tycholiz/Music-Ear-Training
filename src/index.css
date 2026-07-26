@@ -1,0 +1,49 @@
+@import 'tailwindcss';
+
+/*
+ * Shared design tokens.
+ *
+ * The app is dark-theme only and follows the iOS system palette: a true-black
+ * page, grouped inset cards a step lighter, hairline separators, and iOS blue
+ * for anything interactive.
+ */
+@theme {
+  --color-page: #000000;
+  --color-surface: #1c1c1e;
+  --color-surface-raised: #2c2c2e;
+  --color-separator: #38383a;
+
+  --color-content: #ffffff;
+  --color-content-muted: #8e8e93;
+
+  --color-accent: #0a84ff;
+  --color-correct: #30d158;
+  --color-incorrect: #ff453a;
+
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui,
+    sans-serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-page);
+  color: var(--color-content);
+  font-family: var(--font-sans);
+
+  /* Phone-first: no rubber-banding, no text inflation on rotate, and taps
+     shouldn't select text or flash a highlight. */
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  -webkit-user-select: none;
+  user-select: none;
+}
