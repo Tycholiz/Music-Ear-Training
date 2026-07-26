@@ -11,3 +11,4 @@ export {
   usablePlayModes,
 } from './intervalQuestion'
 export type { IntervalQuestion, Random } from './intervalQuestion'
+export { buildCells } from './intervalCells'

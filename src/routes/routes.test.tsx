@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
@@ -6,6 +6,7 @@ import App from '../App'
 import Home from './Home'
 import Intervals from './Intervals'
 import Chords from './Chords'
+import { piano } from '../audio'
 
 function renderAt(path: string) {
   const router = createMemoryRouter(
@@ -25,6 +26,12 @@ function renderAt(path: string) {
   return render(<RouterProvider router={router} />)
 }
 
+beforeEach(() => {
+  localStorage.clear()
+  vi.spyOn(piano, 'play').mockResolvedValue(undefined)
+  vi.spyOn(piano, 'stop').mockImplementation(() => {})
+})
+
 describe('routing', () => {
   it('renders the exercise list at /', () => {
     renderAt('/')
@@ -36,12 +43,17 @@ describe('routing', () => {
     ).toBeInTheDocument()
   })
 
-  it.each([
-    ['/intervals', /interval ear training/i],
-    ['/chords', /chord ear training/i],
-  ])('renders %s directly', (path, heading) => {
-    renderAt(path)
-    expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument()
+  it('renders the interval exercise directly at /intervals', () => {
+    renderAt('/intervals')
+    expect(screen.getByLabelText('Score')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Start' })).toBeVisible()
+  })
+
+  it('renders the chord exercise directly at /chords', () => {
+    renderAt('/chords')
+    expect(
+      screen.getByRole('heading', { name: /chord ear training/i }),
+    ).toBeInTheDocument()
   })
 
   it('navigates from the list into an exercise and back', async () => {
@@ -51,11 +63,9 @@ describe('routing', () => {
     await user.click(
       screen.getByRole('link', { name: /interval ear training/i }),
     )
-    expect(
-      screen.getByRole('heading', { name: /interval ear training/i }),
-    ).toBeInTheDocument()
+    expect(screen.getByLabelText('Score')).toBeVisible()
 
-    await user.click(screen.getByRole('link', { name: /back/i }))
+    await user.click(screen.getByRole('button', { name: 'Back' }))
     expect(
       screen.getByRole('link', { name: /chord ear training/i }),
     ).toBeInTheDocument()
