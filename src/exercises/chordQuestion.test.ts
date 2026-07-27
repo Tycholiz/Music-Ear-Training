@@ -193,10 +193,9 @@ describe('generateChordQuestion', () => {
     })
     for (let i = 0; i < 500; i++) {
       const question = generateChordQuestion(config)
-      expect(
-        isChordCorrect(question, question.chordId, ALL_CHORD_IDS),
-        question.chordId,
-      ).toBe(true)
+      expect(isChordCorrect(question, question.chordId), question.chordId).toBe(
+        true,
+      )
     }
   })
 })
@@ -428,6 +427,8 @@ describe('acceptableAnswers — collisions', () => {
 })
 
 describe('isChordCorrect', () => {
+  // C6 root position — notes shared with Am7 first inversion, which is
+  // exactly the case the root reference tone exists to resolve.
   const question = {
     notes: [60, 64, 67, 69],
     chordId: 'major-6th',
@@ -437,18 +438,16 @@ describe('isChordCorrect', () => {
   } as const
 
   it('accepts the generated chord', () => {
-    expect(isChordCorrect(question, 'major-6th', ALL_CHORD_IDS)).toBe(true)
+    expect(isChordCorrect(question, 'major-6th')).toBe(true)
   })
 
-  it('accepts an enabled chord that is indistinguishable by ear', () => {
-    expect(isChordCorrect(question, 'minor-7th', ALL_CHORD_IDS)).toBe(true)
-  })
-
-  it('rejects the colliding chord when the user has not enabled it', () => {
-    expect(isChordCorrect(question, 'minor-7th', ['major-6th'])).toBe(false)
+  it('rejects a chord that only collides by pitch, even though it is enabled', () => {
+    // With the root played first, the listener has enough to tell C6 from
+    // Am7 — so unlike acceptableAnswers, only one of them is correct here.
+    expect(isChordCorrect(question, 'minor-7th')).toBe(false)
   })
 
   it('rejects a genuinely different chord', () => {
-    expect(isChordCorrect(question, 'major', ALL_CHORD_IDS)).toBe(false)
+    expect(isChordCorrect(question, 'major')).toBe(false)
   })
 })

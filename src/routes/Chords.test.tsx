@@ -124,8 +124,10 @@ describe('answering', () => {
     )
   })
 
-  it('accepts either chord of an indistinguishable pair', async () => {
-    // C6 and Am7 first inversion are the same four notes.
+  it('rejects a chord that only collides by pitch with the one generated', async () => {
+    // C6 and Am7 first inversion are the same four notes, but the root
+    // reference tone (see the playback test below) tells them apart — so
+    // guessing the colliding chord is a genuine miss, not an accepted answer.
     vi.mocked(exercises.generateChordQuestion).mockReturnValue(C6)
     chordSettingsStore.write({
       ...DEFAULT_CHORD_SETTINGS,
@@ -135,9 +137,25 @@ describe('answering', () => {
     renderExercise()
     await start(user)
 
-    // Answering Minor 7th is correct even though Major 6th was generated.
     await user.click(screen.getByRole('button', { name: 'Minor 7th' }))
     expect(screen.getByRole('button', { name: 'Minor 7th' })).toHaveClass(
+      'bg-incorrect',
+    )
+    expect(screen.getByLabelText('Score')).toHaveTextContent('0/1')
+  })
+
+  it('accepts only the exact chord that was generated, once the collision is resolved', async () => {
+    vi.mocked(exercises.generateChordQuestion).mockReturnValue(C6)
+    chordSettingsStore.write({
+      ...DEFAULT_CHORD_SETTINGS,
+      chords: ['major-6th', 'minor-7th', 'major'],
+    })
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await user.click(screen.getByRole('button', { name: 'Major 6th' }))
+    expect(screen.getByRole('button', { name: 'Major 6th' })).toHaveClass(
       'bg-correct',
     )
     expect(screen.getByLabelText('Score')).toHaveTextContent('1/1')
@@ -168,7 +186,7 @@ describe('answering', () => {
     expect(piano.play).toHaveBeenCalledWith([[60, 64, 67]])
   })
 
-  it('greens the button the user pressed, not the chord that was generated', async () => {
+  it('leaves the actual chord untouched when a colliding guess is wrong', async () => {
     vi.mocked(exercises.generateChordQuestion).mockReturnValue(C6)
     chordSettingsStore.write({
       ...DEFAULT_CHORD_SETTINGS,
@@ -182,6 +200,7 @@ describe('answering', () => {
     expect(screen.getByRole('button', { name: 'Major 6th' })).not.toHaveClass(
       'bg-correct',
     )
+    expect(screen.getByRole('button', { name: 'Major 6th' })).toBeEnabled()
   })
 
   it('replays without changing the score', async () => {

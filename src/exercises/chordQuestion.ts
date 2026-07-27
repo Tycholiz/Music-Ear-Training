@@ -22,18 +22,22 @@ import type { Random } from './intervalQuestion'
  * augmented triads are symmetric, so their inversions are transpositions of
  * themselves.
  *
- * There is no way for the ear to tell these apart, so marking one of them wrong
- * would simply be incorrect. `acceptableAnswers` returns every enabled chord
- * that could have produced the audio, and any of them counts. When a question
- * is ambiguous this way, `groupsForChordQuestion` plays the root alone before
- * the chord, so there's a reference tone without giving away which of the
- * colliding chords was actually generated.
+ * On their own, these are impossible to tell apart by ear — but the exercise
+ * doesn't present them on their own. Whenever more than one enabled chord
+ * could explain the notes, `groupsForChordQuestion` plays the chord's actual
+ * root alone first, at the pitch it sounds at in this voicing. That gives the
+ * listener the one piece of information a bare recording can't: which note is
+ * the root. Anchored to that, the chord has exactly one correct answer — the
+ * chord that was actually generated — which is what `isChordCorrect` checks.
+ * `acceptableAnswers` still exists to detect *when* a question is ambiguous
+ * enough to need that reference tone; it no longer decides what counts as
+ * correct.
  */
 
 export interface ChordQuestion {
   /** The notes as played, lowest first. */
   notes: readonly number[]
-  /** The chord that was generated. Not necessarily the only right answer. */
+  /** The chord that was generated. The only correct answer — see `isChordCorrect`. */
   chordId: string
   inversion: number
   playMode: ChordPlayMode
@@ -143,9 +147,8 @@ export function isAmbiguous(
  * When more than one enabled chord could explain the notes played — see the
  * collision cases at the top of this file — the root is played alone first,
  * at the pitch it actually sounds at in this voicing, before the chord
- * itself. That gives a reference for which chord was actually generated
- * without giving away the inversion; every colliding answer is still
- * accepted regardless.
+ * itself. That anchors the listener to the true root so they can identify
+ * the one correct chord, rather than leaving the collision unresolvable.
  */
 export function groupsForChordQuestion(
   question: ChordQuestion,
@@ -206,12 +209,18 @@ export function acceptableAnswers(
   return matches
 }
 
+/**
+ * Whether `guessId` is the chord that was actually generated.
+ *
+ * There is exactly one correct answer. Colliding chords (see above) are not
+ * accepted as alternatives — the root reference tone is what makes them
+ * distinguishable, so a wrong guess among them is a genuine miss.
+ */
 export function isChordCorrect(
   question: ChordQuestion,
   guessId: string,
-  enabled: readonly string[],
 ): boolean {
-  return acceptableAnswers(question.notes, enabled).has(guessId)
+  return guessId === question.chordId
 }
 
 export const ALL_CHORD_IDS = CHORDS.map((chord) => chord.id)

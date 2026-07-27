@@ -75,9 +75,10 @@ export default function Chords() {
   const handleAnswer = (chordId: string) => {
     if (!round || solvedId) return
 
-    // Several enabled chords can be indistinguishable by ear; any of them
-    // counts. The pressed button is the one that turns green.
-    const correct = isChordCorrect(round.question, chordId, settings.chords)
+    // A question where several enabled chords share the same notes plays a
+    // root reference tone first (see groupsForChordQuestion), so exactly one
+    // chord is correct even then: the one that was actually generated.
+    const correct = isChordCorrect(round.question, chordId)
     setScore(recordGuess(score, correct))
 
     if (!correct) {
