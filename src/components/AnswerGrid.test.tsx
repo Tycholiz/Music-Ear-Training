@@ -34,19 +34,23 @@ describe('AnswerGrid', () => {
     expect(onAnswer).toHaveBeenCalledExactlyOnceWith('m2')
   })
 
-  it('locks buttons that have already been guessed', async () => {
+  it('keeps answered buttons pressable so their sound can be replayed', async () => {
     const onAnswer = vi.fn()
     const user = userEvent.setup()
     render(<AnswerGrid cells={cells} onAnswer={onAnswer} />)
 
     const wrong = screen.getByRole('button', { name: 'Minor 3rd' })
     const correct = screen.getByRole('button', { name: 'Major 3rd' })
-    expect(wrong).toBeDisabled()
-    expect(correct).toBeDisabled()
+    expect(wrong).toBeEnabled()
+    expect(correct).toBeEnabled()
 
+    // The grid reports the press either way; whether it scores is the
+    // exercise screen's call, not something the grid can know.
     await user.click(wrong)
+    expect(onAnswer).toHaveBeenCalledExactlyOnceWith('m3')
+
     await user.click(correct)
-    expect(onAnswer).not.toHaveBeenCalled()
+    expect(onAnswer).toHaveBeenLastCalledWith('M3')
   })
 
   it('colors buttons by state', () => {

@@ -41,9 +41,10 @@ export function AnswerGrid({
             key={cell.id}
             type="button"
             onClick={() => onAnswer(cell.id)}
-            // A guessed-wrong button stays visible and red but can't be
-            // guessed again; a correct one locks the question.
-            disabled={cell.state !== 'idle'}
+            // Answered buttons stay enabled: pressing one again replays its
+            // sound so the user can compare it against the target. They just
+            // don't score again — the exercise screens enforce that, since
+            // whether a press counts isn't something the grid can know.
             className={`flex min-h-0 items-center justify-center rounded-lg px-1 text-center text-sm leading-tight text-balance transition-colors ${STATE_STYLES[cell.state]}`}
           >
             {cell.label}

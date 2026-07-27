@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { AnswerGrid, ExerciseHeader, ModalSheet } from '../components'
 import { IntervalMenu } from '../customize'
-import { piano } from '../audio'
+import { piano, scheduleDurationMs } from '../audio'
 import {
   intervalScoreStore,
   intervalSettingsStore,
@@ -13,13 +13,17 @@ import {
   buildCells,
   canGenerate,
   generateIntervalQuestion,
+  groupsForAnswerPreview,
   groupsForQuestion,
   isCorrect,
   type IntervalQuestion,
 } from '../exercises'
 
-/** Pause on the green button before the next question starts. */
+/** Minimum pause on the green button before the next question starts. */
 const AUTO_ADVANCE_MS = 800
+
+/** Silence left after a confirming interval finishes, before the next question. */
+const ADVANCE_GAP_MS = 250
 
 interface Round {
   number: number
@@ -74,7 +78,17 @@ export default function Intervals() {
   )
 
   const handleAnswer = (semitones: number) => {
-    if (!round || solved) return
+    if (!round) return
+
+    // Always sound the interval that was pressed, from the question's own
+    // reference note. A wrong guess then becomes a direct comparison against
+    // the target rather than just a red button.
+    const groups = groupsForAnswerPreview(round.question, semitones)
+    if (groups) void piano.play(groups)
+
+    // Pressing an answer that has already been given — or any answer once the
+    // question is solved — replays its sound without scoring again.
+    if (solved || wrong.includes(semitones)) return
 
     const correct = isCorrect(round.question, semitones)
     setScore(recordGuess(score, correct))
@@ -85,7 +99,11 @@ export default function Intervals() {
     }
 
     setSolved(true)
-    advanceTimer.current = setTimeout(nextQuestion, AUTO_ADVANCE_MS)
+    // Let the confirming interval finish before the next question interrupts.
+    const settle = groups
+      ? Math.max(AUTO_ADVANCE_MS, scheduleDurationMs(groups) + ADVANCE_GAP_MS)
+      : AUTO_ADVANCE_MS
+    advanceTimer.current = setTimeout(nextQuestion, settle)
   }
 
   return (

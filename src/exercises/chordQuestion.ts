@@ -1,4 +1,10 @@
-import { sequence, simultaneous, type NoteGroup } from '../audio'
+import {
+  HIGHEST_NOTE,
+  LOWEST_NOTE,
+  sequence,
+  simultaneous,
+  type NoteGroup,
+} from '../audio'
 import {
   CHORDS,
   chordById,
@@ -217,6 +223,54 @@ export function isChordCorrect(
   guessId: string,
 ): boolean {
   return guessId === question.chordId
+}
+
+/**
+ * The notes a guessed chord *would* have produced, built on the same root as
+ * the question so that only the chord quality differs.
+ *
+ * Playing this back when the user guesses turns a wrong answer into a direct
+ * comparison against the target rather than just a red button. A correct guess
+ * reproduces the question's own notes exactly.
+ *
+ * Two adjustments are needed because the guess is not the chord the question
+ * was sized for:
+ *
+ *   - The inversion is clamped. A triad has no 3rd inversion, so guessing one
+ *     against a 3rd-inversion seventh chord uses the triad's highest instead.
+ *   - The result is shifted by octaves if it runs off the end of the piano. A
+ *     guessed 13th chord spans far more than the triad the range was checked
+ *     against, so it can overflow even though the question fit.
+ */
+export function previewChordNotes(
+  question: ChordQuestion,
+  guessId: string,
+): number[] | null {
+  const chord = chordById(guessId)
+  const inversion = Math.min(question.inversion, maxInversion(chord))
+  let notes = chordNotes(question.root, chord, inversion)
+
+  while (notes[notes.length - 1] > HIGHEST_NOTE) {
+    notes = notes.map((note) => note - 12)
+  }
+  while (notes[0] < LOWEST_NOTE) {
+    notes = notes.map((note) => note + 12)
+  }
+
+  // Only possible for a chord wider than the piano itself, which none are.
+  return notes[notes.length - 1] <= HIGHEST_NOTE ? notes : null
+}
+
+/** Audio shape for `previewChordNotes`, or null if the guess is unplayable. */
+export function groupsForChordPreview(
+  question: ChordQuestion,
+  guessId: string,
+): NoteGroup[] | null {
+  const notes = previewChordNotes(question, guessId)
+  if (!notes) return null
+  return question.playMode === 'arpeggiated'
+    ? sequence(notes)
+    : simultaneous(notes)
 }
 
 export const ALL_CHORD_IDS = CHORDS.map((chord) => chord.id)

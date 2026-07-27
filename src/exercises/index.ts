@@ -49,3 +49,5 @@ export {
   isInversionUsable,
   rangeSpanOf,
 } from './chordValidation'
+export { groupsForAnswerPreview, previewNotes } from './intervalQuestion'
+export { groupsForChordPreview, previewChordNotes } from './chordQuestion'
