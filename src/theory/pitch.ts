@@ -105,3 +105,43 @@ export function notesInRange(low: number, high: number): number[] {
   }
   return Array.from({ length: high - low + 1 }, (_, i) => low + i)
 }
+
+// --- frequency -------------------------------------------------------------
+//
+// Playback never needs these — the piano engine resamples by ratio rather than
+// by pitch. They exist for the other direction: turning a frequency heard
+// through the microphone back into a note.
+
+/** Concert A. */
+export const A4_MIDI = 69
+export const A4_FREQUENCY = 440
+
+export function midiToFrequency(midi: number): number {
+  return A4_FREQUENCY * 2 ** ((midi - A4_MIDI) / 12)
+}
+
+/**
+ * The MIDI note a frequency corresponds to, as a fraction — 60.5 is a quarter
+ * tone above middle C. Callers that want a note round it; callers that care
+ * about intonation keep the fraction.
+ */
+export function frequencyToMidi(frequency: number): number {
+  if (frequency <= 0) {
+    throw new RangeError(`Frequency must be positive: ${frequency}`)
+  }
+  return A4_MIDI + 12 * Math.log2(frequency / A4_FREQUENCY)
+}
+
+/** Nearest equal-tempered note to a frequency. */
+export function nearestMidi(frequency: number): number {
+  return Math.round(frequencyToMidi(frequency))
+}
+
+/**
+ * How far a frequency sits from a note, in cents. Positive is sharp.
+ * A semitone is 100 cents, so anything within ±50 is closer to `midi` than to
+ * either neighbour.
+ */
+export function centsOff(frequency: number, midi: number): number {
+  return 100 * (frequencyToMidi(frequency) - midi)
+}

@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   MIDI_MAX,
   MIDI_MIN,
+  centsOff,
+  frequencyToMidi,
+  midiToFrequency,
+  nearestMidi,
   MIDDLE_C,
   midiToName,
   midiToPitchClassName,
@@ -96,5 +100,67 @@ describe('notesInRange', () => {
 
   it('throws on an inverted range', () => {
     expect(() => notesInRange(63, 60)).toThrow(RangeError)
+  })
+})
+
+describe('frequency conversion', () => {
+  it('anchors on concert A', () => {
+    expect(midiToFrequency(69)).toBe(440)
+    expect(frequencyToMidi(440)).toBe(69)
+  })
+
+  it.each([
+    [21, 27.5],
+    [60, 261.63],
+    [69, 440],
+    [108, 4186.01],
+  ])('puts MIDI %i at %f Hz', (midi, hz) => {
+    expect(midiToFrequency(midi)).toBeCloseTo(hz, 1)
+  })
+
+  it('doubles every octave', () => {
+    expect(midiToFrequency(81)).toBeCloseTo(880)
+    expect(midiToFrequency(57)).toBeCloseTo(220)
+  })
+
+  it('round trips across the whole MIDI range', () => {
+    for (let midi = MIDI_MIN + 1; midi <= MIDI_MAX; midi++) {
+      expect(frequencyToMidi(midiToFrequency(midi))).toBeCloseTo(midi, 9)
+    }
+  })
+
+  it('agrees with the note names it shares a module with', () => {
+    expect(midiToFrequency(nameToMidi('A4'))).toBe(440)
+    expect(midiToName(nearestMidi(261.63))).toBe('C4')
+  })
+
+  it('rejects a frequency that cannot be a pitch', () => {
+    expect(() => frequencyToMidi(0)).toThrow(RangeError)
+    expect(() => frequencyToMidi(-100)).toThrow(RangeError)
+  })
+})
+
+describe('nearestMidi', () => {
+  it('snaps to the closest note', () => {
+    expect(nearestMidi(440)).toBe(69)
+    // A quarter tone sharp of A4 still rounds to A4.
+    expect(nearestMidi(440 * 2 ** (49 / 1200))).toBe(69)
+    // Just past halfway rounds to the neighbour.
+    expect(nearestMidi(440 * 2 ** (51 / 1200))).toBe(70)
+  })
+})
+
+describe('centsOff', () => {
+  it('is zero when the frequency is the note', () => {
+    expect(centsOff(440, 69)).toBeCloseTo(0)
+  })
+
+  it('is positive sharp and negative flat', () => {
+    expect(centsOff(440 * 2 ** (25 / 1200), 69)).toBeCloseTo(25)
+    expect(centsOff(440 * 2 ** (-25 / 1200), 69)).toBeCloseTo(-25)
+  })
+
+  it('measures a semitone as 100 cents', () => {
+    expect(centsOff(midiToFrequency(70), 69)).toBeCloseTo(100)
   })
 })
