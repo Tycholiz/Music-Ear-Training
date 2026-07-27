@@ -3,6 +3,7 @@ import {
   CHORDS,
   chordById,
   chordNotes,
+  chordSpan,
   invert,
   maxInversion,
   pitchClass,
@@ -54,11 +55,6 @@ export interface ChordCandidate {
   inversion: number
 }
 
-function spanOf(chord: Chord, inversion: number): number {
-  const offsets = invert(chord.offsets, inversion)
-  return offsets[offsets.length - 1] - offsets[0]
-}
-
 /**
  * Every chord and inversion pairing that is enabled, legal, and narrow enough
  * for the range. Empty means no question can be generated.
@@ -73,7 +69,7 @@ export function chordCandidates(settings: ChordSettings): ChordCandidate[] {
       // 3rd inversion needs four voices; a triad simply skips it rather than
       // dropping out of the pool entirely.
       if (inversion > maxInversion(chord)) continue
-      if (spanOf(chord, inversion) > span) continue
+      if (chordSpan(chord, inversion) > span) continue
       candidates.push({ chord, inversion })
     }
   }

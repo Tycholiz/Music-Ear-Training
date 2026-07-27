@@ -1,12 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
-import {
-  AnswerGrid,
-  ExerciseHeader,
-  ListCard,
-  ListRow,
-  ModalSheet,
-} from '../components'
+import { AnswerGrid, ExerciseHeader, ModalSheet } from '../components'
+import { ChordMenu } from '../customize'
 import { piano } from '../audio'
 import {
   chordScoreStore,
@@ -124,18 +119,12 @@ export default function Chords() {
         onClose={() => setMenuOpen(false)}
         title="Menu"
       >
-        <div className="p-4">
-          <ListCard>
-            <ListRow
-              label="Reset Score"
-              destructive
-              onClick={() => {
-                resetScore()
-                setMenuOpen(false)
-              }}
-            />
-          </ListCard>
-        </div>
+        <ChordMenu
+          onResetScore={() => {
+            resetScore()
+            setMenuOpen(false)
+          }}
+        />
       </ModalSheet>
     </main>
   )
