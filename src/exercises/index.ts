@@ -51,3 +51,10 @@ export {
 } from './chordValidation'
 export { groupsForAnswerPreview, previewNotes } from './intervalQuestion'
 export { groupsForChordPreview, previewChordNotes } from './chordQuestion'
+export {
+  generateRootQuestion,
+  groupsForRootQuestion,
+  matchesRoot,
+  rootAnswer,
+} from './rootQuestion'
+export type { RootQuestion } from './rootQuestion'
