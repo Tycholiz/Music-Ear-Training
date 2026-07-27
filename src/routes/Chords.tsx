@@ -7,7 +7,7 @@ import {
   ReplayButton,
   SilentSwitchHint,
 } from '../components'
-import { ChordMenu } from '../customize'
+import { ChordSettingsMenu } from '../customize'
 import { piano, scheduleDurationMs } from '../audio'
 import {
   chordScoreStore,
@@ -154,7 +154,8 @@ export default function Chords() {
         onClose={() => setMenuOpen(false)}
         title="Menu"
       >
-        <ChordMenu
+        <ChordSettingsMenu
+          store={chordSettingsStore}
           onResetScore={() => {
             resetScore()
             setMenuOpen(false)

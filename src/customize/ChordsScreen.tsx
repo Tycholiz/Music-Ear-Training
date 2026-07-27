@@ -1,6 +1,7 @@
 import { CheckRow, ListCard } from '../components'
 import { CHORDS, CHORD_CATEGORIES, chordsInCategory } from '../theory'
-import { chordSettingsStore, usePersisted } from '../settings'
+import { usePersisted } from '../settings'
+import type { ChordSettings, PersistedStore } from '../settings'
 import { chordsWarning, isChordUsable } from '../exercises'
 
 /**
@@ -8,8 +9,12 @@ import { chordsWarning, isChordUsable } from '../exercises'
  * the chord table. Chords that can't be built with the current range and
  * inversions are shown disabled rather than silently never appearing.
  */
-export function ChordsScreen() {
-  const [settings, setSettings] = usePersisted(chordSettingsStore)
+export function ChordsScreen({
+  store,
+}: {
+  store: PersistedStore<ChordSettings>
+}) {
+  const [settings, setSettings] = usePersisted(store)
   const enabled = new Set(settings.chords)
   const warning = chordsWarning(settings)
 

@@ -1,5 +1,6 @@
 import { CheckRow, ListCard } from '../components'
-import { chordSettingsStore, usePersisted } from '../settings'
+import { usePersisted } from '../settings'
+import type { ChordSettings, PersistedStore } from '../settings'
 import {
   ALL_INVERSIONS,
   INVERSION_NAMES,
@@ -14,8 +15,12 @@ import {
  * doesn't remove triads from the pool — they're simply generated in one of the
  * other enabled inversions instead.
  */
-export function InversionsScreen() {
-  const [settings, setSettings] = usePersisted(chordSettingsStore)
+export function InversionsScreen({
+  store,
+}: {
+  store: PersistedStore<ChordSettings>
+}) {
+  const [settings, setSettings] = usePersisted(store)
   const enabled = new Set(settings.inversions)
   const warning = inversionsWarning(settings)
 

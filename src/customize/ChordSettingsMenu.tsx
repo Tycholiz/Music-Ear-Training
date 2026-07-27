@@ -1,5 +1,9 @@
 import { ListCard, ListRow, useModalNav } from '../components'
-import { chordSettingsStore, usePersisted } from '../settings'
+import {
+  usePersisted,
+  type ChordSettings,
+  type PersistedStore,
+} from '../settings'
 import { midiToName } from '../theory'
 import { chordRangeWarning, isChordStuck } from '../exercises'
 import { ChordsScreen } from './ChordsScreen'
@@ -8,10 +12,21 @@ import { ChordPlayModeScreen } from './ChordPlayModeScreen'
 import { RangeScreen } from './RangeScreen'
 
 /**
- * Root of the chord exercise's hamburger menu, and the Customize screen it
+ * Hamburger menu for any exercise built on chords, and the Customize screen it
  * pushes. Both live inside the same `ModalSheet` navigation stack.
+ *
+ * Shared by the chord and chord-root exercises, which need exactly the same
+ * four settings. They pass different stores, so their selections stay
+ * independent — the two are practised differently, and one shared selection
+ * would have to serve both badly.
  */
-export function ChordMenu({ onResetScore }: { onResetScore: () => void }) {
+export function ChordSettingsMenu({
+  store,
+  onResetScore,
+}: {
+  store: PersistedStore<ChordSettings>
+  onResetScore: () => void
+}) {
   const { push } = useModalNav()
 
   return (
@@ -22,7 +37,10 @@ export function ChordMenu({ onResetScore }: { onResetScore: () => void }) {
           label="Customize Exercise"
           chevron
           onClick={() =>
-            push({ title: 'Customize', content: <CustomizeScreen /> })
+            push({
+              title: 'Customize',
+              content: <CustomizeScreen store={store} />,
+            })
           }
         />
       </ListCard>
@@ -30,9 +48,9 @@ export function ChordMenu({ onResetScore }: { onResetScore: () => void }) {
   )
 }
 
-function CustomizeScreen() {
+function CustomizeScreen({ store }: { store: PersistedStore<ChordSettings> }) {
   const { push } = useModalNav()
-  const [settings] = usePersisted(chordSettingsStore)
+  const [settings] = usePersisted(store)
 
   return (
     <div className="flex flex-col gap-6 p-4">
@@ -41,14 +59,19 @@ function CustomizeScreen() {
           label="Chords"
           value={`${settings.chords.length} selected`}
           chevron
-          onClick={() => push({ title: 'Chords', content: <ChordsScreen /> })}
+          onClick={() =>
+            push({ title: 'Chords', content: <ChordsScreen store={store} /> })
+          }
         />
         <ListRow
           label="Inversions"
           value={`${settings.inversions.length} selected`}
           chevron
           onClick={() =>
-            push({ title: 'Inversions', content: <InversionsScreen /> })
+            push({
+              title: 'Inversions',
+              content: <InversionsScreen store={store} />,
+            })
           }
         />
         <ListRow
@@ -56,7 +79,10 @@ function CustomizeScreen() {
           value={`${midiToName(settings.range.low)}–${midiToName(settings.range.high)}`}
           chevron
           onClick={() =>
-            push({ title: 'Range', content: <ChordRangeScreen /> })
+            push({
+              title: 'Range',
+              content: <ChordRangeScreen store={store} />,
+            })
           }
         />
         <ListRow
@@ -64,7 +90,10 @@ function CustomizeScreen() {
           value={`${settings.playModes.length} selected`}
           chevron
           onClick={() =>
-            push({ title: 'Play Mode', content: <ChordPlayModeScreen /> })
+            push({
+              title: 'Play Mode',
+              content: <ChordPlayModeScreen store={store} />,
+            })
           }
         />
       </ListCard>
@@ -80,8 +109,8 @@ function CustomizeScreen() {
   )
 }
 
-function ChordRangeScreen() {
-  const [settings, setSettings] = usePersisted(chordSettingsStore)
+function ChordRangeScreen({ store }: { store: PersistedStore<ChordSettings> }) {
+  const [settings, setSettings] = usePersisted(store)
 
   return (
     <RangeScreen

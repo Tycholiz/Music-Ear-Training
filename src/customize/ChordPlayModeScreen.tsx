@@ -1,9 +1,10 @@
 import { CheckRow, ListCard } from '../components'
 import {
   CHORD_PLAY_MODES,
-  chordSettingsStore,
   usePersisted,
   type ChordPlayMode,
+  type ChordSettings,
+  type PersistedStore,
 } from '../settings'
 import { CHORD_PLAY_MODE_NAMES } from '../exercises'
 
@@ -12,8 +13,12 @@ import { CHORD_PLAY_MODE_NAMES } from '../exercises'
  * lowest first. Unlike the interval play modes, neither can ever be
  * unavailable — they don't interact with the range or the chord selection.
  */
-export function ChordPlayModeScreen() {
-  const [settings, setSettings] = usePersisted(chordSettingsStore)
+export function ChordPlayModeScreen({
+  store,
+}: {
+  store: PersistedStore<ChordSettings>
+}) {
+  const [settings, setSettings] = usePersisted(store)
   const enabled = new Set(settings.playModes)
 
   const toggle = (mode: ChordPlayMode, checked: boolean) => {
