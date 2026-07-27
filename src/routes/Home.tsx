@@ -1,4 +1,5 @@
 import { ListCard, ListRow } from '../components'
+import { InstallCard } from '../pwa'
 
 /**
  * Landing screen: the list of available exercises.
@@ -36,6 +37,8 @@ export default function Home() {
           />
         ))}
       </ListCard>
+
+      <InstallCard />
     </main>
   )
 }

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!--
+    Source of truth for every app icon. Run `npm run icons` to regenerate the
+    PNGs from this file.
+
+    Drawn full-bleed so it works as a maskable icon: the staff and noteheads
+    sit inside the middle 60%, well within the 80% safe zone a maskable icon
+    is cropped to on Android.
+  -->
+  <rect width="512" height="512" fill="#0a84ff" />
+
+  <g stroke="#ffffff" stroke-width="10" opacity="0.55" stroke-linecap="round">
+    <line x1="116" y1="176" x2="396" y2="176" />
+    <line x1="116" y1="220" x2="396" y2="220" />
+    <line x1="116" y1="264" x2="396" y2="264" />
+    <line x1="116" y1="308" x2="396" y2="308" />
+    <line x1="116" y1="352" x2="396" y2="352" />
+  </g>
+
+  <!-- Two noteheads a third apart: the interval this app is built around. -->
+  <g fill="#ffffff">
+    <ellipse cx="205" cy="308" rx="52" ry="38" transform="rotate(-20 205 308)" />
+    <ellipse cx="320" cy="220" rx="52" ry="38" transform="rotate(-20 320 220)" />
+  </g>
+</svg>
