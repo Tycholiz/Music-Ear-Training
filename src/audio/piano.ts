@@ -8,6 +8,7 @@ import {
   sampleUrl,
 } from './samples'
 import { TIMING, buildSchedule, type NoteGroup, type Timing } from './schedule'
+import { configureAudioSession } from './audioSession'
 
 /**
  * Piano playback.
@@ -81,9 +82,14 @@ export class Piano {
   /**
    * Create and resume the AudioContext. Must be called from inside a real user
    * gesture — iOS Safari starts the context suspended and silently drops
-   * anything scheduled before a tap unlocks it (see issue #22).
+   * anything scheduled before a tap unlocks it.
+   *
+   * Also claims a playback audio session, which is what keeps the iPhone's
+   * ringer switch from silencing the app. Done here rather than at startup
+   * because a user gesture is the one moment Safari is guaranteed to honour it.
    */
   async unlock(): Promise<void> {
+    configureAudioSession()
     this.ctx ??= this.createContext()
     if (this.ctx.state === 'suspended') {
       await this.ctx.resume()

@@ -167,6 +167,20 @@ describe('unlock', () => {
 
     expect(ctx.resumeCount).toBe(1)
   })
+
+  it('claims a playback audio session, so the ringer switch cannot mute us', async () => {
+    const session = { type: 'auto' }
+    Object.defineProperty(navigator, 'audioSession', {
+      value: session,
+      configurable: true,
+    })
+
+    const { piano } = setup()
+    await piano.unlock()
+    expect(session.type).toBe('playback')
+
+    delete (navigator as unknown as Record<string, unknown>).audioSession
+  })
 })
 
 describe('play', () => {

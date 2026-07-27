@@ -18,3 +18,9 @@ export {
   simultaneous,
 } from './schedule'
 export type { NoteGroup, ScheduledNote, Timing } from './schedule'
+export {
+  configureAudioSession,
+  isIos,
+  ringerSwitchMayMute,
+  supportsAudioSession,
+} from './audioSession'
