@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
   CHORDS,
   CHORD_CATEGORIES,
+  UNAMBIGUOUS_ROOT_CHORDS,
+  UNAMBIGUOUS_ROOT_CHORD_IDS,
+  hasAmbiguousRoot,
   chordById,
   chordNotes,
   chordSpan,
@@ -214,6 +217,78 @@ describe('chordSpan', () => {
           chordSpan(chord, i),
           `${chord.name} inv ${i}`,
         ).toBeLessThanOrEqual(33)
+      }
+    }
+  })
+})
+
+describe('hasAmbiguousRoot', () => {
+  it('rejects sus2 and sus4, which are each other', () => {
+    // G C D is a Gsus4 and equally a Csus2. Nothing in the sound says which
+    // note is the root.
+    expect(hasAmbiguousRoot(chordById('sus2'))).toBe(true)
+    expect(hasAmbiguousRoot(chordById('sus4'))).toBe(true)
+  })
+
+  it('rejects chords that map onto themselves when transposed', () => {
+    // A diminished 7th repeats every minor third and an augmented triad every
+    // major third, so every note in them is an equally defensible root.
+    expect(hasAmbiguousRoot(chordById('diminished-7th'))).toBe(true)
+    expect(hasAmbiguousRoot(chordById('augmented'))).toBe(true)
+    expect(hasAmbiguousRoot(chordById('dominant-7th-flat-5'))).toBe(true)
+  })
+
+  it('rejects the sixth and seventh chords that share pitches', () => {
+    // C6 and Am7 are the same four notes rooted a minor third apart.
+    expect(hasAmbiguousRoot(chordById('major-6th'))).toBe(true)
+    expect(hasAmbiguousRoot(chordById('minor-7th'))).toBe(true)
+    expect(hasAmbiguousRoot(chordById('minor-6th'))).toBe(true)
+    expect(hasAmbiguousRoot(chordById('half-diminished-7th'))).toBe(true)
+  })
+
+  it('accepts chords whose root is the only one that fits', () => {
+    for (const id of [
+      'major',
+      'minor',
+      'diminished',
+      'dominant-7th',
+      'major-7th',
+    ]) {
+      expect(hasAmbiguousRoot(chordById(id)), id).toBe(false)
+    }
+  })
+
+  it('is about the root, not about naming the chord', () => {
+    // A dominant 7th is unambiguous by root even though it is a distinct
+    // sonority from everything else; ambiguity here means "which note is the
+    // root", not "which chord is this".
+    expect(hasAmbiguousRoot(chordById('dominant-7th'))).toBe(false)
+  })
+})
+
+describe('UNAMBIGUOUS_ROOT_CHORDS', () => {
+  it('is every chord that survives the check, and nothing else', () => {
+    expect(UNAMBIGUOUS_ROOT_CHORD_IDS).toEqual(
+      CHORDS.filter((chord) => !hasAmbiguousRoot(chord)).map((c) => c.id),
+    )
+  })
+
+  it('leaves plenty to practise on', () => {
+    expect(UNAMBIGUOUS_ROOT_CHORDS.length).toBeGreaterThan(15)
+    expect(UNAMBIGUOUS_ROOT_CHORDS.length).toBeLessThan(CHORDS.length)
+  })
+
+  it('contains no chord that shares its pitch classes with another root', () => {
+    const seen = new Map<string, string>()
+    for (const chord of UNAMBIGUOUS_ROOT_CHORDS) {
+      for (let semitones = 0; semitones < 12; semitones++) {
+        const key = [...new Set(chord.offsets.map((o) => (o + semitones) % 12))]
+          .sort((a, b) => a - b)
+          .join(',')
+        const previous = seen.get(key)
+        // The same notes must never appear twice with different roots.
+        expect(previous, `${chord.name} vs ${previous}`).toBeUndefined()
+        seen.set(key, `${chord.name}+${semitones}`)
       }
     }
   })

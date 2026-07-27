@@ -4,7 +4,7 @@ import {
   type ChordSettings,
   type PersistedStore,
 } from '../settings'
-import { midiToName } from '../theory'
+import { CHORDS, midiToName, type Chord } from '../theory'
 import { chordRangeWarning, isChordStuck } from '../exercises'
 import { ChordsScreen } from './ChordsScreen'
 import { InversionsScreen } from './InversionsScreen'
@@ -23,9 +23,12 @@ import { RangeScreen } from './RangeScreen'
 export function ChordSettingsMenu({
   store,
   onResetScore,
+  availableChords = CHORDS,
 }: {
   store: PersistedStore<ChordSettings>
   onResetScore: () => void
+  /** Narrower for the root exercise, which cannot use ambiguous chords. */
+  availableChords?: readonly Chord[]
 }) {
   const { push } = useModalNav()
 
@@ -39,7 +42,12 @@ export function ChordSettingsMenu({
           onClick={() =>
             push({
               title: 'Customize',
-              content: <CustomizeScreen store={store} />,
+              content: (
+                <CustomizeScreen
+                  store={store}
+                  availableChords={availableChords}
+                />
+              ),
             })
           }
         />
@@ -48,7 +56,13 @@ export function ChordSettingsMenu({
   )
 }
 
-function CustomizeScreen({ store }: { store: PersistedStore<ChordSettings> }) {
+function CustomizeScreen({
+  store,
+  availableChords,
+}: {
+  store: PersistedStore<ChordSettings>
+  availableChords: readonly Chord[]
+}) {
   const { push } = useModalNav()
   const [settings] = usePersisted(store)
 
@@ -60,7 +74,12 @@ function CustomizeScreen({ store }: { store: PersistedStore<ChordSettings> }) {
           value={`${settings.chords.length} selected`}
           chevron
           onClick={() =>
-            push({ title: 'Chords', content: <ChordsScreen store={store} /> })
+            push({
+              title: 'Chords',
+              content: (
+                <ChordsScreen store={store} available={availableChords} />
+              ),
+            })
           }
         />
         <ListRow

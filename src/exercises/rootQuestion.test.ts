@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_CHORD_SETTINGS, type ChordSettings } from '../settings'
-import { chordById, midiToName, nameToMidi, pitchClass } from '../theory'
+import {
+  DEFAULT_CHORD_SETTINGS,
+  DEFAULT_ROOT_SETTINGS,
+  type ChordSettings,
+} from '../settings'
+import {
+  UNAMBIGUOUS_ROOT_CHORD_IDS,
+  chordById,
+  hasAmbiguousRoot,
+  midiToName,
+  nameToMidi,
+  pitchClass,
+} from '../theory'
 import { ALL_CHORD_IDS } from './chordQuestion'
 import {
   generateRootQuestion,
@@ -177,6 +188,65 @@ describe('groupsForRootQuestion', () => {
         chordById(question.chordId).offsets.length,
       )
       expect([...sounded].sort((a, b) => a - b)).toEqual([...question.notes])
+    }
+  })
+})
+
+describe('only asking questions that have an answer', () => {
+  it('leaves ambiguous chords out of the defaults', () => {
+    // Three of the chord exercise's eight defaults have no identifiable root.
+    for (const id of ['augmented', 'minor-7th', 'half-diminished-7th']) {
+      expect(DEFAULT_ROOT_SETTINGS.chords, id).not.toContain(id)
+    }
+    expect(DEFAULT_ROOT_SETTINGS.chords.length).toBeGreaterThan(0)
+  })
+
+  it('defaults to chords whose root can actually be identified', () => {
+    for (const id of DEFAULT_ROOT_SETTINGS.chords) {
+      expect(hasAmbiguousRoot(chordById(id)), id).toBe(false)
+    }
+  })
+
+  it('never generates a chord with an ambiguous root', () => {
+    // Even asked for every chord in the table, the settings sanitiser has
+    // already narrowed the pool.
+    const config = settings({
+      chords: [...UNAMBIGUOUS_ROOT_CHORD_IDS],
+      inversions: [0, 1, 2, 3],
+      range: WIDE,
+    })
+    for (let i = 0; i < 500; i++) {
+      const question = generateRootQuestion(config)
+      expect(
+        hasAmbiguousRoot(chordById(question.chordId)),
+        question.chordId,
+      ).toBe(false)
+    }
+  })
+
+  it('gives every generated question exactly one defensible root', () => {
+    const config = settings({
+      chords: [...UNAMBIGUOUS_ROOT_CHORD_IDS],
+      inversions: [0, 1, 2, 3],
+      range: WIDE,
+    })
+    for (let i = 0; i < 200; i++) {
+      const question = generateRootQuestion(config)
+      const heard = new Set(question.notes.map((n) => pitchClass(n)))
+
+      // No other chord in the pool, at any transposition, produces these same
+      // pitch classes — so no other note could be argued as the root.
+      const rivals = UNAMBIGUOUS_ROOT_CHORD_IDS.flatMap((id) =>
+        Array.from({ length: 12 }, (_, k) => ({ id, k })).filter(({ k }) => {
+          const other = new Set(
+            chordById(id).offsets.map((o) => pitchClass(o + k)),
+          )
+          return (
+            other.size === heard.size && [...other].every((p) => heard.has(p))
+          )
+        }),
+      )
+      expect(rivals, question.chordId).toHaveLength(1)
     }
   })
 })

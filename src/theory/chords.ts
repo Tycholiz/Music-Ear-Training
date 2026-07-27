@@ -309,3 +309,51 @@ export function chordSpan(chord: Chord, inversion = 0): number {
   const offsets = invert(chord.offsets, inversion)
   return offsets[offsets.length - 1] - offsets[0]
 }
+
+// --- root ambiguity --------------------------------------------------------
+
+/** The pitch classes a chord occupies, transposed by `semitones`. */
+function pitchClassSet(chord: Chord, semitones = 0): string {
+  return [...new Set(chord.offsets.map((o) => (o + semitones) % 12))]
+    .sort((a, b) => a - b)
+    .join(',')
+}
+
+/**
+ * Whether the same notes could be heard as a different chord with a *different
+ * root*.
+ *
+ * G-C-D is a Gsus4, and it is equally a Csus2 — same three notes, but one has G
+ * as its root and the other C. Nothing in the sound settles it, so there is no
+ * correct answer to "what is the root of this chord". The symmetric chords are
+ * worse: a diminished 7th maps onto itself every minor third, so all four of
+ * its notes are equally defensible roots.
+ *
+ * This is about the root specifically, not about naming the chord. A chord can
+ * be unambiguous here and still collide with another chord elsewhere, and
+ * `acceptableAnswers` deals with that separately.
+ */
+export function hasAmbiguousRoot(chord: Chord): boolean {
+  const target = pitchClassSet(chord)
+
+  return CHORDS.some((other) =>
+    // A transposition of zero would just be the chord itself; every other
+    // offset that lands on the same notes implies a different root.
+    Array.from({ length: 11 }, (_, i) => i + 1).some(
+      (semitones) => pitchClassSet(other, semitones) === target,
+    ),
+  )
+}
+
+/**
+ * Chords whose root can actually be identified from the sound alone.
+ *
+ * The root recognition exercise draws only from these. Twenty-one of the
+ * thirty-four qualify, which is more than enough to practise on.
+ */
+export const UNAMBIGUOUS_ROOT_CHORDS: readonly Chord[] = CHORDS.filter(
+  (chord) => !hasAmbiguousRoot(chord),
+)
+
+export const UNAMBIGUOUS_ROOT_CHORD_IDS: readonly string[] =
+  UNAMBIGUOUS_ROOT_CHORDS.map((chord) => chord.id)

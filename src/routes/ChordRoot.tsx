@@ -8,6 +8,7 @@ import {
 } from '../components'
 import { ChordSettingsMenu } from '../customize'
 import { piano } from '../audio'
+import { UNAMBIGUOUS_ROOT_CHORDS } from '../theory'
 import {
   recordGuess,
   rootScoreStore,
@@ -172,6 +173,7 @@ export default function ChordRoot() {
       >
         <ChordSettingsMenu
           store={rootSettingsStore}
+          availableChords={UNAMBIGUOUS_ROOT_CHORDS}
           onResetScore={() => {
             resetScore()
             setMenuOpen(false)
