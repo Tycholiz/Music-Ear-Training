@@ -6,6 +6,7 @@ import App from './App.tsx'
 import Home from './routes/Home.tsx'
 import Intervals from './routes/Intervals.tsx'
 import Chords from './routes/Chords.tsx'
+import ChordRoot from './routes/ChordRoot.tsx'
 
 const router = createBrowserRouter([
   {
@@ -15,6 +16,7 @@ const router = createBrowserRouter([
       { index: true, element: <Home /> },
       { path: 'intervals', element: <Intervals /> },
       { path: 'chords', element: <Chords /> },
+      { path: 'chord-root', element: <ChordRoot /> },
     ],
   },
 ])

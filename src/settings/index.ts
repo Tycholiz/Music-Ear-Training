@@ -22,5 +22,7 @@ export {
   chordSettingsStore,
   intervalScoreStore,
   intervalSettingsStore,
+  rootScoreStore,
+  rootSettingsStore,
 } from './stores'
 export { usePersisted } from './usePersisted'

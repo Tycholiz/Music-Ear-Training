@@ -12,13 +12,16 @@ function renderHome() {
 }
 
 describe('Home', () => {
-  it('lists both exercises', () => {
+  it('lists every exercise', () => {
     renderHome()
     expect(
       screen.getByRole('link', { name: 'Interval Ear Training' }),
     ).toBeVisible()
     expect(
       screen.getByRole('link', { name: 'Chord Ear Training' }),
+    ).toBeVisible()
+    expect(
+      screen.getByRole('link', { name: 'Chord Root Recognition' }),
     ).toBeVisible()
   })
 
@@ -30,11 +33,14 @@ describe('Home', () => {
     expect(
       screen.getByRole('link', { name: 'Chord Ear Training' }),
     ).toHaveAttribute('href', '/chords')
+    expect(
+      screen.getByRole('link', { name: 'Chord Root Recognition' }),
+    ).toHaveAttribute('href', '/chord-root')
   })
 
   it('uses real links, so exercises can be opened in a new tab', () => {
     renderHome()
-    expect(screen.getAllByRole('link')).toHaveLength(2)
+    expect(screen.getAllByRole('link')).toHaveLength(3)
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 

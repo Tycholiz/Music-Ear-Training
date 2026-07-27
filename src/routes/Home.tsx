@@ -19,6 +19,13 @@ const EXERCISES = [
     label: 'Chord Ear Training',
     icon: <StaffIcon noteheads={3} />,
   },
+  {
+    to: '/chord-root',
+    label: 'Chord Root Recognition',
+    // The same three noteheads, with the lowest one picked out: this exercise
+    // is about one note of the chord rather than the chord as a whole.
+    icon: <StaffIcon noteheads={3} highlightRoot />,
+  },
 ]
 
 export default function Home() {
@@ -44,7 +51,14 @@ export default function Home() {
 }
 
 /** A stack of noteheads on a staff, sized to sit inside a list row. */
-function StaffIcon({ noteheads }: { noteheads: number }) {
+function StaffIcon({
+  noteheads,
+  highlightRoot = false,
+}: {
+  noteheads: number
+  /** Draw the lowest notehead solid and the rest hollow. */
+  highlightRoot?: boolean
+}) {
   // Stacked in thirds, so they alternate line and space like real notation.
   const positions = Array.from({ length: noteheads }, (_, i) => 22 - i * 5)
 
@@ -66,17 +80,22 @@ function StaffIcon({ noteheads }: { noteheads: number }) {
             opacity={0.55}
           />
         ))}
-        {positions.map((cy) => (
-          <ellipse
-            key={cy}
-            cx={12}
-            cy={cy}
-            rx={3.6}
-            ry={2.6}
-            fill="white"
-            transform={`rotate(-20 12 ${cy})`}
-          />
-        ))}
+        {positions.map((cy, i) => {
+          const hollow = highlightRoot && i > 0
+          return (
+            <ellipse
+              key={cy}
+              cx={12}
+              cy={cy}
+              rx={3.6}
+              ry={2.6}
+              fill={hollow ? 'none' : 'white'}
+              stroke={hollow ? 'white' : 'none'}
+              strokeWidth={hollow ? 1.4 : 0}
+              transform={`rotate(-20 12 ${cy})`}
+            />
+          )
+        })}
       </svg>
     </span>
   )

@@ -1,0 +1,222 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router'
+import {
+  ExerciseHeader,
+  ListCard,
+  ListRow,
+  ModalSheet,
+  ReplayButton,
+  SilentSwitchHint,
+} from '../components'
+import { piano } from '../audio'
+import {
+  recordGuess,
+  rootScoreStore,
+  rootSettingsStore,
+  usePersisted,
+} from '../settings'
+import {
+  canGenerateChord,
+  generateRootQuestion,
+  groupsForRootQuestion,
+  rootAnswer,
+  type RootQuestion,
+} from '../exercises'
+
+/** Pause on the graded answer before the next question starts. */
+const AUTO_ADVANCE_MS = 800
+
+interface Round {
+  number: number
+  question: RootQuestion
+}
+
+/**
+ * Chord root recognition, self-graded.
+ *
+ * A chord sounds; the user works out its root; Reveal plays that root alone so
+ * they can check themselves. There is no way for the app to know what they were
+ * thinking, so they report whether they had it — the exercise only works if
+ * they are honest with themselves, and there is no reason to doubt them.
+ *
+ * Microphone mode, where the app listens instead, arrives in #42.
+ */
+export default function ChordRoot() {
+  const navigate = useNavigate()
+  const [settings] = usePersisted(rootSettingsStore)
+  const [score, setScore, resetScore] = usePersisted(rootScoreStore)
+
+  const [round, setRound] = useState<Round | null>(null)
+  const [revealed, setRevealed] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const replayRef = useRef<HTMLButtonElement>(null)
+
+  const playable = canGenerateChord(settings)
+
+  const nextQuestion = useCallback(() => {
+    setRevealed(false)
+    setRound((current) => ({
+      number: (current?.number ?? 0) + 1,
+      question: generateRootQuestion(settings),
+    }))
+  }, [settings])
+
+  const playChord = useCallback((question: RootQuestion) => {
+    void piano.play(groupsForRootQuestion(question))
+  }, [])
+
+  useEffect(() => {
+    if (!round) return
+    playChord(round.question)
+  }, [round, playChord])
+
+  useEffect(() => {
+    setRound(null)
+    setRevealed(false)
+  }, [settings])
+
+  // Park focus on Replay for every new question, so space hears the chord
+  // again rather than activating whichever button was last pressed.
+  useEffect(() => {
+    if (!round) return
+    replayRef.current?.focus()
+  }, [round])
+
+  useEffect(
+    () => () => {
+      if (advanceTimer.current) clearTimeout(advanceTimer.current)
+      piano.stop()
+    },
+    [],
+  )
+
+  const reveal = () => {
+    if (!round) return
+    // The root alone, at the pitch it sounds at in this voicing. Repeatable:
+    // hearing it once is often not enough to be sure either way.
+    void piano.play([[rootAnswer(round.question)]])
+    setRevealed(true)
+  }
+
+  const grade = (correct: boolean) => {
+    if (!round || !revealed) return
+    setScore(recordGuess(score, correct))
+    advanceTimer.current = setTimeout(nextQuestion, AUTO_ADVANCE_MS)
+  }
+
+  return (
+    <main className="flex h-full flex-col">
+      <ExerciseHeader
+        correct={score.correct}
+        total={score.total}
+        onBack={() => navigate('/')}
+        onMenu={() => setMenuOpen(true)}
+      />
+
+      {round ? (
+        <>
+          <div className="flex justify-center py-1">
+            <ReplayButton
+              ref={replayRef}
+              onClick={() => playChord(round.question)}
+            />
+          </div>
+          <SilentSwitchHint />
+
+          <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
+            <button
+              type="button"
+              onClick={reveal}
+              className="rounded-full bg-surface px-8 py-3 text-lg font-medium active:bg-surface-raised"
+            >
+              Reveal
+            </button>
+
+            {revealed ? (
+              <>
+                <p className="text-center text-sm text-content-muted">
+                  Was that the note you had in mind?
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => grade(true)}
+                    className="rounded-full bg-correct px-8 py-3 font-medium text-black active:opacity-80"
+                  >
+                    Correct
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => grade(false)}
+                    className="rounded-full bg-incorrect px-8 py-3 font-medium text-white active:opacity-80"
+                  >
+                    Wrong
+                  </button>
+                </div>
+              </>
+            ) : (
+              <p className="text-center text-sm text-content-muted">
+                Work out the root, then reveal it to check yourself.
+              </p>
+            )}
+          </div>
+        </>
+      ) : (
+        <StartPanel playable={playable} onStart={nextQuestion} />
+      )}
+
+      <ModalSheet
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        title="Menu"
+      >
+        <div className="p-4">
+          <ListCard>
+            <ListRow
+              label="Reset Score"
+              destructive
+              onClick={() => {
+                resetScore()
+                setMenuOpen(false)
+              }}
+            />
+          </ListCard>
+        </div>
+      </ModalSheet>
+    </main>
+  )
+}
+
+function StartPanel({
+  playable,
+  onStart,
+}: {
+  playable: boolean
+  onStart: () => void
+}) {
+  if (!playable) {
+    return (
+      <div className="flex flex-1 items-center justify-center p-8 text-center text-content-muted">
+        No chord can be played with the current settings. Open the menu and
+        widen the range or enable more chords.
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
+      {/* See the note in Intervals.tsx: iOS needs a real tap to start audio. */}
+      <button
+        type="button"
+        onClick={onStart}
+        className="rounded-full bg-accent px-8 py-3 text-lg font-medium active:opacity-80"
+      >
+        Start
+      </button>
+      <p className="text-center text-sm text-content-muted">
+        Listen, then work out the root of the chord.
+      </p>
+    </div>
+  )
+}
