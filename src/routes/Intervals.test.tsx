@@ -296,3 +296,43 @@ describe('buildCells', () => {
     expect(cells[7]).toMatchObject({ label: 'Perfect 5th', state: 'idle' })
   })
 })
+
+describe('keyboard focus', () => {
+  it('focuses Play again when a question starts, so space replays it', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    expect(screen.getByRole('button', { name: 'Play again' })).toHaveFocus()
+  })
+
+  it('returns focus to Play again after advancing, not to an answer', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    const correct = screen.getByRole('button', { name: 'Perfect 5th' })
+    await user.click(correct)
+    expect(correct).toHaveFocus()
+
+    await waitFor(
+      () =>
+        expect(
+          screen.getByRole('button', { name: 'Play again' }),
+        ).toHaveFocus(),
+      { timeout: 4000 },
+    )
+  })
+
+  it('replays the question rather than an answer when space is pressed', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    vi.mocked(piano.play).mockClear()
+
+    await user.keyboard(' ')
+
+    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[60], [67]])
+    expect(screen.getByLabelText('Score')).toHaveTextContent('0/0')
+  })
+})

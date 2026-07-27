@@ -537,13 +537,21 @@ describe('groupsForChordPreview', () => {
     root: 60,
   }
 
-  it('follows the question play mode', () => {
+  it('sounds a block guess all at once', () => {
     expect(
       groupsForChordPreview({ ...base, playMode: 'block' }, 'minor'),
     ).toEqual([[60, 63, 67]])
+  })
+
+  it('sounds nothing for an arpeggiated question', () => {
+    // Spread over several seconds, the guess arrives too late to compare
+    // against the target — so the feature is block-only.
     expect(
       groupsForChordPreview({ ...base, playMode: 'arpeggiated' }, 'minor'),
-    ).toEqual([[60], [63], [67]])
+    ).toBeNull()
+    expect(
+      groupsForChordPreview({ ...base, playMode: 'arpeggiated' }, 'major'),
+    ).toBeNull()
   })
 
   it('omits the root reference tone, which only questions need', () => {

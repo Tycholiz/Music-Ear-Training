@@ -261,16 +261,23 @@ export function previewChordNotes(
   return notes[notes.length - 1] <= HIGHEST_NOTE ? notes : null
 }
 
-/** Audio shape for `previewChordNotes`, or null if the guess is unplayable. */
+/**
+ * Audio shape for `previewChordNotes`, or null when the guess should not be
+ * sounded at all.
+ *
+ * Block chords only. Arpeggiated, the comparison doesn't work — the guess
+ * unfolds one note at a time over several seconds, by which point the target
+ * has faded and there's nothing to hold it against. The interval exercise
+ * doesn't have this problem because its sequences are two notes long.
+ */
 export function groupsForChordPreview(
   question: ChordQuestion,
   guessId: string,
 ): NoteGroup[] | null {
+  if (question.playMode === 'arpeggiated') return null
+
   const notes = previewChordNotes(question, guessId)
-  if (!notes) return null
-  return question.playMode === 'arpeggiated'
-    ? sequence(notes)
-    : simultaneous(notes)
+  return notes ? simultaneous(notes) : null
 }
 
 export const ALL_CHORD_IDS = CHORDS.map((chord) => chord.id)

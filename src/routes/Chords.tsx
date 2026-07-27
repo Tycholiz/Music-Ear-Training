@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { AnswerGrid, ExerciseHeader, ModalSheet } from '../components'
+import {
+  AnswerGrid,
+  ExerciseHeader,
+  ModalSheet,
+  ReplayButton,
+} from '../components'
 import { ChordMenu } from '../customize'
 import { piano, scheduleDurationMs } from '../audio'
 import {
@@ -40,6 +45,7 @@ export default function Chords() {
   const [solvedId, setSolvedId] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const replayRef = useRef<HTMLButtonElement>(null)
 
   const playable = canGenerateChord(settings)
 
@@ -62,6 +68,14 @@ export default function Chords() {
     setWrong([])
     setSolvedId(null)
   }, [settings])
+
+  // Park focus on Replay for every new question, so a keyboard user can
+  // press space to hear it again rather than activating whichever answer
+  // button they last pressed.
+  useEffect(() => {
+    if (!round) return
+    replayRef.current?.focus()
+  }, [round])
 
   useEffect(
     () => () => {
@@ -116,6 +130,7 @@ export default function Chords() {
         <>
           <div className="flex justify-center py-1">
             <ReplayButton
+              ref={replayRef}
               onClick={() =>
                 void piano.play(
                   groupsForChordQuestion(round.question, settings.chords),
@@ -178,31 +193,5 @@ function StartPanel({
         Listen, then pick the chord you heard.
       </p>
     </div>
-  )
-}
-
-function ReplayButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label="Play again"
-      className="flex h-11 w-11 items-center justify-center rounded-full bg-surface active:bg-surface-raised"
-    >
-      <svg
-        aria-hidden
-        viewBox="0 0 24 24"
-        className="h-6 w-6"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={1.8}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor" stroke="none" />
-        <path d="M16.5 8.5a5 5 0 010 7" />
-        <path d="M19 6a8.5 8.5 0 010 12" />
-      </svg>
-    </button>
   )
 }

@@ -152,6 +152,26 @@ describe('answering', () => {
     expect(piano.play).toHaveBeenCalledWith([[60, 64, 67]])
   })
 
+  it('sounds nothing on a guess when the question is arpeggiated', async () => {
+    vi.mocked(exercises.generateChordQuestion).mockReturnValue({
+      ...C_MAJOR,
+      playMode: 'arpeggiated',
+    })
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    vi.mocked(piano.play).mockClear()
+
+    await user.click(screen.getByRole('button', { name: 'Minor Triad' }))
+    expect(piano.play).not.toHaveBeenCalled()
+
+    // Still scored, still turns red — only the playback is suppressed.
+    expect(screen.getByRole('button', { name: 'Minor Triad' })).toHaveClass(
+      'bg-incorrect',
+    )
+    expect(screen.getByLabelText('Score')).toHaveTextContent('0/1')
+  })
+
   it('turns the right answer green', async () => {
     const user = userEvent.setup()
     renderExercise()
@@ -350,5 +370,45 @@ describe('buildChordCells', () => {
     expect(byLabel.get('Minor Triad')).toBe('wrong')
     expect(byLabel.get('Major Triad')).toBe('correct')
     expect(byLabel.get('Diminished Triad')).toBe('idle')
+  })
+})
+
+describe('keyboard focus', () => {
+  it('focuses Play again when a question starts, so space replays it', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    expect(screen.getByRole('button', { name: 'Play again' })).toHaveFocus()
+  })
+
+  it('returns focus to Play again after advancing, not to an answer', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    const correct = screen.getByRole('button', { name: 'Major Triad' })
+    await user.click(correct)
+    expect(correct).toHaveFocus()
+
+    await waitFor(
+      () =>
+        expect(
+          screen.getByRole('button', { name: 'Play again' }),
+        ).toHaveFocus(),
+      { timeout: 4000 },
+    )
+  })
+
+  it('replays the question rather than an answer when space is pressed', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    vi.mocked(piano.play).mockClear()
+
+    await user.keyboard(' ')
+
+    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[60, 64, 67]])
+    expect(screen.getByLabelText('Score')).toHaveTextContent('0/0')
   })
 })
