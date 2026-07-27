@@ -24,3 +24,16 @@ export {
   rangeSpan,
   rangeWarning,
 } from './intervalValidation'
+export {
+  ALL_CHORD_IDS,
+  acceptableAnswers,
+  canGenerateChord,
+  chordCandidates,
+  chordRootPitch,
+  generateChordQuestion,
+  groupsForChordQuestion,
+  isAmbiguous,
+  isChordCorrect,
+} from './chordQuestion'
+export type { ChordCandidate, ChordQuestion } from './chordQuestion'
+export { buildChordCells } from './chordCells'
