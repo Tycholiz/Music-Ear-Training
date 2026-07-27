@@ -8,13 +8,16 @@ import {
   type ChordSettings,
 } from '../settings'
 import { CHORDS } from '../theory'
-import { ChordMenu } from './ChordMenu'
+import { ChordSettingsMenu } from './ChordSettingsMenu'
 
 function openMenu(onResetScore = vi.fn()) {
   const user = userEvent.setup()
   render(
     <ModalSheet open onClose={vi.fn()} title="Menu">
-      <ChordMenu onResetScore={onResetScore} />
+      <ChordSettingsMenu
+        store={chordSettingsStore}
+        onResetScore={onResetScore}
+      />
     </ModalSheet>,
   )
   return { user, onResetScore }

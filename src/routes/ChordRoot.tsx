@@ -2,13 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import {
   ExerciseHeader,
-  ListCard,
-  ListRow,
   ModalSheet,
   ReplayButton,
   SilentSwitchHint,
 } from '../components'
+import { ChordSettingsMenu } from '../customize'
 import { piano } from '../audio'
+import { UNAMBIGUOUS_ROOT_CHORDS } from '../theory'
 import {
   recordGuess,
   rootScoreStore,
@@ -171,18 +171,14 @@ export default function ChordRoot() {
         onClose={() => setMenuOpen(false)}
         title="Menu"
       >
-        <div className="p-4">
-          <ListCard>
-            <ListRow
-              label="Reset Score"
-              destructive
-              onClick={() => {
-                resetScore()
-                setMenuOpen(false)
-              }}
-            />
-          </ListCard>
-        </div>
+        <ChordSettingsMenu
+          store={rootSettingsStore}
+          availableChords={UNAMBIGUOUS_ROOT_CHORDS}
+          onResetScore={() => {
+            resetScore()
+            setMenuOpen(false)
+          }}
+        />
       </ModalSheet>
     </main>
   )

@@ -1,4 +1,4 @@
-export { ChordMenu } from './ChordMenu'
+export { ChordSettingsMenu } from './ChordSettingsMenu'
 export { ChordPlayModeScreen } from './ChordPlayModeScreen'
 export { ChordsScreen } from './ChordsScreen'
 export { IntervalMenu } from './IntervalMenu'

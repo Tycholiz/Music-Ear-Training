@@ -1,9 +1,10 @@
-import { CHORDS, INTERVALS } from '../theory'
+import { CHORDS, INTERVALS, UNAMBIGUOUS_ROOT_CHORD_IDS } from '../theory'
 import { HIGHEST_NOTE, LOWEST_NOTE } from '../audio'
 import {
   CHORD_PLAY_MODES,
   DEFAULT_CHORD_SETTINGS,
   DEFAULT_INTERVAL_SETTINGS,
+  DEFAULT_ROOT_SETTINGS,
   EMPTY_SCORE,
   INTERVAL_PLAY_MODES,
   type ChordSettings,
@@ -72,24 +73,23 @@ export const intervalSettingsStore = createStore<IntervalSettings>({
   },
 })
 
-function sanitizeChordSettings(
-  raw: unknown,
-  defaults: ChordSettings,
-): ChordSettings {
-  if (!isRecord(raw)) return defaults
-  return {
-    chords: sanitizeSelection(raw.chords, ALL_CHORD_IDS, defaults.chords),
-    inversions: sanitizeSelection(
-      raw.inversions,
-      ALL_INVERSIONS,
-      defaults.inversions,
-    ),
-    playModes: sanitizeSelection(
-      raw.playModes,
-      CHORD_PLAY_MODES,
-      defaults.playModes,
-    ),
-    range: sanitizeRange(raw.range, defaults.range),
+function chordSettingsSanitizer(allowedChords: readonly string[]) {
+  return (raw: unknown, defaults: ChordSettings): ChordSettings => {
+    if (!isRecord(raw)) return defaults
+    return {
+      chords: sanitizeSelection(raw.chords, allowedChords, defaults.chords),
+      inversions: sanitizeSelection(
+        raw.inversions,
+        ALL_INVERSIONS,
+        defaults.inversions,
+      ),
+      playModes: sanitizeSelection(
+        raw.playModes,
+        CHORD_PLAY_MODES,
+        defaults.playModes,
+      ),
+      range: sanitizeRange(raw.range, defaults.range),
+    }
   }
 }
 
@@ -97,7 +97,7 @@ export const chordSettingsStore = createStore<ChordSettings>({
   key: 'met.settings.chords',
   version: 1,
   defaults: DEFAULT_CHORD_SETTINGS,
-  sanitize: sanitizeChordSettings,
+  sanitize: chordSettingsSanitizer(ALL_CHORD_IDS),
 })
 
 /**
@@ -111,8 +111,10 @@ export const chordSettingsStore = createStore<ChordSettings>({
 export const rootSettingsStore = createStore<ChordSettings>({
   key: 'met.settings.chordRoot',
   version: 1,
-  defaults: DEFAULT_CHORD_SETTINGS,
-  sanitize: sanitizeChordSettings,
+  defaults: DEFAULT_ROOT_SETTINGS,
+  // The allowed list is narrower here, so a chord with no identifiable root
+  // cannot reach the exercise even from a stale or hand-edited blob.
+  sanitize: chordSettingsSanitizer(UNAMBIGUOUS_ROOT_CHORD_IDS),
 })
 
 function sanitizeScore(raw: unknown, defaults: Score): Score {

@@ -1,4 +1,4 @@
-import { nameToMidi } from '../theory'
+import { UNAMBIGUOUS_ROOT_CHORD_IDS, nameToMidi } from '../theory'
 
 /**
  * Everything that persists between sessions: what the user has chosen to be
@@ -87,4 +87,18 @@ export function recordGuess(score: Score, wasCorrect: boolean): Score {
     correct: score.correct + (wasCorrect ? 1 : 0),
     total: score.total + 1,
   }
+}
+
+/**
+ * Chord root recognition draws only from chords whose root can be identified
+ * from the sound alone — see `hasAmbiguousRoot`. Three of the chord exercise's
+ * eight defaults are ambiguous by root (augmented triad, minor 7th and
+ * half-diminished 7th), so they are dropped here rather than asking a question
+ * with no correct answer.
+ */
+export const DEFAULT_ROOT_SETTINGS: ChordSettings = {
+  ...DEFAULT_CHORD_SETTINGS,
+  chords: DEFAULT_CHORD_SETTINGS.chords.filter((id) =>
+    UNAMBIGUOUS_ROOT_CHORD_IDS.includes(id),
+  ),
 }

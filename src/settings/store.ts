@@ -99,8 +99,16 @@ export function createStore<T>({
     },
 
     write(value: T) {
-      cached = value
-      writeStorage(key, JSON.stringify({ version, value } satisfies Envelope))
+      // Sanitise on the way in as well as on the way out, so the store's
+      // invariants hold no matter which caller wrote to it. Without this a
+      // screen offering an option the store does not allow would leave that
+      // value live in memory until the next reload.
+      const clean = sanitize(value, defaults)
+      cached = clean
+      writeStorage(
+        key,
+        JSON.stringify({ version, value: clean } satisfies Envelope),
+      )
       for (const listener of listeners) listener()
     },
 
