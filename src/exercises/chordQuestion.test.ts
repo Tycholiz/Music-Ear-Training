@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { CHORDS, chordById, maxInversion, nameToMidi } from '../theory'
 import { DEFAULT_CHORD_SETTINGS, type ChordSettings } from '../settings'
+import { HIGHEST_NOTE, LOWEST_NOTE } from '../audio'
 import {
   ALL_CHORD_IDS,
   acceptableAnswers,
@@ -8,9 +9,11 @@ import {
   chordCandidates,
   chordRootPitch,
   generateChordQuestion,
+  groupsForChordPreview,
   groupsForChordQuestion,
   isAmbiguous,
   isChordCorrect,
+  previewChordNotes,
 } from './chordQuestion'
 
 function settings(overrides: Partial<ChordSettings> = {}): ChordSettings {
@@ -423,6 +426,138 @@ describe('acceptableAnswers — collisions', () => {
         chord.id,
       )
     }
+  })
+})
+
+describe('previewChordNotes', () => {
+  const cMajorRootPosition = {
+    notes: [60, 64, 67],
+    chordId: 'major',
+    inversion: 0,
+    playMode: 'block' as const,
+    root: 60,
+  }
+
+  it('reproduces the question exactly for the correct answer', () => {
+    expect(previewChordNotes(cMajorRootPosition, 'major')).toEqual([60, 64, 67])
+  })
+
+  it('builds a wrong guess on the same root, so only quality differs', () => {
+    expect(previewChordNotes(cMajorRootPosition, 'minor')).toEqual([60, 63, 67])
+    expect(previewChordNotes(cMajorRootPosition, 'diminished')).toEqual([
+      60, 63, 66,
+    ])
+  })
+
+  it('keeps the question inversion when the guess supports it', () => {
+    const firstInversion = { ...cMajorRootPosition, inversion: 1 }
+    // Minor triad, first inversion, root C: Eb G C.
+    expect(previewChordNotes(firstInversion, 'minor')).toEqual([63, 67, 72])
+  })
+
+  it('clamps the inversion when the guess has too few voices', () => {
+    // A seventh chord in 3rd inversion, guessed as a triad — triads only
+    // reach 2nd inversion, so it uses that rather than throwing.
+    const thirdInversion = {
+      notes: [70, 72, 76, 79],
+      chordId: 'dominant-7th',
+      inversion: 3,
+      playMode: 'block' as const,
+      root: 60,
+    }
+    expect(previewChordNotes(thirdInversion, 'major')).toEqual([67, 72, 76])
+  })
+
+  it('shifts down by octaves when a wide guess overflows the piano', () => {
+    // A triad sitting near the top of the keyboard, guessed as a 13th chord
+    // spanning 21 semitones — it would run past C8 without the shift.
+    const high = {
+      notes: [100, 104, 107],
+      chordId: 'major',
+      inversion: 0,
+      playMode: 'block' as const,
+      root: 100,
+    }
+    const preview = previewChordNotes(high, 'dominant-13th')
+
+    expect(preview).not.toBeNull()
+    for (const note of preview!) {
+      expect(note).toBeGreaterThanOrEqual(LOWEST_NOTE)
+      expect(note).toBeLessThanOrEqual(HIGHEST_NOTE)
+    }
+    // Shifted wholesale by octaves, so the chord itself is unchanged.
+    expect(preview!.map((n) => n % 12)).toEqual(
+      chordById('dominant-13th').offsets.map((o) => (100 + o) % 12),
+    )
+  })
+
+  it('shifts up by octaves when a guess falls below the piano', () => {
+    const low = {
+      notes: [22, 26, 29],
+      chordId: 'major',
+      inversion: 0,
+      playMode: 'block' as const,
+      root: 22,
+    }
+    const preview = previewChordNotes(low, 'minor-13th')
+
+    expect(preview).not.toBeNull()
+    expect(preview![0]).toBeGreaterThanOrEqual(LOWEST_NOTE)
+  })
+
+  it('stays playable for every chord guessed against every generated question', () => {
+    const config = settings({
+      chords: ALL_CHORD_IDS,
+      inversions: [0, 1, 2, 3],
+      range: WIDE,
+    })
+    for (let i = 0; i < 300; i++) {
+      const question = generateChordQuestion(config)
+      for (const id of ALL_CHORD_IDS) {
+        const preview = previewChordNotes(question, id)
+        expect(preview, `${question.chordId} -> ${id}`).not.toBeNull()
+        for (const note of preview!) {
+          expect(note, `${question.chordId} -> ${id}`).toBeGreaterThanOrEqual(
+            LOWEST_NOTE,
+          )
+          expect(note, `${question.chordId} -> ${id}`).toBeLessThanOrEqual(
+            HIGHEST_NOTE,
+          )
+        }
+      }
+    }
+  })
+})
+
+describe('groupsForChordPreview', () => {
+  const base = {
+    notes: [60, 64, 67],
+    chordId: 'major',
+    inversion: 0,
+    root: 60,
+  }
+
+  it('sounds a block guess all at once', () => {
+    expect(
+      groupsForChordPreview({ ...base, playMode: 'block' }, 'minor'),
+    ).toEqual([[60, 63, 67]])
+  })
+
+  it('sounds nothing for an arpeggiated question', () => {
+    // Spread over several seconds, the guess arrives too late to compare
+    // against the target — so the feature is block-only.
+    expect(
+      groupsForChordPreview({ ...base, playMode: 'arpeggiated' }, 'minor'),
+    ).toBeNull()
+    expect(
+      groupsForChordPreview({ ...base, playMode: 'arpeggiated' }, 'major'),
+    ).toBeNull()
+  })
+
+  it('omits the root reference tone, which only questions need', () => {
+    expect(
+      groupsForChordPreview({ ...base, playMode: 'block' }, 'major-6th'),
+    ).toEqual([[60, 64, 67, 69]])
   })
 })
 

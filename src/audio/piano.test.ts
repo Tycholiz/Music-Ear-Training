@@ -77,7 +77,7 @@ class FakeAudioContext {
   }
 }
 
-const timing: Timing = { noteMs: 100, chordMs: 200, gapMs: 10 }
+const timing: Timing = { onsetMs: 100, releaseMs: 200, chordReleaseMs: 300 }
 
 function setup(options: { failFetch?: boolean } = {}) {
   const ctx = new FakeAudioContext()
@@ -193,13 +193,24 @@ describe('play', () => {
 
     harness.ctx.sources = []
     await harness.piano.play(sequence([60, 64]))
-    expect(harness.ctx.sources.map((s) => s.startedAt)).toEqual([0, 0.11])
+    expect(harness.ctx.sources.map((s) => s.startedAt)).toEqual([0, 0.1])
+  })
+
+  it('holds a sequence under itself instead of cutting each note off', async () => {
+    await harness.piano.play(sequence([60, 64, 67]))
+
+    // Every voice is still sounding when the next is struck, and they are all
+    // released together — the sustain-pedal behaviour.
+    const [first, second, third] = harness.ctx.sources
+    expect(first.stoppedAt).toBeGreaterThan(second.startedAt!)
+    expect(second.stoppedAt).toBeGreaterThan(third.startedAt!)
+    expect(first.stoppedAt).toBeCloseTo(third.stoppedAt!)
   })
 
   it('schedules the combined shape as sequence then dyad', async () => {
     await harness.piano.play(sequenceThenSimultaneous([60, 64]))
     expect(harness.ctx.sources.map((s) => s.startedAt)).toEqual([
-      0, 0.11, 0.22, 0.22,
+      0, 0.1, 0.2, 0.2,
     ])
   })
 
@@ -218,7 +229,7 @@ describe('play', () => {
 
   it('stops each note at the end of its scheduled duration', async () => {
     await harness.piano.play(sequence([60]))
-    expect(harness.ctx.sources[0].stoppedAt).toBeCloseTo(0.1)
+    expect(harness.ctx.sources[0].stoppedAt).toBeCloseTo(0.2)
   })
 
   it('connects every voice through to the destination', async () => {

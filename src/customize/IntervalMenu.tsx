@@ -1,11 +1,24 @@
 import { ListCard, ListRow, useModalNav } from '../components'
 import { intervalSettingsStore, usePersisted } from '../settings'
 import { intervalName } from '../theory'
-import { isStuck } from '../exercises'
+import { isStuck, rangeWarning } from '../exercises'
 import { IntervalsScreen } from './IntervalsScreen'
 import { PlayModeScreen } from './PlayModeScreen'
 import { RangeScreen } from './RangeScreen'
 import { midiToName } from '../theory'
+
+function IntervalRangeScreen() {
+  const [settings, setSettings] = usePersisted(intervalSettingsStore)
+
+  return (
+    <RangeScreen
+      range={settings.range}
+      onChange={(range) => setSettings({ ...settings, range })}
+      footer="Range determines the available pitches for both notes of the interval."
+      warning={rangeWarning(settings)}
+    />
+  )
+}
 
 /**
  * Root of the interval exercise's hamburger menu, and the Customize screen it
@@ -57,7 +70,9 @@ function CustomizeScreen() {
           label="Range"
           value={`${midiToName(settings.range.low)}–${midiToName(settings.range.high)}`}
           chevron
-          onClick={() => push({ title: 'Range', content: <RangeScreen /> })}
+          onClick={() =>
+            push({ title: 'Range', content: <IntervalRangeScreen /> })
+          }
         />
       </ListCard>
 

@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router'
 import {
   AnswerGrid,
   ExerciseHeader,
-  ListCard,
-  ListRow,
   ModalSheet,
+  ReplayButton,
 } from '../components'
-import { piano } from '../audio'
+import { ChordMenu } from '../customize'
+import { piano, scheduleDurationMs } from '../audio'
 import {
   chordScoreStore,
   chordSettingsStore,
@@ -18,13 +18,17 @@ import {
   buildChordCells,
   canGenerateChord,
   generateChordQuestion,
+  groupsForChordPreview,
   groupsForChordQuestion,
   isChordCorrect,
   type ChordQuestion,
 } from '../exercises'
 
-/** Pause on the green button before the next question starts. */
+/** Minimum pause on the green button before the next question starts. */
 const AUTO_ADVANCE_MS = 800
+
+/** Silence left after a confirming chord finishes, before the next question. */
+const ADVANCE_GAP_MS = 250
 
 interface Round {
   number: number
@@ -41,6 +45,7 @@ export default function Chords() {
   const [solvedId, setSolvedId] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const replayRef = useRef<HTMLButtonElement>(null)
 
   const playable = canGenerateChord(settings)
 
@@ -64,6 +69,14 @@ export default function Chords() {
     setSolvedId(null)
   }, [settings])
 
+  // Park focus on Replay for every new question, so a keyboard user can
+  // press space to hear it again rather than activating whichever answer
+  // button they last pressed.
+  useEffect(() => {
+    if (!round) return
+    replayRef.current?.focus()
+  }, [round])
+
   useEffect(
     () => () => {
       if (advanceTimer.current) clearTimeout(advanceTimer.current)
@@ -73,7 +86,17 @@ export default function Chords() {
   )
 
   const handleAnswer = (chordId: string) => {
-    if (!round || solvedId) return
+    if (!round) return
+
+    // Always sound the chord that was pressed, built on the question's own
+    // root. A wrong guess then becomes a direct comparison against the target
+    // rather than just a red button.
+    const groups = groupsForChordPreview(round.question, chordId)
+    if (groups) void piano.play(groups)
+
+    // Pressing an answer that has already been given — or any answer once the
+    // question is solved — replays its sound without scoring again.
+    if (solvedId || wrong.includes(chordId)) return
 
     // A question where several enabled chords share the same notes plays a
     // root reference tone first (see groupsForChordQuestion), so exactly one
@@ -87,7 +110,11 @@ export default function Chords() {
     }
 
     setSolvedId(chordId)
-    advanceTimer.current = setTimeout(nextQuestion, AUTO_ADVANCE_MS)
+    // Let the confirming chord finish before the next question interrupts it.
+    const settle = groups
+      ? Math.max(AUTO_ADVANCE_MS, scheduleDurationMs(groups) + ADVANCE_GAP_MS)
+      : AUTO_ADVANCE_MS
+    advanceTimer.current = setTimeout(nextQuestion, settle)
   }
 
   return (
@@ -103,6 +130,7 @@ export default function Chords() {
         <>
           <div className="flex justify-center py-1">
             <ReplayButton
+              ref={replayRef}
               onClick={() =>
                 void piano.play(
                   groupsForChordQuestion(round.question, settings.chords),
@@ -124,18 +152,12 @@ export default function Chords() {
         onClose={() => setMenuOpen(false)}
         title="Menu"
       >
-        <div className="p-4">
-          <ListCard>
-            <ListRow
-              label="Reset Score"
-              destructive
-              onClick={() => {
-                resetScore()
-                setMenuOpen(false)
-              }}
-            />
-          </ListCard>
-        </div>
+        <ChordMenu
+          onResetScore={() => {
+            resetScore()
+            setMenuOpen(false)
+          }}
+        />
       </ModalSheet>
     </main>
   )
@@ -171,31 +193,5 @@ function StartPanel({
         Listen, then pick the chord you heard.
       </p>
     </div>
-  )
-}
-
-function ReplayButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label="Play again"
-      className="flex h-11 w-11 items-center justify-center rounded-full bg-surface active:bg-surface-raised"
-    >
-      <svg
-        aria-hidden
-        viewBox="0 0 24 24"
-        className="h-6 w-6"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={1.8}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor" stroke="none" />
-        <path d="M16.5 8.5a5 5 0 010 7" />
-        <path d="M19 6a8.5 8.5 0 010 12" />
-      </svg>
-    </button>
   )
 }

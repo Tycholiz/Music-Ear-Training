@@ -37,3 +37,17 @@ export {
 } from './chordQuestion'
 export type { ChordCandidate, ChordQuestion } from './chordQuestion'
 export { buildChordCells } from './chordCells'
+export {
+  ALL_INVERSIONS,
+  CHORD_PLAY_MODE_NAMES,
+  INVERSION_NAMES,
+  chordRangeWarning,
+  chordsWarning,
+  inversionsWarning,
+  isChordStuck,
+  isChordUsable,
+  isInversionUsable,
+  rangeSpanOf,
+} from './chordValidation'
+export { groupsForAnswerPreview, previewNotes } from './intervalQuestion'
+export { groupsForChordPreview, previewChordNotes } from './chordQuestion'

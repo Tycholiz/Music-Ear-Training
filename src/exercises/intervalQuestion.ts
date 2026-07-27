@@ -1,4 +1,5 @@
 import {
+  isPlayable,
   sequence,
   sequenceThenSimultaneous,
   simultaneous,
@@ -157,4 +158,38 @@ export function groupsForQuestion(question: IntervalQuestion): NoteGroup[] {
 
 export function isCorrect(question: IntervalQuestion, guess: number): boolean {
   return guess === question.answer
+}
+
+/**
+ * The two notes an answer *would* have produced, built from the same reference
+ * note and in the same direction as the question.
+ *
+ * Playing this back when the user guesses lets them hear their answer against
+ * the one they were asked about — a wrong guess becomes a comparison rather
+ * than just a red button. A correct guess reproduces the question exactly.
+ *
+ * Returns null when the guessed interval would run off the end of the piano,
+ * which can happen near the extremes of a wide range.
+ */
+export function previewNotes(
+  question: IntervalQuestion,
+  answer: number,
+): [number, number] | null {
+  const descending = isDescending(question.playMode)
+  const first = question.notes[0]
+  const second = descending
+    ? first - gapForAnswer(answer, true)
+    : first + gapForAnswer(answer, false)
+
+  return isPlayable(second) ? [first, second] : null
+}
+
+/** Audio shape for `previewNotes`, or null if the guess is unplayable. */
+export function groupsForAnswerPreview(
+  question: IntervalQuestion,
+  answer: number,
+): NoteGroup[] | null {
+  const notes = previewNotes(question, answer)
+  if (!notes) return null
+  return groupsForQuestion({ ...question, notes, answer })
 }

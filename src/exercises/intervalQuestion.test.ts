@@ -8,9 +8,11 @@ import {
   canGenerate,
   gapForAnswer,
   generateIntervalQuestion,
+  groupsForAnswerPreview,
   groupsForQuestion,
   isCorrect,
   isDescending,
+  previewNotes,
   usablePlayModes,
 } from './intervalQuestion'
 
@@ -334,6 +336,92 @@ describe('groupsForQuestion', () => {
         answer: 8,
       }),
     ).toEqual([[64], [60]])
+  })
+})
+
+describe('previewNotes', () => {
+  const ascending = {
+    notes: [60, 67] as const,
+    playMode: 'ascending' as const,
+    answer: 7,
+  }
+
+  it('reproduces the question exactly for the correct answer', () => {
+    expect(previewNotes(ascending, 7)).toEqual([60, 67])
+  })
+
+  it('builds a wrong guess from the same reference note', () => {
+    expect(previewNotes(ascending, 4)).toEqual([60, 64])
+    expect(previewNotes(ascending, 12)).toEqual([60, 72])
+  })
+
+  it('goes downward for a descending question, using the gap not the answer', () => {
+    // Descending, a Major 7th answer is one semitone below the reference.
+    const descending = {
+      notes: [60, 59] as const,
+      playMode: 'descending' as const,
+      answer: 11,
+    }
+    expect(previewNotes(descending, 11)).toEqual([60, 59])
+    expect(previewNotes(descending, 1)).toEqual([60, 49])
+    expect(previewNotes(descending, 12)).toEqual([60, 48])
+  })
+
+  it('handles Unison as both notes the same', () => {
+    expect(previewNotes(ascending, 0)).toEqual([60, 60])
+  })
+
+  it('returns null when the guess would run off the piano', () => {
+    const nearTheTop = {
+      notes: [106, 108] as const,
+      playMode: 'ascending' as const,
+      answer: 2,
+    }
+    expect(previewNotes(nearTheTop, 24)).toBeNull()
+    expect(previewNotes(nearTheTop, 2)).toEqual([106, 108])
+  })
+
+  it('is playable for every enabled answer of a generated question', () => {
+    const config = settings({
+      intervals: [0, 1, 7, 12, 13, 24],
+      playModes: ALL_MODES,
+      range: { low: 48, high: 72 },
+    })
+    for (let i = 0; i < 300; i++) {
+      const question = generateIntervalQuestion(config)
+      for (const answer of config.intervals) {
+        // Well away from the ends of the keyboard, every answer the user
+        // could press should be soundable.
+        expect(previewNotes(question, answer), `${answer}`).not.toBeNull()
+      }
+    }
+  })
+})
+
+describe('groupsForAnswerPreview', () => {
+  it('follows the question play mode', () => {
+    const harmonic = {
+      notes: [60, 67] as const,
+      playMode: 'harmonic' as const,
+      answer: 7,
+    }
+    expect(groupsForAnswerPreview(harmonic, 4)).toEqual([[60, 64]])
+
+    const combined = {
+      notes: [60, 67] as const,
+      playMode: 'ascending-harmonic' as const,
+      answer: 7,
+    }
+    expect(groupsForAnswerPreview(combined, 4)).toEqual([[60], [64], [60, 64]])
+  })
+
+  it('is null when the guess is unplayable', () => {
+    const nearTheTop = {
+      notes: [106, 108] as const,
+      playMode: 'ascending' as const,
+      answer: 2,
+    }
+    expect(groupsForAnswerPreview(nearTheTop, 24)).toBeNull()
   })
 })
 

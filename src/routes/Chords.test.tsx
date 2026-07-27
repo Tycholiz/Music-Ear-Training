@@ -101,7 +101,7 @@ describe('starting', () => {
 })
 
 describe('answering', () => {
-  it('turns a wrong answer red and locks it', async () => {
+  it('turns a wrong answer red but keeps it pressable for replay', async () => {
     const user = userEvent.setup()
     renderExercise()
     await start(user)
@@ -110,7 +110,66 @@ describe('answering', () => {
     await user.click(wrong)
 
     expect(wrong).toHaveClass('bg-incorrect')
-    expect(wrong).toBeDisabled()
+    expect(wrong).toBeEnabled()
+  })
+
+  it('sounds the guessed chord on the target root, so it can be compared', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    vi.mocked(piano.play).mockClear()
+
+    await user.click(screen.getByRole('button', { name: 'Minor Triad' }))
+
+    // C minor, not C major: same root, same register, only the quality
+    // differs — which is the whole point of playing it back.
+    expect(piano.play).toHaveBeenCalledWith([[60, 63, 67]])
+  })
+
+  it('replays a wrong guess without scoring it twice', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    const wrong = screen.getByRole('button', { name: 'Minor Triad' })
+    await user.click(wrong)
+    expect(screen.getByLabelText('Score')).toHaveTextContent('0/1')
+
+    vi.mocked(piano.play).mockClear()
+    await user.click(wrong)
+
+    expect(piano.play).toHaveBeenCalledWith([[60, 63, 67]])
+    expect(screen.getByLabelText('Score')).toHaveTextContent('0/1')
+  })
+
+  it('sounds the correct chord when the right answer is chosen', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    vi.mocked(piano.play).mockClear()
+
+    await user.click(screen.getByRole('button', { name: 'Major Triad' }))
+    expect(piano.play).toHaveBeenCalledWith([[60, 64, 67]])
+  })
+
+  it('sounds nothing on a guess when the question is arpeggiated', async () => {
+    vi.mocked(exercises.generateChordQuestion).mockReturnValue({
+      ...C_MAJOR,
+      playMode: 'arpeggiated',
+    })
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    vi.mocked(piano.play).mockClear()
+
+    await user.click(screen.getByRole('button', { name: 'Minor Triad' }))
+    expect(piano.play).not.toHaveBeenCalled()
+
+    // Still scored, still turns red — only the playback is suppressed.
+    expect(screen.getByRole('button', { name: 'Minor Triad' })).toHaveClass(
+      'bg-incorrect',
+    )
+    expect(screen.getByLabelText('Score')).toHaveTextContent('0/1')
   })
 
   it('turns the right answer green', async () => {
@@ -249,15 +308,17 @@ describe('advancing', () => {
 
     await user.click(screen.getByRole('button', { name: 'Minor Triad' }))
     await user.click(screen.getByRole('button', { name: 'Major Triad' }))
-    expect(screen.getByRole('button', { name: 'Minor Triad' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Minor Triad' })).toHaveClass(
+      'bg-incorrect',
+    )
     vi.mocked(piano.play).mockClear()
 
     await waitFor(
       () =>
-        expect(
-          screen.getByRole('button', { name: 'Minor Triad' }),
-        ).toBeEnabled(),
-      { timeout: 3000 },
+        expect(screen.getByRole('button', { name: 'Minor Triad' })).toHaveClass(
+          'bg-surface',
+        ),
+      { timeout: 4000 },
     )
     expect(piano.play).toHaveBeenCalledOnce()
   })
@@ -309,5 +370,45 @@ describe('buildChordCells', () => {
     expect(byLabel.get('Minor Triad')).toBe('wrong')
     expect(byLabel.get('Major Triad')).toBe('correct')
     expect(byLabel.get('Diminished Triad')).toBe('idle')
+  })
+})
+
+describe('keyboard focus', () => {
+  it('focuses Play again when a question starts, so space replays it', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    expect(screen.getByRole('button', { name: 'Play again' })).toHaveFocus()
+  })
+
+  it('returns focus to Play again after advancing, not to an answer', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    const correct = screen.getByRole('button', { name: 'Major Triad' })
+    await user.click(correct)
+    expect(correct).toHaveFocus()
+
+    await waitFor(
+      () =>
+        expect(
+          screen.getByRole('button', { name: 'Play again' }),
+        ).toHaveFocus(),
+      { timeout: 4000 },
+    )
+  })
+
+  it('replays the question rather than an answer when space is pressed', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    vi.mocked(piano.play).mockClear()
+
+    await user.keyboard(' ')
+
+    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[60, 64, 67]])
+    expect(screen.getByLabelText('Score')).toHaveTextContent('0/0')
   })
 })
