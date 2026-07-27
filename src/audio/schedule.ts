@@ -25,55 +25,65 @@ export interface ScheduledNote {
 
 export interface Timing {
   /** How long a lone note rings. */
-  noteMs: number
-  /** How long a group of two or more rings — chords need longer to register. */
-  chordMs: number
-  /** Silence between one group ending and the next starting. */
-  gapMs: number
+  onsetMs: number
+  /** How long the phrase rings on after the last onset, when it ends on one note. */
+  releaseMs: number
+  /** How long it rings on when the phrase ends on two or more notes together. */
+  chordReleaseMs: number
 }
 
 /** Tuned in one place so the feel of both exercises can be adjusted together. */
 export const TIMING: Timing = {
-  noteMs: 650,
-  chordMs: 1100,
-  gapMs: 60,
+  onsetMs: 700,
+  releaseMs: 900,
+  chordReleaseMs: 1300,
 }
 
-export function groupDurationMs(group: NoteGroup, timing: Timing): number {
-  return group.length > 1 ? timing.chordMs : timing.noteMs
+function releaseFor(group: NoteGroup, timing: Timing): number {
+  return group.length > 1 ? timing.chordReleaseMs : timing.releaseMs
 }
 
-/** Flatten note groups into absolute-timed notes. */
+/** When the last note stops sounding. */
+function phraseEndMs(groups: readonly NoteGroup[], timing: Timing): number {
+  const lastOnset = (groups.length - 1) * timing.onsetMs
+  return lastOnset + releaseFor(groups[groups.length - 1], timing)
+}
+
+/**
+ * Flatten note groups into absolute-timed notes.
+ *
+ * Notes are struck one group at a time but every one of them rings until the
+ * end of the phrase, as if the sustain pedal were held down throughout and
+ * lifted once at the end. An arpeggio therefore accumulates into its chord
+ * rather than sounding as a row of separate notes, and a melodic interval
+ * still has its first note under the second.
+ */
 export function buildSchedule(
   groups: readonly NoteGroup[],
   timing: Timing = TIMING,
 ): ScheduledNote[] {
-  const scheduled: ScheduledNote[] = []
-  let cursor = 0
+  if (groups.length === 0) return []
 
-  for (const group of groups) {
-    const durationMs = groupDurationMs(group, timing)
+  const end = phraseEndMs(groups, timing)
+  const scheduled: ScheduledNote[] = []
+
+  groups.forEach((group, index) => {
+    const startMs = index * timing.onsetMs
     for (const midi of group) {
-      scheduled.push({ midi, startMs: cursor, durationMs })
+      scheduled.push({ midi, startMs, durationMs: end - startMs })
     }
-    cursor += durationMs + timing.gapMs
-  }
+  })
 
   return scheduled
 }
 
-/** Total length of a schedule, excluding the trailing gap. */
+/** Total length of a schedule, from first onset to the pedal lifting. */
 export function scheduleDurationMs(
   groups: readonly NoteGroup[],
   timing: Timing = TIMING,
 ): number {
   if (groups.length === 0) return 0
-  const gaps = (groups.length - 1) * timing.gapMs
-  const sounding = groups.reduce(
-    (total, group) => total + groupDurationMs(group, timing),
-    0,
-  )
-  return sounding + gaps
+  return phraseEndMs(groups, timing)
 }
 
 // Shape helpers, named for how the exercises talk about them.

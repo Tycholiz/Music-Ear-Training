@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import {
   TIMING,
   buildSchedule,
-  groupDurationMs,
   scheduleDurationMs,
   sequence,
   sequenceThenSimultaneous,
@@ -11,7 +10,7 @@ import {
 } from './schedule'
 
 /** Round numbers so expectations read clearly. */
-const timing: Timing = { noteMs: 100, chordMs: 200, gapMs: 10 }
+const timing: Timing = { onsetMs: 100, releaseMs: 200, chordReleaseMs: 300 }
 
 describe('shape helpers', () => {
   it('builds the ascending and descending interval shapes', () => {
@@ -34,26 +33,40 @@ describe('shape helpers', () => {
   })
 })
 
-describe('groupDurationMs', () => {
-  it('rings a chord longer than a single note', () => {
-    expect(groupDurationMs([60], timing)).toBe(100)
-    expect(groupDurationMs([60, 64], timing)).toBe(200)
-    expect(groupDurationMs([60, 64, 67], timing)).toBe(200)
-  })
-})
-
 describe('buildSchedule', () => {
   it('sounds a lone note immediately', () => {
     expect(buildSchedule([[60]], timing)).toEqual([
-      { midi: 60, startMs: 0, durationMs: 100 },
+      { midi: 60, startMs: 0, durationMs: 200 },
     ])
   })
 
-  it('staggers a sequence by note length plus the gap', () => {
-    expect(buildSchedule(sequence([60, 64]), timing)).toEqual([
-      { midi: 60, startMs: 0, durationMs: 100 },
-      { midi: 64, startMs: 110, durationMs: 100 },
+  it('staggers a sequence by the onset interval', () => {
+    expect(
+      buildSchedule(sequence([60, 64]), timing).map((n) => n.startMs),
+    ).toEqual([0, 100])
+  })
+
+  it('holds every note of a sequence until the phrase ends, like a pedal', () => {
+    // The first note is still sounding when the second is struck, and both
+    // stop together — that is what makes an arpeggio accumulate into a chord
+    // rather than sound as separate notes.
+    expect(buildSchedule(sequence([60, 64, 67]), timing)).toEqual([
+      { midi: 60, startMs: 0, durationMs: 400 },
+      { midi: 64, startMs: 100, durationMs: 300 },
+      { midi: 67, startMs: 200, durationMs: 200 },
     ])
+  })
+
+  it('ends every note of a phrase at the same instant', () => {
+    const ends = buildSchedule(sequence([60, 64, 67]), timing).map(
+      (n) => n.startMs + n.durationMs,
+    )
+    expect(new Set(ends).size).toBe(1)
+  })
+
+  it('overlaps successive notes rather than leaving silence between them', () => {
+    const [first, second] = buildSchedule(sequence([60, 64]), timing)
+    expect(first.startMs + first.durationMs).toBeGreaterThan(second.startMs)
   })
 
   it('starts every note of a harmonic group at the same instant', () => {
@@ -62,12 +75,19 @@ describe('buildSchedule', () => {
     expect(scheduled.map((n) => n.midi)).toEqual([60, 64, 67])
   })
 
-  it('places the dyad after the sequence in the combined shape', () => {
+  it('rings longer when the phrase ends on a chord than on a single note', () => {
+    expect(buildSchedule(simultaneous([60, 64]), timing)[0].durationMs).toBe(
+      300,
+    )
+    expect(buildSchedule([[60]], timing)[0].durationMs).toBe(200)
+  })
+
+  it('carries the sequence under the closing dyad in the combined shape', () => {
     expect(buildSchedule(sequenceThenSimultaneous([60, 64]), timing)).toEqual([
-      { midi: 60, startMs: 0, durationMs: 100 },
-      { midi: 64, startMs: 110, durationMs: 100 },
-      { midi: 60, startMs: 220, durationMs: 200 },
-      { midi: 64, startMs: 220, durationMs: 200 },
+      { midi: 60, startMs: 0, durationMs: 500 },
+      { midi: 64, startMs: 100, durationMs: 400 },
+      { midi: 60, startMs: 200, durationMs: 300 },
+      { midi: 64, startMs: 200, durationMs: 300 },
     ])
   })
 
@@ -88,11 +108,11 @@ describe('scheduleDurationMs', () => {
     expect(scheduleDurationMs([], timing)).toBe(0)
   })
 
-  it('excludes the trailing gap', () => {
-    expect(scheduleDurationMs([[60]], timing)).toBe(100)
-    expect(scheduleDurationMs(sequence([60, 64]), timing)).toBe(210)
+  it('runs from the first onset to the pedal lifting', () => {
+    expect(scheduleDurationMs([[60]], timing)).toBe(200)
+    expect(scheduleDurationMs(sequence([60, 64]), timing)).toBe(300)
     expect(scheduleDurationMs(sequenceThenSimultaneous([60, 64]), timing)).toBe(
-      420,
+      500,
     )
   })
 
@@ -105,9 +125,14 @@ describe('scheduleDurationMs', () => {
 })
 
 describe('default TIMING', () => {
-  it('gives chords longer than single notes and a short gap', () => {
-    expect(TIMING.chordMs).toBeGreaterThan(TIMING.noteMs)
-    expect(TIMING.gapMs).toBeGreaterThan(0)
-    expect(TIMING.gapMs).toBeLessThan(TIMING.noteMs)
+  it('rings on past each onset, so notes overlap', () => {
+    expect(TIMING.releaseMs).toBeGreaterThan(0)
+    expect(TIMING.chordReleaseMs).toBeGreaterThan(TIMING.releaseMs)
+    expect(TIMING.onsetMs).toBeGreaterThan(0)
+  })
+
+  it('sustains a real sequence into an overlap', () => {
+    const [first, second] = buildSchedule(sequence([60, 64]))
+    expect(first.startMs + first.durationMs).toBeGreaterThan(second.startMs)
   })
 })

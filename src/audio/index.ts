@@ -12,7 +12,6 @@ export {
 export {
   TIMING,
   buildSchedule,
-  groupDurationMs,
   scheduleDurationMs,
   sequence,
   sequenceThenSimultaneous,
