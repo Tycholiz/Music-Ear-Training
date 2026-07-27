@@ -5,6 +5,7 @@ import {
   ExerciseHeader,
   ModalSheet,
   ReplayButton,
+  SilentSwitchHint,
 } from '../components'
 import { ChordMenu } from '../customize'
 import { piano, scheduleDurationMs } from '../audio'
@@ -138,6 +139,7 @@ export default function Chords() {
               }
             />
           </div>
+          <SilentSwitchHint />
           <AnswerGrid
             cells={buildChordCells(settings.chords, wrong, solvedId)}
             onAnswer={handleAnswer}

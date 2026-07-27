@@ -5,6 +5,7 @@ import {
   ExerciseHeader,
   ModalSheet,
   ReplayButton,
+  SilentSwitchHint,
 } from '../components'
 import { IntervalMenu } from '../customize'
 import { piano, scheduleDurationMs } from '../audio'
@@ -137,6 +138,7 @@ export default function Intervals() {
               onClick={() => void piano.play(groupsForQuestion(round.question))}
             />
           </div>
+          <SilentSwitchHint />
           <AnswerGrid
             cells={buildCells(
               settings.intervals,
