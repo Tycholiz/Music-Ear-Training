@@ -6,6 +6,7 @@ import App from '../App'
 import Home from './Home'
 import Intervals from './Intervals'
 import Chords from './Chords'
+import ChordRoot from './ChordRoot'
 import { piano } from '../audio'
 
 function renderAt(path: string) {
@@ -18,6 +19,7 @@ function renderAt(path: string) {
           { index: true, element: <Home /> },
           { path: 'intervals', element: <Intervals /> },
           { path: 'chords', element: <Chords /> },
+          { path: 'chord-root', element: <ChordRoot /> },
         ],
       },
     ],
@@ -45,6 +47,12 @@ describe('routing', () => {
 
   it('renders the interval exercise directly at /intervals', () => {
     renderAt('/intervals')
+    expect(screen.getByLabelText('Score')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Start' })).toBeVisible()
+  })
+
+  it('renders the chord root exercise directly at /chord-root', () => {
+    renderAt('/chord-root')
     expect(screen.getByLabelText('Score')).toBeVisible()
     expect(screen.getByRole('button', { name: 'Start' })).toBeVisible()
   })

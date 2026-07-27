@@ -72,27 +72,47 @@ export const intervalSettingsStore = createStore<IntervalSettings>({
   },
 })
 
+function sanitizeChordSettings(
+  raw: unknown,
+  defaults: ChordSettings,
+): ChordSettings {
+  if (!isRecord(raw)) return defaults
+  return {
+    chords: sanitizeSelection(raw.chords, ALL_CHORD_IDS, defaults.chords),
+    inversions: sanitizeSelection(
+      raw.inversions,
+      ALL_INVERSIONS,
+      defaults.inversions,
+    ),
+    playModes: sanitizeSelection(
+      raw.playModes,
+      CHORD_PLAY_MODES,
+      defaults.playModes,
+    ),
+    range: sanitizeRange(raw.range, defaults.range),
+  }
+}
+
 export const chordSettingsStore = createStore<ChordSettings>({
   key: 'met.settings.chords',
   version: 1,
   defaults: DEFAULT_CHORD_SETTINGS,
-  sanitize(raw, defaults) {
-    if (!isRecord(raw)) return defaults
-    return {
-      chords: sanitizeSelection(raw.chords, ALL_CHORD_IDS, defaults.chords),
-      inversions: sanitizeSelection(
-        raw.inversions,
-        ALL_INVERSIONS,
-        defaults.inversions,
-      ),
-      playModes: sanitizeSelection(
-        raw.playModes,
-        CHORD_PLAY_MODES,
-        defaults.playModes,
-      ),
-      range: sanitizeRange(raw.range, defaults.range),
-    }
-  },
+  sanitize: sanitizeChordSettings,
+})
+
+/**
+ * Chord root recognition keeps its own settings rather than sharing the chord
+ * exercise's.
+ *
+ * The two are practised differently: identifying a root over wide, extended
+ * voicings is reasonable long before identifying the quality of those same
+ * chords is, so one shared selection would have to serve both badly.
+ */
+export const rootSettingsStore = createStore<ChordSettings>({
+  key: 'met.settings.chordRoot',
+  version: 1,
+  defaults: DEFAULT_CHORD_SETTINGS,
+  sanitize: sanitizeChordSettings,
 })
 
 function sanitizeScore(raw: unknown, defaults: Score): Score {
@@ -120,6 +140,13 @@ export const intervalScoreStore = createStore<Score>({
 
 export const chordScoreStore = createStore<Score>({
   key: 'met.score.chords',
+  version: 1,
+  defaults: EMPTY_SCORE,
+  sanitize: sanitizeScore,
+})
+
+export const rootScoreStore = createStore<Score>({
+  key: 'met.score.chordRoot',
   version: 1,
   defaults: EMPTY_SCORE,
   sanitize: sanitizeScore,
