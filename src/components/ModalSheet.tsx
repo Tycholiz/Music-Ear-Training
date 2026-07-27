@@ -106,7 +106,7 @@ export function ModalSheet({
           role="dialog"
           aria-modal="true"
           aria-label={current.title}
-          className={`relative flex h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl bg-page transition-transform duration-300 ease-out ${
+          className={`safe-area-bottom relative flex h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl bg-page transition-transform duration-300 ease-out ${
             raised ? 'translate-y-0' : 'translate-y-full'
           }`}
         >

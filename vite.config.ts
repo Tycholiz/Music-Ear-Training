@@ -46,6 +46,16 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,mp3,webmanifest}'],
         navigateFallback: 'index.html',
         cleanupOutdatedCaches: true,
+        // Take control of the page that registered us, rather than waiting for
+        // the next navigation. Without this the first launch is never
+        // controlled, and on iOS that is the launch that matters: a standalone
+        // PWA gets its own storage partition, so it registers the worker from
+        // scratch the first time it opens and would otherwise have nothing
+        // cached the next time it starts offline.
+        //
+        // This is not skipWaiting: an *update* still waits for the user to
+        // accept it, which is what keeps UpdatePrompt honest.
+        clientsClaim: true,
       },
     }),
   ],
