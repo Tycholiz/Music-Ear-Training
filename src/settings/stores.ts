@@ -6,10 +6,12 @@ import {
   DEFAULT_INTERVAL_SETTINGS,
   DEFAULT_ROOT_SETTINGS,
   EMPTY_SCORE,
+  ROOT_INPUT_MODES,
   INTERVAL_PLAY_MODES,
   type ChordSettings,
   type IntervalSettings,
   type NoteRange,
+  type RootInputMode,
   type Score,
 } from './types'
 import {
@@ -152,4 +154,19 @@ export const rootScoreStore = createStore<Score>({
   version: 1,
   defaults: EMPTY_SCORE,
   sanitize: sanitizeScore,
+})
+
+/**
+ * Kept apart from the rest of the root settings: it is about how the answer is
+ * given rather than what is asked, and widening ChordSettings for it would
+ * push an option onto the chord exercise that has no meaning there.
+ */
+export const rootInputModeStore = createStore<RootInputMode>({
+  key: 'met.settings.chordRootInputMode',
+  version: 1,
+  defaults: 'reveal',
+  sanitize: (raw, defaults) =>
+    ROOT_INPUT_MODES.includes(raw as RootInputMode)
+      ? (raw as RootInputMode)
+      : defaults,
 })

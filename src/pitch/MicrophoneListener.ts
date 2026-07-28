@@ -256,3 +256,6 @@ function classifyError(error: unknown): MicStatus {
     ? 'denied'
     : 'unavailable'
 }
+
+/** Shared instance used by the app, in the same spirit as `piano`. */
+export const microphone = new MicrophoneListener()

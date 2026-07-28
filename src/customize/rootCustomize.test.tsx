@@ -6,10 +6,12 @@ import {
   DEFAULT_CHORD_SETTINGS,
   DEFAULT_ROOT_SETTINGS,
   chordSettingsStore,
+  rootInputModeStore,
   rootSettingsStore,
 } from '../settings'
 import { CHORDS, UNAMBIGUOUS_ROOT_CHORDS } from '../theory'
 import { ChordSettingsMenu } from './ChordSettingsMenu'
+import { InputModeRow } from './InputModeScreen'
 
 /**
  * The chord and chord-root exercises share one Customize tree and differ only
@@ -25,6 +27,7 @@ function openRootMenu() {
         store={rootSettingsStore}
         onResetScore={vi.fn()}
         availableChords={UNAMBIGUOUS_ROOT_CHORDS}
+        extraRows={<InputModeRow />}
       />
     </ModalSheet>,
   )
@@ -45,6 +48,7 @@ beforeEach(() => {
   localStorage.clear()
   rootSettingsStore.reset()
   chordSettingsStore.reset()
+  rootInputModeStore.reset()
 })
 
 describe('the root exercise gets the same four settings', () => {
@@ -223,5 +227,45 @@ describe('the store refuses an ambiguous chord', () => {
     })
 
     expect(rootSettingsStore.read().chords).toEqual(['major'])
+  })
+})
+
+describe('input mode', () => {
+  it('defaults to Reveal, which works without permission', async () => {
+    const { user } = openRootMenu()
+    await goTo(user)
+
+    expect(
+      screen.getByRole('button', { name: /Input Mode/ }),
+    ).toHaveTextContent('Reveal')
+  })
+
+  it('switches to Microphone and remembers it', async () => {
+    const { user } = openRootMenu()
+    await goTo(user, 'Input Mode')
+
+    await user.click(screen.getByRole('checkbox', { name: /Microphone/ }))
+    await waitFor(() => expect(rootInputModeStore.read()).toBe('microphone'))
+  })
+
+  it('pins the active mode, since exactly one has to be on', async () => {
+    const { user } = openRootMenu()
+    await goTo(user, 'Input Mode')
+
+    expect(screen.getByRole('checkbox', { name: /Reveal/ })).toBeDisabled()
+    expect(screen.getByRole('checkbox', { name: /Microphone/ })).toBeEnabled()
+  })
+
+  it('is offered to the root exercise only', async () => {
+    const user = userEvent.setup()
+    render(
+      <ModalSheet open onClose={vi.fn()} title="Menu">
+        <ChordSettingsMenu store={chordSettingsStore} onResetScore={vi.fn()} />
+      </ModalSheet>,
+    )
+    await goTo(user)
+
+    // The chord exercise has no microphone mode to select.
+    expect(screen.queryByRole('button', { name: /Input Mode/ })).toBeNull()
   })
 })

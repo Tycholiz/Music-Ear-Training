@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { ListCard, ListRow, useModalNav } from '../components'
 import {
   usePersisted,
@@ -24,11 +25,17 @@ export function ChordSettingsMenu({
   store,
   onResetScore,
   availableChords = CHORDS,
+  extraRows,
 }: {
   store: PersistedStore<ChordSettings>
   onResetScore: () => void
   /** Narrower for the root exercise, which cannot use ambiguous chords. */
   availableChords?: readonly Chord[]
+  /**
+   * Extra rows for the Customize screen, for settings that belong to one
+   * exercise only — the root exercise's Input Mode, for instance.
+   */
+  extraRows?: ReactNode
 }) {
   const { push } = useModalNav()
 
@@ -46,6 +53,7 @@ export function ChordSettingsMenu({
                 <CustomizeScreen
                   store={store}
                   availableChords={availableChords}
+                  extraRows={extraRows}
                 />
               ),
             })
@@ -59,9 +67,11 @@ export function ChordSettingsMenu({
 function CustomizeScreen({
   store,
   availableChords,
+  extraRows,
 }: {
   store: PersistedStore<ChordSettings>
   availableChords: readonly Chord[]
+  extraRows?: ReactNode
 }) {
   const { push } = useModalNav()
   const [settings] = usePersisted(store)
@@ -115,6 +125,7 @@ function CustomizeScreen({
             })
           }
         />
+        {extraRows}
       </ListCard>
 
       {isChordStuck(settings) && (

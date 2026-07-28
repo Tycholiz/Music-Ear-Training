@@ -102,3 +102,8 @@ export const DEFAULT_ROOT_SETTINGS: ChordSettings = {
     UNAMBIGUOUS_ROOT_CHORD_IDS.includes(id),
   ),
 }
+
+/** How the chord root exercise takes its answer. */
+export const ROOT_INPUT_MODES = ['reveal', 'microphone'] as const
+
+export type RootInputMode = (typeof ROOT_INPUT_MODES)[number]
