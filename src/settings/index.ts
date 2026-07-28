@@ -6,6 +6,7 @@ export {
   DEFAULT_ROOT_SETTINGS,
   EMPTY_SCORE,
   INTERVAL_PLAY_MODES,
+  ROOT_INPUT_MODES,
   recordGuess,
 } from './types'
 export type {
@@ -14,6 +15,7 @@ export type {
   IntervalPlayMode,
   IntervalSettings,
   NoteRange,
+  RootInputMode,
   Score,
 } from './types'
 export { createStore } from './store'
@@ -23,6 +25,7 @@ export {
   chordSettingsStore,
   intervalScoreStore,
   intervalSettingsStore,
+  rootInputModeStore,
   rootScoreStore,
   rootSettingsStore,
 } from './stores'
