@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MicrophoneListener } from './MicrophoneListener'
+import { isRecordingSessionActive, releaseRecordingSession } from '../audio'
 import { midiToFrequency } from '../theory'
 import { TEST_SAMPLE_RATE as SR, noise, silence, tone } from './testTones'
 
@@ -182,6 +183,82 @@ describe('releasing the device', () => {
 
     hum(60, 5)
     expect(heard).toEqual([])
+  })
+})
+
+describe('the audio session', () => {
+  /** Stand in for Safari 16.4+, which exposes navigator.audioSession. */
+  function withAudioSession() {
+    const session = { type: 'auto' }
+    Object.defineProperty(navigator, 'audioSession', {
+      value: session,
+      configurable: true,
+    })
+    return session
+  }
+
+  afterEach(() => {
+    // The claim count lives in the audio module. A test that fails part-way
+    // through would otherwise leave one standing for the next one.
+    while (isRecordingSessionActive()) releaseRecordingSession()
+    delete (navigator as unknown as Record<string, unknown>).audioSession
+  })
+
+  it('declares a recording session before opening the stream', async () => {
+    // Order matters on iOS: the category is settled when capture starts, and
+    // claiming afterwards is claiming too late to choose the output routing.
+    const session = withAudioSession()
+    let typeAtCapture: string | null = null
+    const { mic } = harness({
+      listener: {
+        getUserMedia: async () => {
+          typeAtCapture = session.type
+          return { getTracks: () => [] } as unknown as MediaStream
+        },
+      },
+    })
+
+    await mic.start()
+    expect(typeAtCapture).toBe('play-and-record')
+  })
+
+  it('holds the recording session for as long as it listens', async () => {
+    const session = withAudioSession()
+    const { mic } = harness()
+
+    await mic.start()
+    expect(session.type).toBe('play-and-record')
+  })
+
+  it('hands it back when the microphone is released', async () => {
+    const session = withAudioSession()
+    const { mic } = harness()
+
+    await mic.start()
+    mic.stop()
+    expect(session.type).toBe('playback')
+  })
+
+  it('does not hold one when permission is refused', async () => {
+    // A refusal opens nothing, so it must not leave playback stuck in a
+    // recording category for the rest of the session.
+    const session = withAudioSession()
+    const { mic } = harness({ failWith: 'NotAllowedError' })
+
+    await mic.start()
+    expect(session.type).toBe('playback')
+  })
+
+  it('does not release a session it never claimed', async () => {
+    // stop() before start() must not cancel someone else's claim.
+    const session = withAudioSession()
+    const other = harness()
+    await other.mic.start()
+
+    harness().mic.stop()
+    expect(session.type).toBe('play-and-record')
+
+    other.mic.stop()
   })
 })
 

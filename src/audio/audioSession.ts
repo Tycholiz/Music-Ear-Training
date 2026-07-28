@@ -13,6 +13,24 @@
  * There is no API that reports the switch position, and no way to make older
  * Safari ignore it. So where the API is missing the only honest fallback is to
  * say so — see `SilentSwitchHint`.
+ *
+ * ## The microphone complicates this
+ *
+ * `playback` is a play-only category. The moment `getUserMedia` opens a stream,
+ * iOS has to move to a record-capable category whether we ask it to or not, and
+ * if we have not said which one it picks for itself — historically the one that
+ * sends output to the earpiece at call volume. The chord goes quiet and thin
+ * with no error anywhere, which is the worst kind of bug to be handed.
+ *
+ * So the declared type follows what the app is actually doing: `playback` while
+ * it is only playing, `play-and-record` for as long as anything holds a
+ * recording claim. Claims are counted rather than flagged so that two listeners
+ * cannot have the first one to stop drop the session out from under the second.
+ *
+ * Every path that starts audio calls `configureAudioSession`, which re-asserts
+ * whichever type currently applies. That matters more than it looks: replaying
+ * a chord goes through `Piano.unlock`, and before this it would have reset the
+ * session to `playback` mid-listen on every single replay.
  */
 
 type AudioSessionType =
@@ -38,20 +56,76 @@ export function supportsAudioSession(): boolean {
   return audioSession() !== null
 }
 
-/**
- * Declare our audio as media playback. Safe to call repeatedly, and a no-op
- * anywhere the API doesn't exist.
- */
-export function configureAudioSession(): void {
+/** What we declare while the app is only playing. */
+const PLAYING: AudioSessionType = 'playback'
+
+/** What we have to declare while a microphone is open. */
+const RECORDING: AudioSessionType = 'play-and-record'
+
+/** How many callers currently need the microphone. */
+let recorders = 0
+
+/** The type the app's current activity calls for. */
+function wantedType(): AudioSessionType {
+  return recorders > 0 ? RECORDING : PLAYING
+}
+
+function apply(): void {
   const session = audioSession()
   if (!session) return
 
+  const wanted = wantedType()
+  if (session.type === wanted) return
+
   try {
-    session.type = 'playback'
+    session.type = wanted
   } catch {
     // Setting an unsupported type throws in some Safari builds. Nothing to do
     // about it, and it must not stop audio from starting.
   }
+}
+
+/**
+ * Declare the session that matches what the app is doing right now. Safe to
+ * call repeatedly, and a no-op anywhere the API doesn't exist.
+ *
+ * Call this from anywhere audio is about to start: on iOS the category is
+ * settled at that moment, so a declaration made earlier in the page's life is
+ * not necessarily the one in force.
+ */
+export function configureAudioSession(): void {
+  apply()
+}
+
+/**
+ * Declare that something is about to record, and keep declaring it until the
+ * matching `releaseRecordingSession`.
+ *
+ * Claim *before* calling `getUserMedia`. iOS chooses the category when capture
+ * starts; saying what we want first is the difference between choosing the
+ * routing and being told what it is.
+ */
+export function claimRecordingSession(): void {
+  recorders += 1
+  apply()
+}
+
+/**
+ * Give up a recording claim. Once the last one goes, the app is back to plain
+ * playback — which is also what restores the ringer-switch behaviour.
+ *
+ * Unbalanced calls are ignored rather than driving the count negative: `stop()`
+ * on a listener that never started is a normal thing to happen.
+ */
+export function releaseRecordingSession(): void {
+  if (recorders === 0) return
+  recorders -= 1
+  apply()
+}
+
+/** Whether anything currently holds a recording claim. */
+export function isRecordingSessionActive(): boolean {
+  return recorders > 0
 }
 
 /** iOS is the only platform with a ringer switch to work around. */

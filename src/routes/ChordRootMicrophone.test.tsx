@@ -110,6 +110,38 @@ describe('opening the microphone', () => {
 
     expect(microphone.stop).toHaveBeenCalled()
   })
+
+  it('releases it when the mode changes, without waiting for unmount', async () => {
+    // Switching to Reveal invalidates the round. Leaving the device open past
+    // that keeps the recording indicator lit and holds the audio session in a
+    // recording category, which is what quietens playback on iOS.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    vi.mocked(microphone.stop).mockClear()
+
+    await act(async () => {
+      rootInputModeStore.write('reveal')
+    })
+
+    expect(microphone.stop).toHaveBeenCalled()
+  })
+
+  it('releases it when the settings change', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    vi.mocked(microphone.stop).mockClear()
+
+    await act(async () => {
+      rootSettingsStore.write({
+        ...rootSettingsStore.read(),
+        playModes: ['arpeggiated'],
+      })
+    })
+
+    expect(microphone.stop).toHaveBeenCalled()
+  })
 })
 
 describe('not listening to itself', () => {

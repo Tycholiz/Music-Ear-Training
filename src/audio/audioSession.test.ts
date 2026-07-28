@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  claimRecordingSession,
   configureAudioSession,
   isIos,
+  isRecordingSessionActive,
+  releaseRecordingSession,
   ringerSwitchMayMute,
   supportsAudioSession,
 } from './audioSession'
@@ -27,6 +30,10 @@ function withUserAgent(ua: string, platform = 'iPhone', touchPoints = 5) {
 }
 
 afterEach(() => {
+  // The claim count lives in the module, so a test that leaves one standing
+  // would hand it to the next test.
+  while (isRecordingSessionActive()) releaseRecordingSession()
+
   for (const key of [
     'audioSession',
     'userAgent',
@@ -83,6 +90,70 @@ describe('configureAudioSession', () => {
     configureAudioSession()
     configureAudioSession()
     expect(session.type).toBe('playback')
+  })
+})
+
+describe('recording claims', () => {
+  it('moves to a record-capable session that keeps playing', () => {
+    const session = { type: 'auto' }
+    withAudioSession(session)
+
+    claimRecordingSession()
+    expect(session.type).toBe('play-and-record')
+  })
+
+  it('returns to playback once the claim is released', () => {
+    // This is what puts the app back under the media channel, and so back to
+    // ignoring the ringer switch.
+    const session = { type: 'auto' }
+    withAudioSession(session)
+
+    claimRecordingSession()
+    releaseRecordingSession()
+    expect(session.type).toBe('playback')
+  })
+
+  it('holds the recording session until the last claim goes', () => {
+    const session = { type: 'auto' }
+    withAudioSession(session)
+
+    claimRecordingSession()
+    claimRecordingSession()
+    releaseRecordingSession()
+    expect(session.type).toBe('play-and-record')
+
+    releaseRecordingSession()
+    expect(session.type).toBe('playback')
+  })
+
+  it('ignores a release with nothing to release', () => {
+    // stop() on a listener that never started is ordinary, and must not leave
+    // the count negative and the next claim unable to take effect.
+    const session = { type: 'auto' }
+    withAudioSession(session)
+
+    releaseRecordingSession()
+    claimRecordingSession()
+    expect(session.type).toBe('play-and-record')
+  })
+
+  it('does not let a replay reset the session mid-listen', () => {
+    // Piano.unlock configures the session on every play. Before the claim
+    // existed, replaying the chord while listening dropped the microphone's
+    // session on the floor.
+    const session = { type: 'auto' }
+    withAudioSession(session)
+
+    claimRecordingSession()
+    configureAudioSession()
+    expect(session.type).toBe('play-and-record')
+  })
+
+  it('is a no-op where the API is absent', () => {
+    expect(() => {
+      claimRecordingSession()
+      releaseRecordingSession()
+    }).not.toThrow()
   })
 })
 

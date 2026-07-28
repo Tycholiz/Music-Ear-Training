@@ -19,8 +19,11 @@ export {
 } from './schedule'
 export type { NoteGroup, ScheduledNote, Timing } from './schedule'
 export {
+  claimRecordingSession,
   configureAudioSession,
   isIos,
+  isRecordingSessionActive,
+  releaseRecordingSession,
   ringerSwitchMayMute,
   supportsAudioSession,
 } from './audioSession'

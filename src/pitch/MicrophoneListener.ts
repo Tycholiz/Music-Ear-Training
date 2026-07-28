@@ -1,3 +1,4 @@
+import { claimRecordingSession, releaseRecordingSession } from '../audio'
 import { nearestMidi } from '../theory'
 import { detectPitch } from './detectPitch'
 
@@ -71,6 +72,8 @@ export class MicrophoneListener {
   // the SharedArrayBuffer that a bare Float32Array also allows.
   private buffer: Float32Array<ArrayBuffer> = new Float32Array(0)
   private starting: Promise<void> | null = null
+  /** Whether we hold a recording claim on the audio session — see `open`. */
+  private claimedSession = false
 
   /** Recent detections, used to decide when a note has settled. */
   private run: number[] = []
@@ -154,6 +157,13 @@ export class MicrophoneListener {
       return
     }
 
+    // Claim the recording session before asking for the stream, not after. iOS
+    // settles the audio category the moment capture starts, and if we have not
+    // said we intend to keep playing it may route output to the earpiece for
+    // the rest of the session.
+    claimRecordingSession()
+    this.claimedSession = true
+
     let stream: MediaStream
     try {
       stream = await this.getUserMedia({
@@ -166,6 +176,9 @@ export class MicrophoneListener {
         },
       })
     } catch (error) {
+      // Nothing was opened, so nothing should stay claimed — a refusal must
+      // not leave playback stuck in a recording category.
+      this.releaseSession()
       this.setStatus(classifyError(error))
       return
     }
@@ -203,6 +216,10 @@ export class MicrophoneListener {
 
     void this.ctx?.close()
 
+    // Hand the session back only once the device is genuinely released, so
+    // playback returns to the media channel and the ringer switch behaves again.
+    this.releaseSession()
+
     this.source = null
     this.analyser = null
     this.stream = null
@@ -210,6 +227,13 @@ export class MicrophoneListener {
     this.run = []
     this.sounding = null
     this.setStatus('idle')
+  }
+
+  /** Release our claim, if we have one. Idempotent, unlike the claim itself. */
+  private releaseSession(): void {
+    if (!this.claimedSession) return
+    this.claimedSession = false
+    releaseRecordingSession()
   }
 
   // --- analysis ------------------------------------------------------------
