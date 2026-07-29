@@ -55,15 +55,15 @@ describe('the menu', () => {
   })
 })
 
-describe('choosing a scale', () => {
+describe('choosing scales', () => {
   it('lists the ladder easiest first, not alphabetically', async () => {
     // The order is the guidance: a user working down the list is following a
     // sensible progression without being told one.
     const { user } = openMenu()
-    await openScreen(user, 'Scale')
+    await openScreen(user, 'Scales')
 
     const names = screen
-      .getAllByRole('radio')
+      .getAllByRole('checkbox')
       .map((row) => row.textContent ?? '')
     expect(names[0]).toContain('Major Pentatonic')
     expect(names[1]).toContain('Minor Pentatonic')
@@ -72,10 +72,10 @@ describe('choosing a scale', () => {
 
   it('shows the degrees of each scale', async () => {
     const { user } = openMenu()
-    await openScreen(user, 'Scale')
+    await openScreen(user, 'Scales')
 
     const major = screen
-      .getAllByRole('radio')
+      .getAllByRole('checkbox')
       .find(
         (row) =>
           row.textContent?.startsWith('Major') &&
@@ -84,25 +84,69 @@ describe('choosing a scale', () => {
     expect(major?.textContent).toContain('1 2 3 4 5 6 7')
   })
 
-  it('marks exactly one as chosen', async () => {
+  it('takes more than one at a time', async () => {
+    // Practising major against natural minor is a different and harder
+    // exercise than practising either alone.
     const { user } = openMenu()
-    await openScreen(user, 'Scale')
-
-    const chosen = screen
-      .getAllByRole('radio')
-      .filter((row) => row.getAttribute('aria-checked') === 'true')
-    expect(chosen).toHaveLength(1)
-    expect(chosen[0].textContent).toContain('Major Pentatonic')
-  })
-
-  it('persists the choice', async () => {
-    const { user } = openMenu()
-    await openScreen(user, 'Scale')
-    await user.click(screen.getByRole('radio', { name: /Blues/ }))
+    await openScreen(user, 'Scales')
+    await user.click(
+      screen.getByRole('checkbox', { name: /^Major1 2 3 4 5 6 7$/ }),
+    )
 
     await waitFor(() =>
-      expect(melodySettingsStore.read().scaleId).toBe('blues'),
+      expect(melodySettingsStore.read().scaleIds).toEqual([
+        'major-pentatonic',
+        'major',
+      ]),
     )
+  })
+
+  it('keeps them in ladder order however they were picked', async () => {
+    melodySettingsStore.write(settingsWith({ scaleIds: ['chromatic'] }))
+    const { user } = openMenu()
+    await openScreen(user, 'Scales')
+    await user.click(screen.getByRole('checkbox', { name: /Major Pentatonic/ }))
+
+    await waitFor(() =>
+      expect(melodySettingsStore.read().scaleIds).toEqual([
+        'major-pentatonic',
+        'chromatic',
+      ]),
+    )
+  })
+
+  it('lets one be taken away again', async () => {
+    melodySettingsStore.write(
+      settingsWith({ scaleIds: ['major-pentatonic', 'blues'] }),
+    )
+    const { user } = openMenu()
+    await openScreen(user, 'Scales')
+    await user.click(screen.getByRole('checkbox', { name: /Blues/ }))
+
+    await waitFor(() =>
+      expect(melodySettingsStore.read().scaleIds).toEqual(['major-pentatonic']),
+    )
+  })
+
+  it('will not let the last one go', async () => {
+    // Nothing selected can generate nothing; stopping it here means the
+    // exercise never has to explain it.
+    const { user } = openMenu()
+    await openScreen(user, 'Scales')
+
+    expect(
+      screen.getByRole('checkbox', { name: /Major Pentatonic/ }),
+    ).toBeDisabled()
+  })
+
+  it('summarises a single scale by name and several by count', async () => {
+    melodySettingsStore.write(
+      settingsWith({ scaleIds: ['major', 'blues', 'dorian'] }),
+    )
+    const { user } = openMenu()
+    await user.click(screen.getByRole('button', { name: /Customize Exercise/ }))
+
+    expect(screen.getByText('3 selected')).toBeVisible()
   })
 })
 
@@ -120,7 +164,7 @@ describe('featured degrees', () => {
   })
 
   it('follows the scale when it changes', async () => {
-    melodySettingsStore.write(settingsWith({ scaleId: 'major' }))
+    melodySettingsStore.write(settingsWith({ scaleIds: ['major'] }))
     const { user } = openMenu()
     await openScreen(user, 'Featured Degrees')
 
@@ -128,6 +172,19 @@ describe('featured degrees', () => {
       .getAllByRole('checkbox')
       .map((row) => row.textContent?.trim())
     expect(labels).toEqual(['1', '2', '3', '4', '5', '6', '7'])
+  })
+
+  it('offers only what every selected scale agrees on', async () => {
+    // Major and blues share 1, 4 and 5 and nothing else. A degree only one of
+    // them has could not be guaranteed to appear.
+    melodySettingsStore.write(settingsWith({ scaleIds: ['major', 'blues'] }))
+    const { user } = openMenu()
+    await openScreen(user, 'Featured Degrees')
+
+    const labels = screen
+      .getAllByRole('checkbox')
+      .map((row) => row.textContent?.trim())
+    expect(labels).toEqual(['1', '4', '5'])
   })
 
   it('records what was featured', async () => {
@@ -142,7 +199,7 @@ describe('featured degrees', () => {
 
   it('warns when more degrees are featured than the melody has notes', async () => {
     melodySettingsStore.write(
-      settingsWith({ scaleId: 'major', featured: [0, 2, 4, 5], length: 3 }),
+      settingsWith({ scaleIds: ['major'], featured: [0, 2, 4, 5], length: 3 }),
     )
     const { user } = openMenu()
     await openScreen(user, 'Featured Degrees')
@@ -152,41 +209,59 @@ describe('featured degrees', () => {
 })
 
 describe('reconciling a scale change', () => {
-  it('drops a featured degree the new scale does not have', async () => {
-    // b7 is in Mixolydian and not in Major. Left in place it would stop any
-    // melody generating at all, so choosing the scale has to clear it.
+  it('drops a featured degree the new selection cannot promise', async () => {
+    // b7 is in Mixolydian and not in Major. Once both are selected a question
+    // could pick the one without it, so it stops being guaranteed.
     melodySettingsStore.write(
-      settingsWith({ scaleId: 'mixolydian', featured: [10] }),
+      settingsWith({ scaleIds: ['mixolydian'], featured: [10] }),
     )
 
     const { user } = openMenu()
-    await openScreen(user, 'Scale')
+    await openScreen(user, 'Scales')
     await user.click(
-      screen.getByRole('radio', { name: /^Major1 2 3 4 5 6 7$/ }),
+      screen.getByRole('checkbox', { name: /^Major1 2 3 4 5 6 7$/ }),
     )
 
     await waitFor(() => {
       const settings = melodySettingsStore.read()
-      expect(settings.scaleId).toBe('major')
+      expect(settings.scaleIds).toEqual(['major', 'mixolydian'])
       expect(settings.featured).toEqual([])
     })
   })
 
-  it('keeps a featured degree the new scale still has', async () => {
+  it('keeps a featured degree both scales still have', async () => {
     melodySettingsStore.write(
-      settingsWith({ scaleId: 'mixolydian', featured: [5, 10] }),
+      settingsWith({ scaleIds: ['mixolydian'], featured: [5, 10] }),
     )
 
     const { user } = openMenu()
-    await openScreen(user, 'Scale')
+    await openScreen(user, 'Scales')
     await user.click(
-      screen.getByRole('radio', { name: /^Major1 2 3 4 5 6 7$/ }),
+      screen.getByRole('checkbox', { name: /^Major1 2 3 4 5 6 7$/ }),
     )
 
-    // The 4 survives; only the b7 goes.
+    // The 4 is in both; only the b7 goes.
     await waitFor(() =>
       expect(melodySettingsStore.read().featured).toEqual([5]),
     )
+  })
+
+  it('keeps everything when the selection only narrows to a superset', async () => {
+    melodySettingsStore.write(
+      settingsWith({ scaleIds: ['major', 'mixolydian'], featured: [5] }),
+    )
+
+    const { user } = openMenu()
+    await openScreen(user, 'Scales')
+    await user.click(
+      screen.getByRole('checkbox', { name: /^Mixolydian1 2 3 4 5 6 b7$/ }),
+    )
+
+    await waitFor(() => {
+      const settings = melodySettingsStore.read()
+      expect(settings.scaleIds).toEqual(['major'])
+      expect(settings.featured).toEqual([5])
+    })
   })
 })
 
@@ -252,7 +327,7 @@ describe('warnings', () => {
 
   it('flags too many featured degrees in the modal', async () => {
     melodySettingsStore.write(
-      settingsWith({ scaleId: 'major', featured: [0, 2, 4, 5], length: 3 }),
+      settingsWith({ scaleIds: ['major'], featured: [0, 2, 4, 5], length: 3 }),
     )
     const { user } = openMenu()
     await user.click(screen.getByRole('button', { name: /Customize Exercise/ }))

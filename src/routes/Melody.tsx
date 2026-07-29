@@ -9,7 +9,12 @@ import {
 } from '../components'
 import { MelodySettingsMenu } from '../customize'
 import { buildMelodySchedule, piano } from '../audio'
-import { degreeLabel, scaleById, type Degree } from '../theory'
+import {
+  combinedDegrees,
+  degreeLabel,
+  degreePitch,
+  type Degree,
+} from '../theory'
 import {
   melodyScoreStore,
   melodySettingsStore,
@@ -21,6 +26,7 @@ import {
   checkMelody,
   generateMelodyQuestion,
   phraseForMelodyQuestion,
+  selectedScales,
   type MelodyQuestion,
 } from '../exercises'
 
@@ -84,7 +90,16 @@ export default function Melody() {
   const replayRef = useRef<HTMLButtonElement>(null)
 
   const playable = canGenerateMelody(settings)
-  const scaleDegrees = playable ? scaleById(settings.scaleId).degrees : []
+
+  /**
+   * Every degree any selected scale can produce.
+   *
+   * The union rather than the chosen scale's own degrees, because the user is
+   * not told which scale this melody came from — offering only its degrees
+   * would answer that for them, and narrowing the pad mid-exercise would
+   * announce a change of scale before a note had sounded.
+   */
+  const scaleDegrees = combinedDegrees(selectedScales(settings))
 
   const playMelody = useCallback((question: MelodyQuestion) => {
     void piano.playSchedule(
@@ -150,6 +165,12 @@ export default function Melody() {
    */
   const enter = (degree: Degree) => {
     if (!round || phase !== 'entering') return
+
+    // Sound what was pressed. Choosing a degree by name and never hearing it
+    // makes this a guessing game with a keypad; hearing it turns a wrong
+    // answer into information — that was a 6, and the melody was not that.
+    void piano.play([[degreePitch(round.question.tonic, degree)]])
+
     setEntered((current) =>
       current.length >= round.question.degrees.length
         ? current

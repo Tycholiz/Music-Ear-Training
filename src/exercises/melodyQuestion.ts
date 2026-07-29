@@ -3,6 +3,7 @@ import {
   DEGREES_PER_OCTAVE,
   degreePitch,
   scaleById,
+  sharedDegrees,
   tonicChord,
   type Degree,
   type Scale,
@@ -36,6 +37,18 @@ import type { Random } from './intervalQuestion'
  * So the generator prefers steps, resolves leaps by turning back, and likes to
  * end at rest. None of that is decoration; a phrase that behaves like music is
  * a phrase the ear can follow, which is the thing being trained.
+ *
+ * ## Several scales at once
+ *
+ * Each question picks one of the selected scales. That is a harder exercise
+ * than any one of them alone and a different one: the ear has to place the
+ * degree *and* work out which scale it is placing it in, which is what
+ * listening to real music actually asks.
+ *
+ * A featured degree must therefore be common to every selected scale. One that
+ * only some of them contain could not be guaranteed — the question that picked
+ * a scale without it would have to break the promise — and a guarantee that
+ * sometimes holds is exactly what featuring exists to replace.
  *
  * ## Where melodies start
  *
@@ -131,8 +144,8 @@ function tonicWindow(settings: MelodySettings): { low: number; high: number } {
  * degree the chosen scale does not contain.
  */
 export function canGenerateMelody(settings: MelodySettings): boolean {
-  const scale = findScale(settings.scaleId)
-  if (!scale) return false
+  const scales = selectedScales(settings)
+  if (scales.length === 0) return false
   if (settings.length < 1) return false
 
   const window = tonicWindow(settings)
@@ -140,17 +153,28 @@ export function canGenerateMelody(settings: MelodySettings): boolean {
 
   const featured = uniqueFeatured(settings)
   if (featured.length > settings.length) return false
-  return featured.every((degree) => scale.degrees.includes(degree))
+
+  // Every selected scale has to be able to deliver every featured degree,
+  // since any of them may be the one a question picks.
+  const shared = sharedDegrees(scales)
+  return featured.every((degree) => shared.includes(degree))
 }
 
-function findScale(id: string): Scale | null {
-  try {
-    return scaleById(id)
-  } catch {
-    // An id from a stale persisted setting. Not exceptional enough to throw
-    // from a predicate whose whole job is answering "will this work?".
-    return null
-  }
+/**
+ * The scales a question may be drawn from.
+ *
+ * Unknown ids are dropped rather than thrown on: they come from stale
+ * persisted settings, and a predicate whose job is answering "will this work?"
+ * should answer it.
+ */
+export function selectedScales(settings: MelodySettings): Scale[] {
+  return settings.scaleIds.flatMap((id) => {
+    try {
+      return [scaleById(id)]
+    } catch {
+      return []
+    }
+  })
 }
 
 function uniqueFeatured(settings: MelodySettings): Degree[] {
@@ -194,7 +218,7 @@ export function generateMelodyQuestion(
     )
   }
 
-  const scale = scaleById(settings.scaleId)
+  const scale = pick(selectedScales(settings), random)
   const featured = uniqueFeatured(settings)
   const window = tonicWindow(settings)
   const tonic =

@@ -64,6 +64,7 @@ export {
   checkMelody,
   generateMelodyQuestion,
   phraseForMelodyQuestion,
+  selectedScales,
 } from './melodyQuestion'
 export type { MelodyQuestion, MelodyResult } from './melodyQuestion'
 export {

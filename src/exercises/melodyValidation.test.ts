@@ -62,7 +62,7 @@ describe('featuredWarning', () => {
   it('says nothing when everything featured can fit', () => {
     expect(
       featuredWarning(
-        settingsWith({ scaleId: 'major', featured: [0, 4], length: 5 }),
+        settingsWith({ scaleIds: ['major'], featured: [0, 4], length: 5 }),
       ),
     ).toBeNull()
   })
@@ -74,14 +74,14 @@ describe('featuredWarning', () => {
   it('allows exactly as many featured degrees as there are notes', () => {
     expect(
       featuredWarning(
-        settingsWith({ scaleId: 'major', featured: [0, 4, 7], length: 3 }),
+        settingsWith({ scaleIds: ['major'], featured: [0, 4, 7], length: 3 }),
       ),
     ).toBeNull()
   })
 
   it('names the degrees that cannot all fit', () => {
     const warning = featuredWarning(
-      settingsWith({ scaleId: 'major', featured: [0, 4, 7, 11], length: 3 }),
+      settingsWith({ scaleIds: ['major'], featured: [0, 4, 7, 11], length: 3 }),
     )
     expect(warning).toMatch(/1, 3, 5, 7/)
     expect(warning).toMatch(/3 notes long/)
@@ -90,7 +90,7 @@ describe('featuredWarning', () => {
   it('counts a degree listed twice only once', () => {
     expect(
       featuredWarning(
-        settingsWith({ scaleId: 'major', featured: [4, 4], length: 1 }),
+        settingsWith({ scaleIds: ['major'], featured: [4, 4], length: 1 }),
       ),
     ).toBeNull()
   })
@@ -110,7 +110,11 @@ describe('melodyStuckReason', () => {
   it('blames the featured degrees when they are the problem', () => {
     expect(
       melodyStuckReason(
-        settingsWith({ scaleId: 'major', featured: [0, 4, 7, 11], length: 3 }),
+        settingsWith({
+          scaleIds: ['major'],
+          featured: [0, 4, 7, 11],
+          length: 3,
+        }),
       ),
     ).toMatch(/cannot all appear/)
   })
@@ -120,16 +124,16 @@ describe('melodyStuckReason', () => {
     // the store drops them on read. A hand-edited blob can still get here, and
     // saying so beats a blank exercise screen.
     expect(
-      melodyStuckReason(settingsWith({ scaleId: 'major', featured: [10] })),
+      melodyStuckReason(settingsWith({ scaleIds: ['major'], featured: [10] })),
     ).toMatch(/b7 cannot be featured: Major does not contain it/)
   })
 
   it('gives a reason for every way of being stuck', () => {
     const stuck = [
       settingsWith({ range: { low: 60, high: 64 } }),
-      settingsWith({ scaleId: 'major', featured: [0, 2, 4, 5], length: 3 }),
-      settingsWith({ scaleId: 'major', featured: [10] }),
-      settingsWith({ scaleId: 'nonesuch' }),
+      settingsWith({ scaleIds: ['major'], featured: [0, 2, 4, 5], length: 3 }),
+      settingsWith({ scaleIds: ['major'], featured: [10] }),
+      settingsWith({ scaleIds: ['nonesuch'] }),
     ]
 
     for (const settings of stuck) {

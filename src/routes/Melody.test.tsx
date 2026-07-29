@@ -384,6 +384,55 @@ describe('advancing', () => {
   })
 })
 
+describe('hearing what was pressed', () => {
+  it('sounds the degree that was entered', async () => {
+    // Choosing a degree by name and never hearing it makes this a guessing
+    // game with a keypad. Hearing it turns a wrong answer into information.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    vi.mocked(piano.play).mockClear()
+
+    await tap(user, '1')
+    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[60]])
+  })
+
+  it('sounds it at the pitch it has against this melody\u2019s tonic', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    vi.mocked(piano.play).mockClear()
+
+    // The 5 above a tonic of C4 is G4.
+    await tap(user, '5')
+    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[67]])
+  })
+
+  it('sounds a wrong degree too, which is the point', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    vi.mocked(piano.play).mockClear()
+
+    // 6 is wrong in first place, and the user should still hear what they
+    // picked so they can tell it against what they remember.
+    await tap(user, '6')
+    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[69]])
+  })
+
+  it('says nothing once the pad is closed', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    await tap(user, '1', '5', '6', '5')
+    vi.mocked(piano.play).mockClear()
+
+    // Every degree button is disabled at this point; nothing can sound.
+    expect(screen.getByRole('button', { name: '1' })).toBeDisabled()
+    expect(piano.play).not.toHaveBeenCalled()
+  })
+})
+
 describe('the tonic reference', () => {
   it('can be re-heard at any point in the question', async () => {
     const user = userEvent.setup()
@@ -392,12 +441,13 @@ describe('the tonic reference', () => {
     vi.mocked(piano.play).mockClear()
 
     await user.click(screen.getByRole('button', { name: 'Play the tonic' }))
-    expect(piano.play).toHaveBeenCalledWith([[60]])
+    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[60]])
 
     // Still there part-way through an answer.
     await tap(user, '1', '5')
+    vi.mocked(piano.play).mockClear()
     await user.click(screen.getByRole('button', { name: 'Play the tonic' }))
-    expect(piano.play).toHaveBeenCalledTimes(2)
+    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[60]])
   })
 })
 

@@ -1,11 +1,11 @@
-import { DEGREES_PER_OCTAVE, degreeLabel, scaleById } from '../theory'
+import { DEGREES_PER_OCTAVE, degreeLabel, sharedDegrees } from '../theory'
 import {
   MAX_MELODY_LENGTH,
   MIN_MELODY_LENGTH,
   type MelodyBacking,
   type MelodySettings,
 } from '../settings'
-import { canGenerateMelody } from './melodyQuestion'
+import { canGenerateMelody, selectedScales } from './melodyQuestion'
 
 /**
  * Live validation for the melody Customize screens.
@@ -72,6 +72,7 @@ export function melodyStuckReason(settings: MelodySettings): string | null {
   if (canGenerateMelody(settings)) return null
 
   return (
+    noScaleWarning(settings) ??
     melodyRangeWarning(settings) ??
     featuredWarning(settings) ??
     outsideScaleWarning(settings) ??
@@ -79,33 +80,34 @@ export function melodyStuckReason(settings: MelodySettings): string | null {
   )
 }
 
+function noScaleWarning(settings: MelodySettings): string | null {
+  return selectedScales(settings).length === 0
+    ? 'No scale is selected, so there is nothing to draw a melody from.'
+    : null
+}
+
 /**
- * A featured degree the scale does not contain.
+ * A featured degree that not every selected scale contains.
  *
- * Choosing the scale reconciles this, and the store drops it on read, so this
- * should be unreachable through the UI — it is here for a hand-edited or
+ * Changing the scales reconciles this, and the store drops strays on read, so
+ * it should be unreachable through the UI — it is here for a hand-edited or
  * downgraded blob, where saying so beats a blank exercise.
  */
 function outsideScaleWarning(settings: MelodySettings): string | null {
-  const scale = findScale(settings.scaleId)
-  if (!scale) return null
+  const scales = selectedScales(settings)
+  if (scales.length === 0) return null
 
+  const shared = sharedDegrees(scales)
   const stray = [...new Set(settings.featured)].filter(
-    (degree) => !scale.degrees.includes(degree),
+    (degree) => !shared.includes(degree),
   )
   if (stray.length === 0) return null
 
-  return `${stray.map(degreeLabel).join(', ')} cannot be featured: ${
-    scale.name
-  } does not contain ${stray.length === 1 ? 'it' : 'them'}.`
-}
-
-function findScale(id: string) {
-  try {
-    return scaleById(id)
-  } catch {
-    return null
-  }
+  const names = stray.map(degreeLabel).join(', ')
+  const has = stray.length === 1 ? 'it' : 'them'
+  return scales.length === 1
+    ? `${names} cannot be featured: ${scales[0].name} does not contain ${has}.`
+    : `${names} cannot be featured: not every selected scale contains ${has}.`
 }
 
 /** Nothing at all can be generated; the exercise itself is stuck. */

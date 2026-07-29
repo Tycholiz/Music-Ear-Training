@@ -59,14 +59,26 @@ export const MAX_MELODY_LENGTH = 8
 export type MelodyBacking = (typeof MELODY_BACKINGS)[number]
 
 export interface MelodySettings {
-  /** Which scale melodies are drawn from. The difficulty ladder. */
-  scaleId: string
+  /**
+   * Which scales melodies may be drawn from. Each question picks one.
+   *
+   * More than one at a time because a scale is not only a difficulty setting,
+   * it is a sound — practising major against natural minor is a different and
+   * harder exercise than practising either alone, and the ear that has to
+   * decide which it is hearing is the one worth training.
+   */
+  scaleIds: string[]
   /**
    * Degrees guaranteed to appear in every melody. Empty means no requirement.
    *
    * Permitting a degree is not the same as featuring it: a six-note melody
    * from the major scale will often contain no 7 at all. This is what turns a
    * note pool into a drill on a particular degree.
+   *
+   * With several scales selected these are the degrees common to all of them.
+   * A degree only some of them contain could not be guaranteed, and a
+   * guarantee that sometimes holds is the thing this setting exists to
+   * replace.
    */
   featured: number[]
   /** How many notes to transcribe. */
@@ -118,7 +130,7 @@ export const DEFAULT_CHORD_SETTINGS: ChordSettings = {
  * something to start on.
  */
 export const DEFAULT_MELODY_SETTINGS: MelodySettings = {
-  scaleId: 'major-pentatonic',
+  scaleIds: ['major-pentatonic'],
   featured: [],
   length: 5,
   backing: 'chord',

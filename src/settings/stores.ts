@@ -4,6 +4,7 @@ import {
   SCALES,
   UNAMBIGUOUS_ROOT_CHORD_IDS,
   scaleById,
+  sharedDegrees,
 } from '../theory'
 import { HIGHEST_NOTE, LOWEST_NOTE } from '../audio'
 import {
@@ -43,6 +44,11 @@ const ALL_INTERVALS = INTERVALS.map((interval) => interval.semitones)
 const ALL_CHORD_IDS = CHORDS.map((chord) => chord.id)
 
 const ALL_SCALE_IDS = SCALES.map((scale) => scale.id)
+
+/** Only degrees every selected scale has can be guaranteed to appear. */
+function featurable(scaleIds: readonly string[]): number[] {
+  return sharedDegrees(scaleIds.map(scaleById))
+}
 
 /** Root through 3rd inversion. */
 const ALL_INVERSIONS = [0, 1, 2, 3]
@@ -134,27 +140,33 @@ export const rootSettingsStore = createStore<ChordSettings>({
 /**
  * Melody dictation.
  *
- * `featured` is sanitised against the *chosen* scale rather than against all
- * twelve degrees, so a b7 featured under the major scale cannot survive a
+ * `featured` is sanitised against the *selected* scales rather than against
+ * all twelve degrees, so a b7 featured under the major scale cannot survive a
  * reload even if the scale was changed underneath it. Nothing featured is a
  * legal state — it means no degree is required — so unlike the selection
  * stores an empty result is kept rather than replaced with the defaults.
+ *
+ * Version 2: `scaleId` became `scaleIds`. The old value is a string where a
+ * list is expected, so the bump drops it and the user starts from the
+ * defaults rather than from a shape nothing understands.
  */
 export const melodySettingsStore = createStore<MelodySettings>({
   key: 'met.settings.melody',
-  version: 1,
+  version: 2,
   defaults: DEFAULT_MELODY_SETTINGS,
   sanitize(raw, defaults) {
     if (!isRecord(raw)) return defaults
 
-    const scaleId = ALL_SCALE_IDS.includes(raw.scaleId as string)
-      ? (raw.scaleId as string)
-      : defaults.scaleId
+    const scaleIds = sanitizeSelection(
+      raw.scaleIds,
+      ALL_SCALE_IDS,
+      defaults.scaleIds,
+    )
 
     return {
-      scaleId,
+      scaleIds,
       featured: Array.isArray(raw.featured)
-        ? scaleById(scaleId).degrees.filter((degree) =>
+        ? featurable(scaleIds).filter((degree) =>
             (raw.featured as unknown[]).includes(degree),
           )
         : [...defaults.featured],

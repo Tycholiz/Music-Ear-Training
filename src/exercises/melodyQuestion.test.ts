@@ -50,7 +50,7 @@ describe('canGenerateMelody', () => {
 
   it('rejects a melody too short to fit everything it must feature', () => {
     const settings = settingsWith({
-      scaleId: 'major',
+      scaleIds: ['major'],
       featured: [4, 5, 11],
       length: 2,
     })
@@ -61,23 +61,25 @@ describe('canGenerateMelody', () => {
   it('rejects a featured degree the scale does not contain', () => {
     // A b7 cannot be featured in a major scale; it is not in it.
     expect(
-      canGenerateMelody(settingsWith({ scaleId: 'major', featured: [10] })),
+      canGenerateMelody(settingsWith({ scaleIds: ['major'], featured: [10] })),
     ).toBe(false)
     expect(
       canGenerateMelody(
-        settingsWith({ scaleId: 'mixolydian', featured: [10] }),
+        settingsWith({ scaleIds: ['mixolydian'], featured: [10] }),
       ),
     ).toBe(true)
   })
 
   it('rejects a length below one, and an unknown scale', () => {
     expect(canGenerateMelody(settingsWith({ length: 0 }))).toBe(false)
-    expect(canGenerateMelody(settingsWith({ scaleId: 'nonesuch' }))).toBe(false)
+    expect(canGenerateMelody(settingsWith({ scaleIds: ['nonesuch'] }))).toBe(
+      false,
+    )
   })
 
   it('reports rather than throwing, so a stale setting cannot crash a screen', () => {
     expect(() =>
-      canGenerateMelody(settingsWith({ scaleId: 'gone' })),
+      canGenerateMelody(settingsWith({ scaleIds: ['gone'] })),
     ).not.toThrow()
   })
 })
@@ -86,7 +88,7 @@ describe('generateMelodyQuestion', () => {
   it('refuses to generate what it cannot, instead of looping', () => {
     expect(() =>
       generateMelodyQuestion(
-        settingsWith({ scaleId: 'major', featured: [10] }),
+        settingsWith({ scaleIds: ['major'], featured: [10] }),
       ),
     ).toThrow(/No melody can be generated/)
   })
@@ -111,7 +113,7 @@ describe('generateMelodyQuestion', () => {
   it('only uses degrees from the chosen scale', () => {
     for (const id of ['major-pentatonic', 'major', 'blues', 'harmonic-minor']) {
       const scale = scaleById(id)
-      for (const question of sample(settingsWith({ scaleId: id }), 40)) {
+      for (const question of sample(settingsWith({ scaleIds: [id] }), 40)) {
         for (const degree of question.degrees) {
           expect(scale.degrees, `${id} played ${degree}`).toContain(degree)
         }
@@ -147,6 +149,79 @@ describe('generateMelodyQuestion', () => {
   it('moves the tonic around rather than always asking in the same key', () => {
     const tonics = new Set(sample(settingsWith(), 100).map((q) => q.tonic))
     expect(tonics.size).toBeGreaterThan(3)
+  })
+})
+
+describe('several scales at once', () => {
+  it('draws from each of them over many questions', async () => {
+    const settings = settingsWith({ scaleIds: ['major', 'blues'] })
+    const used = new Set(sample(settings, 200).map((q) => q.scaleId))
+    expect(used).toEqual(new Set(['major', 'blues']))
+  })
+
+  it('keeps each melody inside the one scale it picked', () => {
+    // A melody that wandered between scales would belong to neither, and the
+    // degree the user is asked to place would have no context to place it in.
+    for (const question of sample(
+      settingsWith({ scaleIds: ['major', 'blues'], length: 8 }),
+      200,
+    )) {
+      const scale = scaleById(question.scaleId)
+      for (const degree of question.degrees) {
+        expect(scale.degrees, `${question.scaleId} played ${degree}`).toContain(
+          degree,
+        )
+      }
+    }
+  })
+
+  it('backs each melody with the chord of the scale it picked', () => {
+    for (const question of sample(
+      settingsWith({ scaleIds: ['major', 'natural-minor'] }),
+      100,
+    )) {
+      const scale = scaleById(question.scaleId)
+      for (const note of question.backing) {
+        expect(scale.degrees).toContain(degreeOf(question.tonic, note))
+      }
+    }
+  })
+
+  it('features a degree in every melody, whichever scale was picked', () => {
+    // The 4 is in both, so the guarantee survives the choice of scale.
+    const settings = settingsWith({
+      scaleIds: ['major', 'blues'],
+      featured: [5],
+      length: 5,
+    })
+    for (const question of sample(settings, 200)) {
+      expect(question.degrees, question.scaleId).toContain(5)
+    }
+  })
+
+  it('refuses a degree only some of the scales have', () => {
+    // The 7 is in major and not in blues, so it cannot be guaranteed across
+    // both — and a guarantee that sometimes holds is not one.
+    expect(
+      canGenerateMelody(
+        settingsWith({ scaleIds: ['major', 'blues'], featured: [11] }),
+      ),
+    ).toBe(false)
+    expect(
+      canGenerateMelody(settingsWith({ scaleIds: ['major'], featured: [11] })),
+    ).toBe(true)
+  })
+
+  it('cannot generate from an empty selection', () => {
+    expect(canGenerateMelody(settingsWith({ scaleIds: [] }))).toBe(false)
+  })
+
+  it('ignores a scale that no longer exists, and uses the rest', () => {
+    const settings = settingsWith({ scaleIds: ['gone', 'blues'] })
+    expect(canGenerateMelody(settings)).toBe(true)
+    for (const question of sample(settings, 30)) {
+      expect(question.scaleId).toBe('blues')
+    }
   })
 })
 
@@ -195,7 +270,10 @@ describe('melodic shape', () => {
     // melody that *always* ended on a chord tone would let a user rule out
     // four of the seven degrees before hearing a note, and the advantage
     // would grow with every question they answered.
-    const questions = sample(settingsWith({ scaleId: 'major', length: 6 }), 400)
+    const questions = sample(
+      settingsWith({ scaleIds: ['major'], length: 6 }),
+      400,
+    )
     const chord = [0, 4, 7]
 
     const atRest =
@@ -208,7 +286,7 @@ describe('melodic shape', () => {
 
   it('closes on more than one degree', () => {
     const endings = new Set(
-      sample(settingsWith({ scaleId: 'major', length: 6 }), 200).map((q) =>
+      sample(settingsWith({ scaleIds: ['major'], length: 6 }), 200).map((q) =>
         q.degrees.at(-1),
       ),
     )
@@ -231,7 +309,7 @@ describe('melodic shape', () => {
 describe('featured degrees', () => {
   it('always places the featured degree', () => {
     const settings = settingsWith({
-      scaleId: 'major',
+      scaleIds: ['major'],
       featured: [11],
       length: 5,
     })
@@ -242,7 +320,7 @@ describe('featured degrees', () => {
 
   it('places every one of several featured degrees', () => {
     const settings = settingsWith({
-      scaleId: 'major',
+      scaleIds: ['major'],
       featured: [5, 11],
       length: 5,
     })
@@ -254,7 +332,7 @@ describe('featured degrees', () => {
 
   it('copes when the melody is exactly as long as the requirement', () => {
     const settings = settingsWith({
-      scaleId: 'major',
+      scaleIds: ['major'],
       featured: [2, 5, 11],
       length: 3,
     })
@@ -265,7 +343,7 @@ describe('featured degrees', () => {
 
   it('ignores a degree listed twice', () => {
     const settings = settingsWith({
-      scaleId: 'major',
+      scaleIds: ['major'],
       featured: [11, 11],
       length: 2,
     })
@@ -277,7 +355,7 @@ describe('featured degrees', () => {
 
   it('still produces a shaped melody, not just the featured notes', () => {
     const settings = settingsWith({
-      scaleId: 'major',
+      scaleIds: ['major'],
       featured: [11],
       length: 8,
     })
@@ -302,17 +380,17 @@ describe('backing', () => {
     // A major third under a minor melody is not a reference point, it is a
     // wrong note ringing through every phrase.
     for (const settings of [
-      settingsWith({ scaleId: 'natural-minor' }),
-      settingsWith({ scaleId: 'blues' }),
-      settingsWith({ scaleId: 'harmonic-minor' }),
-      settingsWith({ scaleId: 'chromatic' }),
+      settingsWith({ scaleIds: ['natural-minor'] }),
+      settingsWith({ scaleIds: ['blues'] }),
+      settingsWith({ scaleIds: ['harmonic-minor'] }),
+      settingsWith({ scaleIds: ['chromatic'] }),
     ]) {
-      const scale = scaleById(settings.scaleId)
+      const scale = scaleById(settings.scaleIds[0])
       for (const question of sample(settings, 20)) {
         for (const note of question.backing) {
           expect(
             scale.degrees,
-            `${settings.scaleId} backed with ${degreeOf(question.tonic, note)}`,
+            `${scale.id} backed with ${degreeOf(question.tonic, note)}`,
           ).toContain(degreeOf(question.tonic, note))
         }
       }

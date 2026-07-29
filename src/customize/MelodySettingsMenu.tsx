@@ -6,6 +6,7 @@ import {
   RadioRow,
   useModalNav,
 } from '../components'
+import { selectedScales } from '../exercises'
 import {
   MELODY_BACKINGS,
   melodySettingsStore,
@@ -17,6 +18,7 @@ import {
   midiToName,
   scaleById,
   scalesByDifficulty,
+  sharedDegrees,
 } from '../theory'
 import {
   BACKING_DESCRIPTIONS,
@@ -68,10 +70,10 @@ function CustomizeScreen() {
     <div className="flex flex-col gap-6 p-4">
       <ListCard>
         <ListRow
-          label="Scale"
-          value={scaleById(settings.scaleId).name}
+          label="Scales"
+          value={scaleSummary(settings)}
           chevron
-          onClick={() => push({ title: 'Scale', content: <ScaleScreen /> })}
+          onClick={() => push({ title: 'Scales', content: <ScaleScreen /> })}
         />
         <ListRow
           label="Featured Degrees"
@@ -114,44 +116,76 @@ function CustomizeScreen() {
   )
 }
 
+/** One name, or a count once there are too many to read at a glance. */
+function scaleSummary(settings: MelodySettings): string {
+  const scales = selectedScales(settings)
+  if (scales.length === 0) return 'None'
+  if (scales.length === 1) return scales[0].name
+  return `${scales.length} selected`
+}
+
 /**
- * The difficulty ladder, easiest first.
+ * The difficulty ladder, easiest first, and more than one at a time.
  *
- * Listed in that order rather than alphabetically because the order *is* the
+ * Listed in ladder order rather than alphabetically because the order *is* the
  * guidance — a user who works down the list is following a sensible
  * progression without having to be told one.
  *
- * Changing scale reconciles the featured degrees rather than leaving them to
- * be sanitised away on the next read. A b7 featured under Mixolydian is not
- * merely invalid once the scale becomes Major, it is unreachable, and leaving
- * it in place would stop any melody generating at all.
+ * Several at once is a harder exercise than any one of them and a different
+ * one: each question picks a scale, so the ear has to place the degree *and*
+ * work out which scale it is placing it in. That is what listening to real
+ * music actually asks.
+ *
+ * Changing the selection reconciles the featured degrees rather than leaving
+ * them to be sanitised away on the next read. A b7 featured under Mixolydian
+ * is not merely invalid once Major joins the selection, it is unreachable —
+ * no melody could be generated at all — and the user would have no way to see
+ * which setting had broken it.
  */
 function ScaleScreen() {
   const [settings, setSettings] = usePersisted(melodySettingsStore)
+  const chosen = new Set(settings.scaleIds)
 
-  const choose = (scaleId: string) => {
-    const degrees = scaleById(scaleId).degrees
+  const toggle = (scaleId: string, checked: boolean) => {
+    const scaleIds = checked
+      ? scalesByDifficulty()
+          .map((scale) => scale.id)
+          .filter((id) => chosen.has(id) || id === scaleId)
+      : settings.scaleIds.filter((id) => id !== scaleId)
+
+    const shared = sharedDegrees(scaleIds.map(scaleById))
     setSettings({
       ...settings,
-      scaleId,
-      featured: settings.featured.filter((degree) => degrees.includes(degree)),
+      scaleIds,
+      featured: settings.featured.filter((degree) => shared.includes(degree)),
     })
   }
 
   return (
     <div className="flex flex-col gap-6 p-4">
-      <ListCard footer="Listed easiest first. The pentatonics have no semitones and no tritone, so every note is consonant against the tonic; the chromatic scale has no key at all.">
-        <RadioGroup label="Scale">
-          {scalesByDifficulty().map((scale) => (
-            <RadioRow
+      <ListCard footer="Listed easiest first. The pentatonics have no semitones and no tritone, so every note is consonant against the tonic; the chromatic scale has no key at all. With more than one selected, each melody picks one — and you are not told which.">
+        {scalesByDifficulty().map((scale) => {
+          const checked = chosen.has(scale.id)
+
+          return (
+            <CheckRow
               key={scale.id}
-              label={scale.name}
-              description={scale.degrees.map(degreeLabel).join(' ')}
-              selected={scale.id === settings.scaleId}
-              onSelect={() => choose(scale.id)}
+              label={
+                <>
+                  <span className="block">{scale.name}</span>
+                  <span className="block text-sm text-content-muted">
+                    {scale.degrees.map(degreeLabel).join(' ')}
+                  </span>
+                </>
+              }
+              checked={checked}
+              // Nothing selected can generate nothing. The exercise says so,
+              // but stopping it here means it never has to.
+              disabled={checked && settings.scaleIds.length === 1}
+              onChange={(next) => toggle(scale.id, next)}
             />
-          ))}
-        </RadioGroup>
+          )
+        })}
       </ListCard>
     </div>
   )
@@ -160,27 +194,32 @@ function ScaleScreen() {
 /**
  * Degrees that must appear in every melody.
  *
- * Only the chosen scale's degrees are offered, which is what makes an illegal
- * combination unreachable rather than merely warned about.
+ * Only degrees common to every selected scale are offered, which is what makes
+ * an illegal combination unreachable rather than merely warned about.
  */
 function FeaturedScreen() {
   const [settings, setSettings] = usePersisted(melodySettingsStore)
-  const scale = scaleById(settings.scaleId)
+  const scales = selectedScales(settings)
+  const offered = sharedDegrees(scales)
   const featured = new Set(settings.featured)
 
   const toggle = (degree: number, checked: boolean) => {
     const next = checked
-      ? scale.degrees.filter(
-          (option) => featured.has(option) || option === degree,
-        )
+      ? offered.filter((option) => featured.has(option) || option === degree)
       : settings.featured.filter((option) => option !== degree)
     setSettings({ ...settings, featured: [...next] })
   }
 
   return (
     <div className="flex flex-col gap-6 p-4">
-      <ListCard footer="A featured degree is guaranteed to appear in every melody. Without one, enabling a degree only means it may turn up — a six-note melody from the major scale will often contain no 7 at all.">
-        {scale.degrees.map((degree) => (
+      <ListCard
+        footer={
+          scales.length > 1
+            ? 'A featured degree is guaranteed to appear in every melody, so only degrees every selected scale contains can be offered — one that some of them lack could not be promised.'
+            : 'A featured degree is guaranteed to appear in every melody. Without one, enabling a degree only means it may turn up — a six-note melody from the major scale will often contain no 7 at all.'
+        }
+      >
+        {offered.map((degree) => (
           <CheckRow
             key={degree}
             label={degreeLabel(degree)}

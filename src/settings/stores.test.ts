@@ -214,11 +214,11 @@ describe('melodySettingsStore', () => {
    * exist. Reset first: it clears the cache *and* removes the key, so planting
    * afterwards is the only order that survives.
    */
-  function persist(raw: unknown) {
+  function persist(raw: unknown, version = 2) {
     melodySettingsStore.reset()
     localStorage.setItem(
       'met.settings.melody',
-      JSON.stringify({ version: 1, value: raw }),
+      JSON.stringify({ version, value: raw }),
     )
   }
 
@@ -230,7 +230,7 @@ describe('melodySettingsStore', () => {
     // b7 under the major scale. Kept, it would stop any melody generating.
     persist({
       ...DEFAULT_MELODY_SETTINGS,
-      scaleId: 'major',
+      scaleIds: ['major'],
       featured: [10, 11],
     })
     expect(melodySettingsStore.read().featured).toEqual([11])
@@ -243,11 +243,38 @@ describe('melodySettingsStore', () => {
     expect(melodySettingsStore.read().featured).toEqual([])
   })
 
-  it('falls back to the default scale for one that no longer exists', () => {
-    persist({ ...DEFAULT_MELODY_SETTINGS, scaleId: 'lydian-dominant' })
-    expect(melodySettingsStore.read().scaleId).toBe(
-      DEFAULT_MELODY_SETTINGS.scaleId,
+  it('discards the version that stored a single scale', () => {
+    // v1 held `scaleId: string` where v2 holds a list. There is no sensible
+    // reading of the old shape, so the bump drops it rather than guessing.
+    persist({ scaleId: 'blues', featured: [], length: 7, backing: 'none' }, 1)
+    expect(melodySettingsStore.read()).toEqual(DEFAULT_MELODY_SETTINGS)
+  })
+
+  it('falls back to the default scales when none of them exist', () => {
+    persist({ ...DEFAULT_MELODY_SETTINGS, scaleIds: ['lydian-dominant'] })
+    expect(melodySettingsStore.read().scaleIds).toEqual(
+      DEFAULT_MELODY_SETTINGS.scaleIds,
     )
+  })
+
+  it('keeps the scales it recognises and drops the ones it does not', () => {
+    persist({
+      ...DEFAULT_MELODY_SETTINGS,
+      scaleIds: ['major', 'lydian-dominant', 'blues'],
+    })
+    expect(melodySettingsStore.read().scaleIds).toEqual(['major', 'blues'])
+  })
+
+  it('features only degrees every selected scale has', () => {
+    // Major has a 7, blues has not. Guaranteeing it across both is impossible,
+    // so it cannot survive being persisted alongside them.
+    persist({
+      ...DEFAULT_MELODY_SETTINGS,
+      scaleIds: ['major', 'blues'],
+      featured: [5, 11],
+    })
+    const settings = melodySettingsStore.read()
+    expect(settings.featured).toEqual([5])
   })
 
   it('clamps a length outside the offered range', () => {
@@ -268,7 +295,7 @@ describe('melodySettingsStore', () => {
   it('sanitises on write as well as on read', () => {
     melodySettingsStore.write({
       ...DEFAULT_MELODY_SETTINGS,
-      scaleId: 'major',
+      scaleIds: ['major'],
       featured: [10],
     })
     // Without write-path sanitising the bad value would live in memory until

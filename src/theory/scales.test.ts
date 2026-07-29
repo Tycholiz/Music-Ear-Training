@@ -7,9 +7,11 @@ import {
   degreeOf,
   degreePitch,
   isValidDegree,
+  combinedDegrees,
   scaleById,
   scaleContains,
   scalesByDifficulty,
+  sharedDegrees,
   tonicChord,
 } from './scales'
 import { MIDDLE_C, nameToMidi } from './pitch'
@@ -163,6 +165,63 @@ describe('scaleContains', () => {
     for (const degree of ALL_DEGREES) {
       expect(scaleContains(chromatic, degree)).toBe(true)
     }
+  })
+})
+
+describe('sharedDegrees', () => {
+  it('is the scale itself for one scale', () => {
+    const major = scaleById('major')
+    expect(sharedDegrees([major])).toEqual([...major.degrees])
+  })
+
+  it('is what two scales agree on', () => {
+    // Major and blues share 1, 4 and 5 and nothing else.
+    expect(sharedDegrees([scaleById('major'), scaleById('blues')])).toEqual([
+      0, 5, 7,
+    ])
+  })
+
+  it('narrows as more scales are added, never widens', () => {
+    const scales = [scaleById('major'), scaleById('blues'), scaleById('dorian')]
+    const two = sharedDegrees(scales.slice(0, 2))
+    const three = sharedDegrees(scales)
+    for (const degree of three) expect(two).toContain(degree)
+  })
+
+  it('is empty for no scales, since nothing is common to nothing', () => {
+    expect(sharedDegrees([])).toEqual([])
+  })
+
+  it('stays ascending', () => {
+    const shared = sharedDegrees([
+      scaleById('chromatic'),
+      scaleById('natural-minor'),
+    ])
+    expect(shared).toEqual([...shared].sort((a, b) => a - b))
+  })
+})
+
+describe('combinedDegrees', () => {
+  it('is the scale itself for one scale', () => {
+    const blues = scaleById('blues')
+    expect(combinedDegrees([blues])).toEqual([...blues.degrees])
+  })
+
+  it('is everything either scale has, without duplicates', () => {
+    const both = combinedDegrees([
+      scaleById('major-pentatonic'),
+      scaleById('minor-pentatonic'),
+    ])
+    expect(both).toEqual([0, 2, 3, 4, 5, 7, 9, 10])
+    expect(new Set(both).size).toBe(both.length)
+  })
+
+  it('tops out at the chromatic scale', () => {
+    expect(combinedDegrees(SCALES)).toEqual(ALL_DEGREES)
+  })
+
+  it('is empty for no scales', () => {
+    expect(combinedDegrees([])).toEqual([])
   })
 })
 
