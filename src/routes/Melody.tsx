@@ -3,14 +3,13 @@ import { useNavigate } from 'react-router'
 import {
   DegreePad,
   ExerciseHeader,
-  ListCard,
-  ListRow,
   ModalSheet,
   ReplayButton,
   SilentSwitchHint,
 } from '../components'
+import { MelodySettingsMenu } from '../customize'
 import { buildMelodySchedule, piano } from '../audio'
-import { degreeLabel, scaleById, type Degree } from '../theory'
+import { combinedDegrees, degreeLabel, type Degree } from '../theory'
 import {
   melodyScoreStore,
   melodySettingsStore,
@@ -21,7 +20,9 @@ import {
   canGenerateMelody,
   checkMelody,
   generateMelodyQuestion,
+  guessPitch,
   phraseForMelodyQuestion,
+  selectedScales,
   type MelodyQuestion,
 } from '../exercises'
 
@@ -80,12 +81,31 @@ export default function Melody() {
    * effect has to read it without waiting for a render to tell it.
    */
   const graded = useRef(false)
+  /**
+   * How many degrees are in, readable without waiting for a render.
+   *
+   * `entered.length` is the same number, but a press has to know it *during*
+   * the press to sound the right octave, and two presses inside one React
+   * batch would both read the length this render was built with. Kept in step
+   * by an effect below, so undo, a cleared attempt and a new question all
+   * correct it without any of them having to remember to.
+   */
+  const position = useRef(0)
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const replayRef = useRef<HTMLButtonElement>(null)
 
   const playable = canGenerateMelody(settings)
-  const scaleDegrees = playable ? scaleById(settings.scaleId).degrees : []
+
+  /**
+   * Every degree any selected scale can produce.
+   *
+   * The union rather than the chosen scale's own degrees, because the user is
+   * not told which scale this melody came from — offering only its degrees
+   * would answer that for them, and narrowing the pad mid-exercise would
+   * announce a change of scale before a note had sounded.
+   */
+  const scaleDegrees = combinedDegrees(selectedScales(settings))
 
   const playMelody = useCallback((question: MelodyQuestion) => {
     void piano.playSchedule(
@@ -115,6 +135,10 @@ export default function Melody() {
     setPhase('entering')
     graded.current = false
   }, [settings])
+
+  useEffect(() => {
+    position.current = entered.length
+  }, [entered])
 
   useEffect(() => {
     if (!round) return
@@ -151,6 +175,17 @@ export default function Melody() {
    */
   const enter = (degree: Degree) => {
     if (!round || phase !== 'entering') return
+
+    const index = position.current
+    if (index >= round.question.degrees.length) return
+    position.current = index + 1
+
+    // Sound what was pressed, at the pitch this melody uses at this point in
+    // it. Choosing a degree by name and never hearing it makes this a guessing
+    // game with a keypad; hearing it turns a wrong answer into information —
+    // that was a 6, and the melody was not that.
+    void piano.play([[guessPitch(round.question, index, degree)]])
+
     setEntered((current) =>
       current.length >= round.question.degrees.length
         ? current
@@ -256,24 +291,17 @@ export default function Melody() {
         <StartPanel playable={playable} onStart={nextQuestion} />
       )}
 
-      {/* Customize lands in #57; until then the menu carries what exists. */}
       <ModalSheet
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
         title="Menu"
       >
-        <div className="p-4">
-          <ListCard>
-            <ListRow
-              label="Reset Score"
-              destructive
-              onClick={() => {
-                resetScore()
-                setMenuOpen(false)
-              }}
-            />
-          </ListCard>
-        </div>
+        <MelodySettingsMenu
+          onResetScore={() => {
+            resetScore()
+            setMenuOpen(false)
+          }}
+        />
       </ModalSheet>
     </main>
   )

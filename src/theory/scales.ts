@@ -163,6 +163,29 @@ export function scaleContains(scale: Scale, degree: Degree): boolean {
 }
 
 /**
+ * Degrees every one of these scales contains.
+ *
+ * What several selected scales agree on. A melody exercise drawing from more
+ * than one cannot promise a degree only some of them have — the question that
+ * picked the wrong scale could not deliver it — so anything guaranteed across
+ * a selection has to come from here.
+ *
+ * Ascending, and empty for an empty selection: nothing is common to nothing.
+ */
+export function sharedDegrees(scales: readonly Scale[]): Degree[] {
+  if (scales.length === 0) return []
+  return scales[0].degrees.filter((degree) =>
+    scales.every((scale) => scale.degrees.includes(degree)),
+  )
+}
+
+/** Every degree any of these scales contains, ascending. */
+export function combinedDegrees(scales: readonly Scale[]): Degree[] {
+  const all = new Set(scales.flatMap((scale) => [...scale.degrees]))
+  return ALL_DEGREES.filter((degree) => all.has(degree))
+}
+
+/**
  * The tonic chord of a scale: the harmony a melody is heard against.
  *
  * Sounding a chord *underneath* the melody is what keeps the tonic available.

@@ -5,16 +5,19 @@ import {
   chordSettingsStore,
   intervalScoreStore,
   intervalSettingsStore,
+  melodySettingsStore,
 } from './stores'
 import {
   DEFAULT_CHORD_SETTINGS,
   DEFAULT_INTERVAL_SETTINGS,
+  DEFAULT_MELODY_SETTINGS,
   EMPTY_SCORE,
   recordGuess,
 } from './types'
 
 beforeEach(() => {
   localStorage.clear()
+  melodySettingsStore.reset()
   intervalSettingsStore.reset()
   chordSettingsStore.reset()
   intervalScoreStore.reset()
@@ -202,5 +205,107 @@ describe('recordGuess', () => {
     const score = EMPTY_SCORE
     recordGuess(score, true)
     expect(score).toEqual({ correct: 0, total: 0 })
+  })
+})
+
+describe('melodySettingsStore', () => {
+  /**
+   * Plant a blob past the store, the way a stale or hand-edited one would
+   * exist. Reset first: it clears the cache *and* removes the key, so planting
+   * afterwards is the only order that survives.
+   */
+  function persist(raw: unknown, version = 2) {
+    melodySettingsStore.reset()
+    localStorage.setItem(
+      'met.settings.melody',
+      JSON.stringify({ version, value: raw }),
+    )
+  }
+
+  it('starts on the bottom of the ladder', () => {
+    expect(melodySettingsStore.read()).toEqual(DEFAULT_MELODY_SETTINGS)
+  })
+
+  it('drops a featured degree the scale does not contain', () => {
+    // b7 under the major scale. Kept, it would stop any melody generating.
+    persist({
+      ...DEFAULT_MELODY_SETTINGS,
+      scaleIds: ['major'],
+      featured: [10, 11],
+    })
+    expect(melodySettingsStore.read().featured).toEqual([11])
+  })
+
+  it('keeps nothing featured, which is a legal state rather than an empty one', () => {
+    // Unlike the selection stores, empty here means "no degree is required"
+    // and must not be replaced with the defaults.
+    persist({ ...DEFAULT_MELODY_SETTINGS, featured: [] })
+    expect(melodySettingsStore.read().featured).toEqual([])
+  })
+
+  it('discards the version that stored a single scale', () => {
+    // v1 held `scaleId: string` where v2 holds a list. There is no sensible
+    // reading of the old shape, so the bump drops it rather than guessing.
+    persist({ scaleId: 'blues', featured: [], length: 7, backing: 'none' }, 1)
+    expect(melodySettingsStore.read()).toEqual(DEFAULT_MELODY_SETTINGS)
+  })
+
+  it('falls back to the default scales when none of them exist', () => {
+    persist({ ...DEFAULT_MELODY_SETTINGS, scaleIds: ['lydian-dominant'] })
+    expect(melodySettingsStore.read().scaleIds).toEqual(
+      DEFAULT_MELODY_SETTINGS.scaleIds,
+    )
+  })
+
+  it('keeps the scales it recognises and drops the ones it does not', () => {
+    persist({
+      ...DEFAULT_MELODY_SETTINGS,
+      scaleIds: ['major', 'lydian-dominant', 'blues'],
+    })
+    expect(melodySettingsStore.read().scaleIds).toEqual(['major', 'blues'])
+  })
+
+  it('features only degrees every selected scale has', () => {
+    // Major has a 7, blues has not. Guaranteeing it across both is impossible,
+    // so it cannot survive being persisted alongside them.
+    persist({
+      ...DEFAULT_MELODY_SETTINGS,
+      scaleIds: ['major', 'blues'],
+      featured: [5, 11],
+    })
+    const settings = melodySettingsStore.read()
+    expect(settings.featured).toEqual([5])
+  })
+
+  it('clamps a length outside the offered range', () => {
+    persist({ ...DEFAULT_MELODY_SETTINGS, length: 99 })
+    expect(melodySettingsStore.read().length).toBe(8)
+
+    persist({ ...DEFAULT_MELODY_SETTINGS, length: 1 })
+    expect(melodySettingsStore.read().length).toBe(3)
+  })
+
+  it('falls back on a backing it does not recognise', () => {
+    persist({ ...DEFAULT_MELODY_SETTINGS, backing: 'orchestra' })
+    expect(melodySettingsStore.read().backing).toBe(
+      DEFAULT_MELODY_SETTINGS.backing,
+    )
+  })
+
+  it('sanitises on write as well as on read', () => {
+    melodySettingsStore.write({
+      ...DEFAULT_MELODY_SETTINGS,
+      scaleIds: ['major'],
+      featured: [10],
+    })
+    // Without write-path sanitising the bad value would live in memory until
+    // the next reload, which is the gap the store was built to close.
+    expect(melodySettingsStore.read().featured).toEqual([])
+  })
+
+  it('keeps its settings separate from the other exercises', () => {
+    melodySettingsStore.write({ ...DEFAULT_MELODY_SETTINGS, length: 7 })
+    expect(chordSettingsStore.read()).toEqual(DEFAULT_CHORD_SETTINGS)
+    expect(intervalSettingsStore.read()).toEqual(DEFAULT_INTERVAL_SETTINGS)
   })
 })

@@ -384,6 +384,133 @@ describe('advancing', () => {
   })
 })
 
+describe('hearing what was pressed', () => {
+  it('sounds the degree that was entered', async () => {
+    // Choosing a degree by name and never hearing it makes this a guessing
+    // game with a keypad. Hearing it turns a wrong answer into information.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    vi.mocked(piano.play).mockClear()
+
+    await tap(user, '1')
+    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[60]])
+  })
+
+  it('sounds it at the pitch it has against this melody\u2019s tonic', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    vi.mocked(piano.play).mockClear()
+
+    // The 5 above a tonic of C4 is G4.
+    await tap(user, '5')
+    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[67]])
+  })
+
+  it('sounds a wrong degree too, which is the point', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    vi.mocked(piano.play).mockClear()
+
+    // 6 is wrong in first place, and the user should still hear what they
+    // picked so they can tell it against what they remember.
+    await tap(user, '6')
+    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[69]])
+  })
+
+  it('sounds the tonic where this melody sang it, not an octave down', async () => {
+    // The melody is 6 1 6 1 5 with both 1s up at the octave. Answering a
+    // pressed 1 with the low C would tell the user they had misheard when
+    // they had in fact pressed the right button.
+    vi.mocked(exercises.generateMelodyQuestion).mockReturnValue({
+      degrees: [9, 0, 9, 0, 7],
+      notes: [69, 72, 69, 72, 67],
+      backing: [48, 52, 55],
+      tonic: 60,
+      scaleId: 'major-pentatonic',
+    })
+
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    vi.mocked(piano.play).mockClear()
+
+    await tap(user, '6')
+    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[69]])
+
+    vi.mocked(piano.play).mockClear()
+    await tap(user, '1')
+    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[72]])
+  })
+
+  it('follows the octave from note to note within one melody', async () => {
+    // 8 1 2 1 1 as a player would say it — the same degree at two octaves,
+    // both reading as "1" on the pad. One pitch per degree cannot serve this.
+    vi.mocked(exercises.generateMelodyQuestion).mockReturnValue({
+      degrees: [0, 0, 2, 0, 0],
+      notes: [72, 60, 62, 60, 60],
+      backing: [48, 52, 55],
+      tonic: 60,
+      scaleId: 'major-pentatonic',
+    })
+
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    const sounded: number[] = []
+    for (const label of ['1', '1', '2', '1', '1']) {
+      vi.mocked(piano.play).mockClear()
+      await tap(user, label)
+      sounded.push(vi.mocked(piano.play).mock.calls[0][0][0][0])
+    }
+
+    expect(sounded).toEqual([72, 60, 62, 60, 60])
+  })
+
+  it('keeps the octaves straight when two are pressed in the same tick', async () => {
+    // The batching trap again: both presses would read the position this
+    // render was built with, and the second 1 would sound the first one's
+    // octave.
+    vi.mocked(exercises.generateMelodyQuestion).mockReturnValue({
+      degrees: [0, 0, 2, 0, 0],
+      notes: [72, 60, 62, 60, 60],
+      backing: [48, 52, 55],
+      tonic: 60,
+      scaleId: 'major-pentatonic',
+    })
+
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    vi.mocked(piano.play).mockClear()
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '1' }))
+      fireEvent.click(screen.getByRole('button', { name: '1' }))
+    })
+
+    const sounded = vi
+      .mocked(piano.play)
+      .mock.calls.map((call) => call[0][0][0])
+    expect(sounded).toEqual([72, 60])
+  })
+
+  it('says nothing once the pad is closed', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    await tap(user, '1', '5', '6', '5')
+    vi.mocked(piano.play).mockClear()
+
+    // Every degree button is disabled at this point; nothing can sound.
+    expect(screen.getByRole('button', { name: '1' })).toBeDisabled()
+    expect(piano.play).not.toHaveBeenCalled()
+  })
+})
+
 describe('the tonic reference', () => {
   it('can be re-heard at any point in the question', async () => {
     const user = userEvent.setup()
@@ -392,12 +519,13 @@ describe('the tonic reference', () => {
     vi.mocked(piano.play).mockClear()
 
     await user.click(screen.getByRole('button', { name: 'Play the tonic' }))
-    expect(piano.play).toHaveBeenCalledWith([[60]])
+    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[60]])
 
     // Still there part-way through an answer.
     await tap(user, '1', '5')
+    vi.mocked(piano.play).mockClear()
     await user.click(screen.getByRole('button', { name: 'Play the tonic' }))
-    expect(piano.play).toHaveBeenCalledTimes(2)
+    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[60]])
   })
 })
 
