@@ -2,10 +2,12 @@ export {
   CHORD_PLAY_MODES,
   DEFAULT_CHORD_SETTINGS,
   DEFAULT_INTERVAL_SETTINGS,
+  DEFAULT_MELODY_SETTINGS,
   DEFAULT_RANGE,
   DEFAULT_ROOT_SETTINGS,
   EMPTY_SCORE,
   INTERVAL_PLAY_MODES,
+  MELODY_BACKINGS,
   recordGuess,
 } from './types'
 export type {
@@ -13,6 +15,8 @@ export type {
   ChordSettings,
   IntervalPlayMode,
   IntervalSettings,
+  MelodyBacking,
+  MelodySettings,
   NoteRange,
   Score,
 } from './types'

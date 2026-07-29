@@ -42,6 +42,28 @@ export interface ChordSettings {
   range: NoteRange
 }
 
+/** What sounds under a melody, in descending order of help (#57). */
+export const MELODY_BACKINGS = ['chord', 'drone', 'none'] as const
+
+export type MelodyBacking = (typeof MELODY_BACKINGS)[number]
+
+export interface MelodySettings {
+  /** Which scale melodies are drawn from. The difficulty ladder. */
+  scaleId: string
+  /**
+   * Degrees guaranteed to appear in every melody. Empty means no requirement.
+   *
+   * Permitting a degree is not the same as featuring it: a six-note melody
+   * from the major scale will often contain no 7 at all. This is what turns a
+   * note pool into a drill on a particular degree.
+   */
+  featured: number[]
+  /** How many notes to transcribe. */
+  length: number
+  backing: MelodyBacking
+  range: NoteRange
+}
+
 export interface Score {
   correct: number
   total: number
@@ -73,6 +95,22 @@ export const DEFAULT_CHORD_SETTINGS: ChordSettings = {
   ],
   inversions: [0],
   playModes: ['block'],
+  range: DEFAULT_RANGE,
+}
+
+/**
+ * The bottom of the ladder: five notes of major pentatonic over a full chord.
+ *
+ * No semitones, no tritone, and the harmony sounding underneath throughout, so
+ * a beginner's first melody is about as forgiving as one can be made. Nothing
+ * is featured — that is a drill to reach for once a scale is comfortable, not
+ * something to start on.
+ */
+export const DEFAULT_MELODY_SETTINGS: MelodySettings = {
+  scaleId: 'major-pentatonic',
+  featured: [],
+  length: 5,
+  backing: 'chord',
   range: DEFAULT_RANGE,
 }
 
