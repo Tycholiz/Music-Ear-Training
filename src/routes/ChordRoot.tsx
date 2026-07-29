@@ -8,7 +8,7 @@ import {
 } from '../components'
 import { ChordSettingsMenu } from '../customize'
 import { piano } from '../audio'
-import { UNAMBIGUOUS_ROOT_CHORDS } from '../theory'
+import { UNAMBIGUOUS_ROOT_CHORDS, chordById } from '../theory'
 import {
   recordGuess,
   rootScoreStore,
@@ -116,22 +116,28 @@ export default function ChordRoot() {
 
       {round ? (
         <>
-          <div className="flex justify-center py-1">
+          <div className="flex flex-col items-center gap-1 py-1">
             <ReplayButton
               ref={replayRef}
               onClick={() => playChord(round.question)}
             />
+            {/*
+              The chord's quality is given away deliberately. The question here
+              is which note is the root, not what the chord is, and knowing you
+              are listening to a diminished 7th rather than a major triad is
+              the context a musician would have anyway.
+            */}
+            <p className="text-sm text-content-muted">
+              {chordById(round.question.chordId).name}
+            </p>
           </div>
           <SilentSwitchHint />
 
           <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
-            <button
-              type="button"
+            <RevealButton
               onClick={reveal}
-              className="rounded-full bg-surface px-8 py-3 text-lg font-medium active:bg-surface-raised"
-            >
-              Reveal
-            </button>
+              className="px-8 py-3 text-lg font-medium"
+            />
 
             {revealed ? (
               <>
@@ -181,6 +187,39 @@ export default function ChordRoot() {
         />
       </ModalSheet>
     </main>
+  )
+}
+
+/**
+ * Reveal, with a play icon on it.
+ *
+ * Reveal is not a disclosure — it *plays* the root, and can be pressed again
+ * to hear it again. Without the icon it reads like it will print the answer
+ * on screen, which is the one thing it doesn't do.
+ */
+function RevealButton({
+  onClick,
+  className,
+}: {
+  onClick: () => void
+  className: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex items-center gap-2 rounded-full bg-surface active:bg-surface-raised ${className}`}
+    >
+      <svg
+        aria-hidden
+        viewBox="0 0 24 24"
+        className="h-4 w-4 shrink-0"
+        fill="currentColor"
+      >
+        <path d="M8 5.5v13l11-6.5-11-6.5z" />
+      </svg>
+      Reveal
+    </button>
   )
 }
 
