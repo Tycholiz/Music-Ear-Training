@@ -7,7 +7,9 @@ export {
   DEFAULT_ROOT_SETTINGS,
   EMPTY_SCORE,
   INTERVAL_PLAY_MODES,
+  MAX_MELODY_LENGTH,
   MELODY_BACKINGS,
+  MIN_MELODY_LENGTH,
   recordGuess,
 } from './types'
 export type {
@@ -27,6 +29,8 @@ export {
   chordSettingsStore,
   intervalScoreStore,
   intervalSettingsStore,
+  melodyScoreStore,
+  melodySettingsStore,
   rootScoreStore,
   rootSettingsStore,
 } from './stores'

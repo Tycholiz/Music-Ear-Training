@@ -45,6 +45,17 @@ export interface ChordSettings {
 /** What sounds under a melody, in descending order of help (#57). */
 export const MELODY_BACKINGS = ['chord', 'drone', 'none'] as const
 
+/**
+ * How long a melody may be.
+ *
+ * Three notes is the shortest thing that has a shape rather than being a pair
+ * of intervals. Eight is about where transcribing stops being an ear exercise
+ * and starts being a memory one — the notes are no harder, there are just more
+ * of them to hold at once.
+ */
+export const MIN_MELODY_LENGTH = 3
+export const MAX_MELODY_LENGTH = 8
+
 export type MelodyBacking = (typeof MELODY_BACKINGS)[number]
 
 export interface MelodySettings {
