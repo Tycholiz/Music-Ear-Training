@@ -118,8 +118,6 @@ export interface MelodyTiming {
   noteMs: number
   /** How long the backing rings on after the melody has finished. */
   releaseMs: number
-  /** How often the backing chord is struck again. */
-  backingRestrikeMs: number
 }
 
 /**
@@ -135,7 +133,6 @@ export const MELODY_TIMING: MelodyTiming = {
   onsetMs: 460,
   noteMs: 520,
   releaseMs: 1100,
-  backingRestrikeMs: 1500,
 }
 
 /**
@@ -166,12 +163,13 @@ export interface MelodyPhrase {
  * detached here, while the backing does exactly what `buildSchedule` would
  * have done to all of it.
  *
- * The backing is struck more than once. Piano samples decay, and a single
- * strike is long gone by the end of a longer melody — which would leave the
- * last degrees, the ones a tiring listener is most likely to lose, with the
- * least harmony under them. Each strike runs until the next one, so the
- * engine's own release fade carries one into the other instead of two copies
- * of the same note sounding together.
+ * The backing is struck exactly once, on the first melody note, and left to
+ * ring. It was restruck at first, on the reasoning that piano samples decay
+ * and the last degrees would be left with the least harmony under them — but
+ * a chord arriving again part-way through a melody is heard as a chord change,
+ * which is precisely the wrong thing to say when the whole point of the
+ * backing is that home has not moved. A decaying chord still says where home
+ * is; a second strike says something untrue.
  */
 export function buildMelodySchedule(
   phrase: MelodyPhrase,
@@ -189,33 +187,17 @@ export function buildMelodySchedule(
   if (backing.length === 0) return scheduled
 
   const melodyEndMs = (melody.length - 1) * timing.onsetMs + timing.noteMs
-  const phraseEnd = melodyEndMs + timing.releaseMs
 
-  const strikes = backingStrikes(melodyEndMs, timing)
-  strikes.forEach((startMs, i) => {
-    // Each strike lasts until the next one takes over, so the engine's release
-    // fade carries between them rather than stacking two of the same note.
-    const endMs = strikes[i + 1] ?? phraseEnd
-    for (const midi of backing) {
-      scheduled.push({
-        midi,
-        startMs,
-        durationMs: endMs - startMs,
-        gain: BACKING_GAIN,
-      })
-    }
-  })
+  for (const midi of backing) {
+    scheduled.push({
+      midi,
+      startMs: 0,
+      durationMs: melodyEndMs + timing.releaseMs,
+      gain: BACKING_GAIN,
+    })
+  }
 
   return scheduled
-}
-
-/** When the backing is struck: on the first note, then at a steady interval. */
-function backingStrikes(melodyEndMs: number, timing: MelodyTiming): number[] {
-  const strikes: number[] = []
-  for (let at = 0; at < melodyEndMs; at += timing.backingRestrikeMs) {
-    strikes.push(at)
-  }
-  return strikes
 }
 
 // Shape helpers, named for how the exercises talk about them.

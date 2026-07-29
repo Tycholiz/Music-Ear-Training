@@ -23,6 +23,7 @@ describe('Home', () => {
     expect(
       screen.getByRole('link', { name: 'Chord Root Recognition' }),
     ).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Melody Dictation' })).toBeVisible()
   })
 
   it('points each row at its exercise route', () => {
@@ -36,11 +37,14 @@ describe('Home', () => {
     expect(
       screen.getByRole('link', { name: 'Chord Root Recognition' }),
     ).toHaveAttribute('href', '/chord-root')
+    expect(
+      screen.getByRole('link', { name: 'Melody Dictation' }),
+    ).toHaveAttribute('href', '/melody')
   })
 
   it('uses real links, so exercises can be opened in a new tab', () => {
     renderHome()
-    expect(screen.getAllByRole('link')).toHaveLength(3)
+    expect(screen.getAllByRole('link')).toHaveLength(4)
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 

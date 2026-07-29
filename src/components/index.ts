@@ -1,6 +1,7 @@
 export { AnswerGrid } from './AnswerGrid'
 export type { Answer, AnswerCell, AnswerState } from './AnswerGrid'
 export { CheckRow } from './CheckRow'
+export { DegreePad } from './DegreePad'
 export { ExerciseHeader } from './ExerciseHeader'
 export { ChevronRight, ListCard, ListRow } from './ListCard'
 export { ModalSheet } from './ModalSheet'

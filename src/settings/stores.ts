@@ -1,14 +1,26 @@
-import { CHORDS, INTERVALS, UNAMBIGUOUS_ROOT_CHORD_IDS } from '../theory'
+import {
+  CHORDS,
+  INTERVALS,
+  SCALES,
+  UNAMBIGUOUS_ROOT_CHORD_IDS,
+  scaleById,
+} from '../theory'
 import { HIGHEST_NOTE, LOWEST_NOTE } from '../audio'
 import {
   CHORD_PLAY_MODES,
   DEFAULT_CHORD_SETTINGS,
   DEFAULT_INTERVAL_SETTINGS,
+  DEFAULT_MELODY_SETTINGS,
   DEFAULT_ROOT_SETTINGS,
   EMPTY_SCORE,
   INTERVAL_PLAY_MODES,
+  MAX_MELODY_LENGTH,
+  MELODY_BACKINGS,
+  MIN_MELODY_LENGTH,
   type ChordSettings,
   type IntervalSettings,
+  type MelodyBacking,
+  type MelodySettings,
   type NoteRange,
   type Score,
 } from './types'
@@ -29,6 +41,8 @@ import {
 
 const ALL_INTERVALS = INTERVALS.map((interval) => interval.semitones)
 const ALL_CHORD_IDS = CHORDS.map((chord) => chord.id)
+
+const ALL_SCALE_IDS = SCALES.map((scale) => scale.id)
 
 /** Root through 3rd inversion. */
 const ALL_INVERSIONS = [0, 1, 2, 3]
@@ -117,6 +131,46 @@ export const rootSettingsStore = createStore<ChordSettings>({
   sanitize: chordSettingsSanitizer(UNAMBIGUOUS_ROOT_CHORD_IDS),
 })
 
+/**
+ * Melody dictation.
+ *
+ * `featured` is sanitised against the *chosen* scale rather than against all
+ * twelve degrees, so a b7 featured under the major scale cannot survive a
+ * reload even if the scale was changed underneath it. Nothing featured is a
+ * legal state — it means no degree is required — so unlike the selection
+ * stores an empty result is kept rather than replaced with the defaults.
+ */
+export const melodySettingsStore = createStore<MelodySettings>({
+  key: 'met.settings.melody',
+  version: 1,
+  defaults: DEFAULT_MELODY_SETTINGS,
+  sanitize(raw, defaults) {
+    if (!isRecord(raw)) return defaults
+
+    const scaleId = ALL_SCALE_IDS.includes(raw.scaleId as string)
+      ? (raw.scaleId as string)
+      : defaults.scaleId
+
+    return {
+      scaleId,
+      featured: Array.isArray(raw.featured)
+        ? scaleById(scaleId).degrees.filter((degree) =>
+            (raw.featured as unknown[]).includes(degree),
+          )
+        : [...defaults.featured],
+      length: sanitizeInteger(raw.length, {
+        min: MIN_MELODY_LENGTH,
+        max: MAX_MELODY_LENGTH,
+        fallback: defaults.length,
+      }),
+      backing: MELODY_BACKINGS.includes(raw.backing as MelodyBacking)
+        ? (raw.backing as MelodyBacking)
+        : defaults.backing,
+      range: sanitizeRange(raw.range, defaults.range),
+    }
+  },
+})
+
 function sanitizeScore(raw: unknown, defaults: Score): Score {
   if (!isRecord(raw)) return defaults
 
@@ -149,6 +203,13 @@ export const chordScoreStore = createStore<Score>({
 
 export const rootScoreStore = createStore<Score>({
   key: 'met.score.chordRoot',
+  version: 1,
+  defaults: EMPTY_SCORE,
+  sanitize: sanitizeScore,
+})
+
+export const melodyScoreStore = createStore<Score>({
+  key: 'met.score.melody',
   version: 1,
   defaults: EMPTY_SCORE,
   sanitize: sanitizeScore,

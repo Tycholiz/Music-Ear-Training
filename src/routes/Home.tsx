@@ -26,6 +26,14 @@ const EXERCISES = [
     // is about one note of the chord rather than the chord as a whole.
     icon: <StaffIcon noteheads={3} highlightRoot />,
   },
+  {
+    to: '/melody',
+    label: 'Melody Dictation',
+    // Noteheads spread across the staff rather than stacked on it: the other
+    // three exercises ask about notes sounding together, this one about notes
+    // following one another.
+    icon: <MelodyIcon />,
+  },
 ]
 
 export default function Home() {
@@ -47,6 +55,51 @@ export default function Home() {
 
       <InstallCard />
     </main>
+  )
+}
+
+/** Four noteheads walking across the staff, for the one melodic exercise. */
+function MelodyIcon() {
+  // A rise, a dip and a rise: enough contour to read as a tune at 20px rather
+  // than as a scale.
+  const notes = [
+    { cx: 5, cy: 19 },
+    { cx: 11, cy: 11.5 },
+    { cx: 17, cy: 16.5 },
+    { cx: 23, cy: 9 },
+  ]
+
+  return (
+    <span
+      aria-hidden
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent"
+    >
+      <svg viewBox="0 0 28 28" className="h-5 w-5">
+        {[6, 11, 16, 21].map((y) => (
+          <line
+            key={y}
+            x1={2}
+            x2={26}
+            y1={y}
+            y2={y}
+            stroke="white"
+            strokeWidth={1}
+            opacity={0.55}
+          />
+        ))}
+        {notes.map(({ cx, cy }) => (
+          <ellipse
+            key={cx}
+            cx={cx}
+            cy={cy}
+            rx={3}
+            ry={2.2}
+            fill="white"
+            transform={`rotate(-20 ${cx} ${cy})`}
+          />
+        ))}
+      </svg>
+    </span>
   )
 }
 
