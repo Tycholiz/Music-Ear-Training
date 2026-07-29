@@ -23,11 +23,22 @@ import {
   generateMelodyQuestion,
   phraseForMelodyQuestion,
   type MelodyQuestion,
-  type MelodyResult,
 } from '../exercises'
 
 /** Pause on a correct answer before the next melody starts. */
 const AUTO_ADVANCE_MS = 1200
+
+/** How long the wrong note stays red before the answer is cleared to retry. */
+const WRONG_FEEDBACK_MS = 800
+
+/**
+ * Where a question is up to.
+ *
+ * `wrong` is a held moment rather than an end state: the note that broke the
+ * run stays red long enough to be read, then the answer clears and the user
+ * tries the same melody again.
+ */
+type Phase = 'entering' | 'wrong' | 'correct'
 
 interface Round {
   number: number
@@ -42,10 +53,16 @@ interface Round {
  * the exercise about which degree each note *is* rather than about how well
  * the user held a pitch in their head from a cadence a few seconds ago.
  *
- * A wrong answer does not advance on a timer. Being shown which position was
- * missed, and what belonged there, is the entire lesson, and it takes as long
- * as it takes to read — so the user moves on by asking to. Correct answers do
- * advance on their own; there is nothing to study.
+ * Every note is marked as it is entered, rather than the whole answer being
+ * graded at the end. Hearing that the fourth note was wrong only after
+ * committing to a fifth and sixth teaches nothing about the fourth — by then
+ * the melody has moved on and so has the ear. Marked immediately, a mistake is
+ * still attached to the sound that caused it.
+ *
+ * A wrong note therefore ends the attempt, not the question: it goes red, the
+ * answer clears, and the same melody can be tried again. Only the first
+ * attempt is scored, the same as the chord root exercise — a user who knows
+ * the melody but fumbles a button should not be charged for the button.
  */
 export default function Melody() {
   const navigate = useNavigate()
@@ -54,7 +71,7 @@ export default function Melody() {
 
   const [round, setRound] = useState<Round | null>(null)
   const [entered, setEntered] = useState<Degree[]>([])
-  const [result, setResult] = useState<MelodyResult | null>(null)
+  const [phase, setPhase] = useState<Phase>('entering')
   const [menuOpen, setMenuOpen] = useState(false)
 
   /**
@@ -64,6 +81,7 @@ export default function Melody() {
    */
   const graded = useRef(false)
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const replayRef = useRef<HTMLButtonElement>(null)
 
   const playable = canGenerateMelody(settings)
@@ -77,7 +95,7 @@ export default function Melody() {
 
   const nextQuestion = useCallback(() => {
     setEntered([])
-    setResult(null)
+    setPhase('entering')
     graded.current = false
     setRound((current) => ({
       number: (current?.number ?? 0) + 1,
@@ -94,7 +112,7 @@ export default function Melody() {
   useEffect(() => {
     setRound(null)
     setEntered([])
-    setResult(null)
+    setPhase('entering')
     graded.current = false
   }, [settings])
 
@@ -105,10 +123,22 @@ export default function Melody() {
 
   useEffect(
     () => () => {
-      if (advanceTimer.current) clearTimeout(advanceTimer.current)
+      for (const timer of [advanceTimer, feedbackTimer]) {
+        if (timer.current) clearTimeout(timer.current)
+      }
       piano.stop()
     },
     [],
+  )
+
+  /** Record the first attempt at a melody and nothing after it. */
+  const scoreOnce = useCallback(
+    (correct: boolean) => {
+      if (graded.current) return
+      graded.current = true
+      setScore(recordGuess(score, correct))
+    },
+    [score, setScore],
   )
 
   /**
@@ -120,7 +150,7 @@ export default function Melody() {
    * exactly the input this exercise invites.
    */
   const enter = (degree: Degree) => {
-    if (!round || result) return
+    if (!round || phase !== 'entering') return
     setEntered((current) =>
       current.length >= round.question.degrees.length
         ? current
@@ -129,27 +159,43 @@ export default function Melody() {
   }
 
   /**
-   * Grade once the answer is as long as the melody.
+   * Judge the note that was just entered.
    *
-   * An effect rather than part of the press, because the press no longer knows
-   * what the answer became — and because scoring is a side effect, which has no
-   * business inside a state updater React is free to run twice.
+   * An effect rather than part of the press: the press uses a functional
+   * update, so it does not know what the answer became, and judging is a side
+   * effect with no business inside an updater React is free to run twice.
+   *
+   * `checkMelody` does the comparing even though only the last position is
+   * being looked at, so there is one place that decides whether a degree
+   * matches rather than two that could drift apart.
    */
   useEffect(() => {
-    if (!round || graded.current) return
-    if (entered.length < round.question.degrees.length) return
+    if (!round || phase !== 'entering' || entered.length === 0) return
 
-    graded.current = true
     const outcome = checkMelody(entered, round.question)
-    setResult(outcome)
-    setScore(recordGuess(score, outcome.correct))
+    const latest = entered.length - 1
+
+    if (!outcome.positions[latest]) {
+      scoreOnce(false)
+      setPhase('wrong')
+      // Hold the red long enough to read, then clear for another attempt at
+      // the same melody.
+      feedbackTimer.current = setTimeout(() => {
+        setEntered([])
+        setPhase('entering')
+      }, WRONG_FEEDBACK_MS)
+      return
+    }
+
     if (outcome.correct) {
+      scoreOnce(true)
+      setPhase('correct')
       advanceTimer.current = setTimeout(nextQuestion, AUTO_ADVANCE_MS)
     }
-  }, [entered, round, score, setScore, nextQuestion])
+  }, [entered, round, phase, scoreOnce, nextQuestion])
 
   const undo = () => {
-    if (result) return
+    if (phase !== 'entering') return
     setEntered((current) => current.slice(0, -1))
   }
 
@@ -175,35 +221,36 @@ export default function Melody() {
           </div>
           <SilentSwitchHint />
 
-          <div className="flex min-h-0 flex-1 items-center justify-center px-4">
+          <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 px-4">
             <Entry
               entered={entered}
               length={round.question.degrees.length}
-              result={result}
+              wrongAt={phase === 'wrong' ? entered.length - 1 : null}
             />
+            {phase === 'wrong' ? (
+              <p className="text-sm text-content-muted">
+                Not that one — listen again.
+              </p>
+            ) : null}
           </div>
 
-          {result && !result.correct ? (
-            <Correction question={round.question} onNext={nextQuestion} />
-          ) : (
-            <div className="shrink-0 pb-4">
-              <DegreePad
-                degrees={scaleDegrees}
-                onPress={enter}
-                disabled={result !== null}
-              />
-              <div className="flex justify-center pt-2">
-                <button
-                  type="button"
-                  onClick={undo}
-                  disabled={entered.length === 0 || result !== null}
-                  className="rounded-full px-6 py-2 text-sm text-content-muted active:bg-surface disabled:opacity-30"
-                >
-                  Undo
-                </button>
-              </div>
+          <div className="shrink-0 pb-4">
+            <DegreePad
+              degrees={scaleDegrees}
+              onPress={enter}
+              disabled={phase !== 'entering'}
+            />
+            <div className="flex justify-center pt-2">
+              <button
+                type="button"
+                onClick={undo}
+                disabled={entered.length === 0 || phase !== 'entering'}
+                className="rounded-full px-6 py-2 text-sm text-content-muted active:bg-surface disabled:opacity-30"
+              >
+                Undo
+              </button>
             </div>
-          )}
+          </div>
         </>
       ) : (
         <StartPanel playable={playable} onStart={nextQuestion} />
@@ -235,18 +282,23 @@ export default function Melody() {
 /**
  * The answer as it is built up, one slot per note of the melody.
  *
- * The empty slots are the point: they say how many notes are still to come,
- * which the user would otherwise have to count off the playback while also
- * trying to identify it.
+ * Every entered degree is green, because a wrong one never survives long
+ * enough to be anything else — it goes red and the answer clears. So the row
+ * reads as how far the run has got, and the single red slot as where it broke.
+ *
+ * The empty slots are the point too: they say how many notes are still to
+ * come, which the user would otherwise have to count off the playback while
+ * also trying to identify it.
  */
 function Entry({
   entered,
   length,
-  result,
+  wrongAt,
 }: {
   entered: readonly Degree[]
   length: number
-  result: MelodyResult | null
+  /** Index of the note that broke the run, while it is being shown. */
+  wrongAt: number | null
 }) {
   return (
     <div
@@ -255,11 +307,6 @@ function Entry({
     >
       {Array.from({ length }, (_, i) => {
         const degree = entered[i]
-        const state = !result
-          ? 'pending'
-          : result.positions[i]
-            ? 'correct'
-            : 'wrong'
 
         return (
           <span
@@ -267,50 +314,15 @@ function Entry({
             className={`flex h-11 min-w-11 items-center justify-center rounded-lg px-2 ${
               degree === undefined
                 ? 'bg-surface/40 text-content-muted'
-                : state === 'correct'
-                  ? 'bg-correct text-black'
-                  : state === 'wrong'
-                    ? 'bg-incorrect text-white'
-                    : 'bg-surface'
+                : i === wrongAt
+                  ? 'bg-incorrect text-white'
+                  : 'bg-correct text-black'
             }`}
           >
             {degree === undefined ? '·' : degreeLabel(degree)}
           </span>
         )
       })}
-    </div>
-  )
-}
-
-/**
- * What the melody actually was, shown only when it was missed.
- *
- * Marking the wrong position without saying what belonged there would tell the
- * user they failed without telling them anything they could use.
- */
-function Correction({
-  question,
-  onNext,
-}: {
-  question: MelodyQuestion
-  onNext: () => void
-}) {
-  return (
-    <div className="flex flex-col items-center gap-4 p-6">
-      <p className="text-sm text-content-muted">The melody was</p>
-      <p
-        aria-label="The melody"
-        className="text-xl font-medium tabular-nums text-content"
-      >
-        {question.degrees.map(degreeLabel).join(' · ')}
-      </p>
-      <button
-        type="button"
-        onClick={onNext}
-        className="rounded-full bg-accent px-8 py-3 text-lg font-medium active:opacity-80"
-      >
-        Next
-      </button>
     </div>
   )
 }

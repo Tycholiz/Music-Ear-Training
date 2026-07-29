@@ -141,12 +141,11 @@ describe('default TIMING', () => {
   })
 })
 
-/** Round numbers again: 4 melody notes, backing restruck once mid-phrase. */
+/** Round numbers again. */
 const melodyTiming: MelodyTiming = {
   onsetMs: 100,
   noteMs: 120,
   releaseMs: 200,
-  backingRestrikeMs: 250,
 }
 
 /** Just the melody layer — everything at the default gain. */
@@ -237,51 +236,40 @@ describe('buildMelodySchedule', () => {
     expect(opening.map((n) => n.midi)).toEqual([48, 52, 55])
   })
 
-  it('keeps the backing under the last note as well as the first', () => {
-    // A single strike would have decayed away by the end, leaving the degrees
-    // a tiring listener is most likely to lose with the least support.
+  it('strikes the backing once and lets it ring', () => {
+    // A chord arriving again part-way through is heard as a chord change,
+    // which is the wrong thing to say when the point of the backing is that
+    // home has not moved.
+    const backing = backingOf(
+      buildMelodySchedule(
+        { melody: [60, 62, 64, 65, 67, 69], backing: [48] },
+        melodyTiming,
+      ),
+    )
+    expect(backing).toHaveLength(1)
+    expect(backing[0].startMs).toBe(0)
+  })
+
+  it('sounds each backing note exactly once, however long the melody', () => {
+    for (const length of [1, 4, 8, 16]) {
+      const melody = Array.from({ length }, (_, i) => 60 + i)
+      const backing = backingOf(
+        buildMelodySchedule({ melody, backing: [48, 52, 55] }, melodyTiming),
+      )
+      expect(backing, `melody of ${length}`).toHaveLength(3)
+      expect(new Set(backing.map((n) => n.startMs))).toEqual(new Set([0]))
+    }
+  })
+
+  it('holds the backing under the whole melody', () => {
     const notes = buildMelodySchedule(
       { melody: [60, 62, 64, 65, 67, 69], backing: [48, 55] },
       melodyTiming,
     )
     const melodyEnd = scheduleEndMs(melodyOf(notes))
-    const covered = backingOf(notes).some(
-      (n) => n.startMs < melodyEnd && n.startMs + n.durationMs >= melodyEnd,
-    )
-    expect(covered).toBe(true)
-  })
-
-  it('restrikes the backing rather than letting one strike carry it', () => {
-    const backing = backingOf(
-      buildMelodySchedule(
-        { melody: [60, 62, 64, 65, 67, 69], backing: [48] },
-        melodyTiming,
-      ),
-    )
-    // 6 notes at 100ms spans past two 250ms restrikes.
-    expect(backing.map((n) => n.startMs)).toEqual([0, 250, 500])
-  })
-
-  it('hands each strike over to the next without doubling a note', () => {
-    const backing = backingOf(
-      buildMelodySchedule(
-        { melody: [60, 62, 64, 65, 67, 69], backing: [48] },
-        melodyTiming,
-      ),
-    )
-    for (const [i, note] of backing.slice(0, -1).entries()) {
-      expect(note.startMs + note.durationMs).toBe(backing[i + 1].startMs)
-    }
-  })
-
-  it('does not restrike the backing after the melody has finished', () => {
-    const notes = buildMelodySchedule(
-      { melody: [60, 62], backing: [48] },
-      melodyTiming,
-    )
-    const melodyEnd = scheduleEndMs(melodyOf(notes))
     for (const note of backingOf(notes)) {
-      expect(note.startMs).toBeLessThan(melodyEnd)
+      expect(note.startMs).toBe(0)
+      expect(note.startMs + note.durationMs).toBeGreaterThan(melodyEnd)
     }
   })
 
@@ -319,19 +307,14 @@ describe('default MELODY_TIMING', () => {
     expect(MELODY_TIMING.noteMs).toBeGreaterThan(MELODY_TIMING.onsetMs)
   })
 
-  it('restrikes the backing well inside a piano note’s decay', () => {
-    expect(MELODY_TIMING.backingRestrikeMs).toBeGreaterThan(
-      MELODY_TIMING.onsetMs,
-    )
-    expect(MELODY_TIMING.backingRestrikeMs).toBeLessThan(3000)
-  })
-
-  it('holds the backing under a realistic melody at the real timing', () => {
+  it('holds one backing chord under a realistic melody at the real timing', () => {
     const notes = buildMelodySchedule({
       melody: [60, 62, 64, 65, 67, 69, 71, 72],
       backing: [48, 52, 55],
     })
     const melodyEnd = scheduleEndMs(melodyOf(notes))
+
+    expect(backingOf(notes)).toHaveLength(3)
     for (let at = 0; at < melodyEnd; at += 50) {
       const sounding = backingOf(notes).some(
         (n) => n.startMs <= at && n.startMs + n.durationMs > at,

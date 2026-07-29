@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   act,
+  cleanup,
   fireEvent,
   render,
   screen,
@@ -69,6 +70,11 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  // Unmount before the mocks go, not after. A pending advance timer that fires
+  // once the real piano is back tries to fetch samples jsdom has not got, and
+  // the rejection surfaces as an unhandled error in whichever test happens to
+  // be running by then. Unmounting first clears the timers that would do it.
+  cleanup()
   vi.useRealTimers()
   vi.restoreAllMocks()
 })
@@ -174,12 +180,13 @@ describe('entering a melody', () => {
   })
 
   it('takes the same degree more than once', async () => {
+    // The melody is 1 5 6 5, so the 5 has to be enterable twice.
     const user = userEvent.setup()
     renderExercise()
     await start(user)
 
-    await tap(user, '5', '5')
-    expect(answer()).toBe('55··')
+    await tap(user, '1', '5', '6', '5')
+    expect(answer()).toBe('1565')
   })
 
   it('removes only the last degree on Undo', async () => {
@@ -202,8 +209,110 @@ describe('entering a melody', () => {
   })
 })
 
-describe('grading', () => {
-  it('grades as soon as the answer is as long as the melody', async () => {
+describe('immediate feedback', () => {
+  it('marks a correct note green as soon as it is entered', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await tap(user, '1')
+    const slots = within(screen.getByLabelText('Your answer')).getAllByText('1')
+    expect(slots[0].className).toContain('bg-correct')
+  })
+
+  it('marks a wrong note red without waiting for the rest of the melody', async () => {
+    // Hearing that the first note was wrong only after committing to three
+    // more teaches nothing about the first — by then the ear has moved on.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await tap(user, '5')
+    const slot = within(screen.getByLabelText('Your answer')).getByText('5')
+    expect(slot.className).toContain('bg-incorrect')
+  })
+
+  it('keeps the notes before the mistake green', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    // 1 and 5 are right; 1 in third place is not.
+    await tap(user, '1', '5', '1')
+    const answered = screen.getByLabelText('Your answer')
+    const [first, second, third] = within(answered).getAllByText(/^[0-9b]+$/)
+
+    expect(first.className).toContain('bg-correct')
+    expect(second.className).toContain('bg-correct')
+    expect(third.className).toContain('bg-incorrect')
+  })
+
+  it('says so in words as well as in colour', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await tap(user, '5')
+    expect(screen.getByText(/Not that one/i)).toBeVisible()
+  })
+
+  it('locks the pad while the mistake is being shown', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    await tap(user, '5')
+
+    expect(screen.getByRole('button', { name: '1' })).toBeDisabled()
+  })
+})
+
+describe('retrying', () => {
+  it('clears the answer so the melody can be tried again', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    await tap(user, '1', '5', '1')
+
+    await waitFor(() => expect(answer()).toBe('····'), { timeout: 3000 })
+    expect(screen.getByRole('button', { name: '1' })).toBeEnabled()
+  })
+
+  it('keeps the same melody rather than moving on', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    vi.mocked(exercises.generateMelodyQuestion).mockClear()
+
+    await tap(user, '5')
+    await waitFor(() => expect(answer()).toBe('····'), { timeout: 3000 })
+
+    expect(exercises.generateMelodyQuestion).not.toHaveBeenCalled()
+  })
+
+  it('accepts the melody on a later attempt', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await tap(user, '5')
+    await waitFor(() => expect(answer()).toBe('····'), { timeout: 3000 })
+    await tap(user, '1', '5', '6', '5')
+
+    expect(answer()).toBe('1565')
+  })
+})
+
+describe('scoring', () => {
+  it('scores a clean run as correct', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    await tap(user, '1', '5', '6', '5')
+
+    expect(screen.getByLabelText('Score')).toHaveTextContent('1/1')
+  })
+
+  it('scores a melody once, not once per note', async () => {
     const user = userEvent.setup()
     renderExercise()
     await start(user)
@@ -215,78 +324,47 @@ describe('grading', () => {
     expect(screen.getByLabelText('Score')).toHaveTextContent('1/1')
   })
 
-  it('scores a melody once, not once per note', async () => {
+  it('charges the first mistake immediately', async () => {
     const user = userEvent.setup()
     renderExercise()
     await start(user)
-    await tap(user, '1', '5', '6', '5')
-
-    expect(screen.getByLabelText('Score')).toHaveTextContent('1/1')
-  })
-
-  it('counts a wrong melody against the score', async () => {
-    const user = userEvent.setup()
-    renderExercise()
-    await start(user)
-    await tap(user, '1', '5', '6', '6')
+    await tap(user, '5')
 
     expect(screen.getByLabelText('Score')).toHaveTextContent('0/1')
     expect(screen.getByLabelText('Accuracy')).toHaveTextContent('0%')
   })
 
-  it('says which position was missed, not just that it was wrong', async () => {
+  it('charges only the first attempt, however many it takes', async () => {
+    // A user who knows the melody but fumbles a button should not be charged
+    // for the button — the same rule the chord root exercise follows.
     const user = userEvent.setup()
     renderExercise()
     await start(user)
-    await tap(user, '1', '6', '6', '5')
 
-    // Only the second note was wrong; the rest should not be marked.
-    const slots = within(screen.getByLabelText('Your answer')).getAllByText(
-      /^(1|2|3|5|6)$/,
-    )
-    expect(slots[0].className).toContain('bg-correct')
-    expect(slots[1].className).toContain('bg-incorrect')
-    expect(slots[2].className).toContain('bg-correct')
-    expect(slots[3].className).toContain('bg-correct')
+    await tap(user, '5')
+    await waitFor(() => expect(answer()).toBe('····'), { timeout: 3000 })
+    expect(screen.getByLabelText('Score')).toHaveTextContent('0/1')
+
+    await tap(user, '6')
+    await waitFor(() => expect(answer()).toBe('····'), { timeout: 3000 })
+    expect(screen.getByLabelText('Score')).toHaveTextContent('0/1')
   })
 
-  it('shows what the melody actually was when it is missed', async () => {
-    // Marking the wrong position without saying what belonged there tells the
-    // user they failed and nothing they can use.
-    const user = userEvent.setup()
-    renderExercise()
-    await start(user)
-    await tap(user, '1', '6', '6', '5')
-
-    expect(screen.getByLabelText('The melody')).toHaveTextContent(
-      '1 · 5 · 6 · 5',
-    )
-  })
-
-  it('keeps the answer out of sight until it has been answered', async () => {
+  it('does not credit a correct run that followed a miss', async () => {
     const user = userEvent.setup()
     renderExercise()
     await start(user)
 
-    expect(screen.queryByLabelText('The melody')).toBeNull()
-    await tap(user, '1', '5', '6')
-    expect(screen.queryByLabelText('The melody')).toBeNull()
-  })
+    await tap(user, '5')
+    await waitFor(() => expect(answer()).toBe('····'), { timeout: 3000 })
+    await tap(user, '1', '5', '6', '5')
 
-  it('ignores further presses once graded', async () => {
-    const user = userEvent.setup()
-    renderExercise()
-    await start(user)
-    await tap(user, '1', '5', '6', '6')
-
-    // The pad is replaced by the correction, so there is nothing to press —
-    // and the score must not move again either way.
     expect(screen.getByLabelText('Score')).toHaveTextContent('0/1')
   })
 })
 
 describe('advancing', () => {
-  it('moves on by itself when the melody was right', async () => {
+  it('moves on by itself once the melody is entered correctly', async () => {
     const user = userEvent.setup()
     renderExercise()
     await start(user)
@@ -295,19 +373,14 @@ describe('advancing', () => {
     await waitFor(() => expect(answer()).toBe('····'), { timeout: 3000 })
   })
 
-  it('waits to be asked when the melody was missed', async () => {
-    // The correction is the lesson, and it takes as long as it takes to read.
+  it('ignores further presses once the melody is complete', async () => {
     const user = userEvent.setup()
     renderExercise()
     await start(user)
-    await tap(user, '1', '6', '6', '5')
+    await tap(user, '1', '5', '6', '5')
 
-    expect(screen.getByRole('button', { name: 'Next' })).toBeVisible()
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    expect(screen.getByLabelText('The melody')).toBeVisible()
-
-    await user.click(screen.getByRole('button', { name: 'Next' }))
-    expect(answer()).toBe('····')
+    expect(screen.getByRole('button', { name: '1' })).toBeDisabled()
+    expect(screen.getByLabelText('Score')).toHaveTextContent('1/1')
   })
 })
 
@@ -352,7 +425,7 @@ describe('replaying', () => {
   })
 })
 
-describe('the score', () => {
+describe('the stored score', () => {
   it('persists across a remount', async () => {
     const user = userEvent.setup()
     const { unmount } = renderExercise()
