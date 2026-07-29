@@ -65,6 +65,7 @@ beforeEach(() => {
   melodyScoreStore.reset()
   vi.spyOn(piano, 'play').mockResolvedValue(undefined)
   vi.spyOn(piano, 'playSchedule').mockResolvedValue(undefined)
+  vi.spyOn(piano, 'strike').mockResolvedValue(undefined)
   vi.spyOn(piano, 'stop').mockImplementation(() => {})
   vi.spyOn(exercises, 'generateMelodyQuestion').mockReturnValue(MELODY)
 })
@@ -391,33 +392,33 @@ describe('hearing what was pressed', () => {
     const user = userEvent.setup()
     renderExercise()
     await start(user)
-    vi.mocked(piano.play).mockClear()
+    vi.mocked(piano.strike).mockClear()
 
     await tap(user, '1')
-    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[60]])
+    expect(piano.strike).toHaveBeenCalledExactlyOnceWith([60])
   })
 
   it('sounds it at the pitch it has against this melody\u2019s tonic', async () => {
     const user = userEvent.setup()
     renderExercise()
     await start(user)
-    vi.mocked(piano.play).mockClear()
+    vi.mocked(piano.strike).mockClear()
 
     // The 5 above a tonic of C4 is G4.
     await tap(user, '5')
-    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[67]])
+    expect(piano.strike).toHaveBeenCalledExactlyOnceWith([67])
   })
 
   it('sounds a wrong degree too, which is the point', async () => {
     const user = userEvent.setup()
     renderExercise()
     await start(user)
-    vi.mocked(piano.play).mockClear()
+    vi.mocked(piano.strike).mockClear()
 
     // 6 is wrong in first place, and the user should still hear what they
     // picked so they can tell it against what they remember.
     await tap(user, '6')
-    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[69]])
+    expect(piano.strike).toHaveBeenCalledExactlyOnceWith([69])
   })
 
   it('sounds the tonic where this melody sang it, not an octave down', async () => {
@@ -435,14 +436,14 @@ describe('hearing what was pressed', () => {
     const user = userEvent.setup()
     renderExercise()
     await start(user)
-    vi.mocked(piano.play).mockClear()
+    vi.mocked(piano.strike).mockClear()
 
     await tap(user, '6')
-    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[69]])
+    expect(piano.strike).toHaveBeenCalledExactlyOnceWith([69])
 
-    vi.mocked(piano.play).mockClear()
+    vi.mocked(piano.strike).mockClear()
     await tap(user, '1')
-    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[72]])
+    expect(piano.strike).toHaveBeenCalledExactlyOnceWith([72])
   })
 
   it('follows the octave from note to note within one melody', async () => {
@@ -462,9 +463,9 @@ describe('hearing what was pressed', () => {
 
     const sounded: number[] = []
     for (const label of ['1', '1', '2', '1', '1']) {
-      vi.mocked(piano.play).mockClear()
+      vi.mocked(piano.strike).mockClear()
       await tap(user, label)
-      sounded.push(vi.mocked(piano.play).mock.calls[0][0][0][0])
+      sounded.push(vi.mocked(piano.strike).mock.calls[0][0][0])
     }
 
     expect(sounded).toEqual([72, 60, 62, 60, 60])
@@ -485,16 +486,14 @@ describe('hearing what was pressed', () => {
     const user = userEvent.setup()
     renderExercise()
     await start(user)
-    vi.mocked(piano.play).mockClear()
+    vi.mocked(piano.strike).mockClear()
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: '1' }))
       fireEvent.click(screen.getByRole('button', { name: '1' }))
     })
 
-    const sounded = vi
-      .mocked(piano.play)
-      .mock.calls.map((call) => call[0][0][0])
+    const sounded = vi.mocked(piano.strike).mock.calls.map((call) => call[0][0])
     expect(sounded).toEqual([72, 60])
   })
 
@@ -503,11 +502,11 @@ describe('hearing what was pressed', () => {
     renderExercise()
     await start(user)
     await tap(user, '1', '5', '6', '5')
-    vi.mocked(piano.play).mockClear()
+    vi.mocked(piano.strike).mockClear()
 
     // Every degree button is disabled at this point; nothing can sound.
     expect(screen.getByRole('button', { name: '1' })).toBeDisabled()
-    expect(piano.play).not.toHaveBeenCalled()
+    expect(piano.strike).not.toHaveBeenCalled()
   })
 })
 
@@ -642,26 +641,25 @@ describe('the chord reference', () => {
     const user = userEvent.setup()
     renderExercise()
     await start(user)
-    vi.mocked(piano.play).mockClear()
+    vi.mocked(piano.strike).mockClear()
 
     await user.click(
       screen.getByRole('button', { name: 'Play the backing chord' }),
     )
-    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[48, 52, 55]])
+    expect(piano.strike).toHaveBeenCalledExactlyOnceWith([48, 52, 55])
   })
 
   it('sounds every note of the chord together, not one at a time', async () => {
     const user = userEvent.setup()
     renderExercise()
     await start(user)
-    vi.mocked(piano.play).mockClear()
+    vi.mocked(piano.strike).mockClear()
 
     await user.click(
       screen.getByRole('button', { name: 'Play the backing chord' }),
     )
-    const groups = vi.mocked(piano.play).mock.calls[0][0]
-    expect(groups).toHaveLength(1)
-    expect(groups[0]).toHaveLength(3)
+    const notes = vi.mocked(piano.strike).mock.calls[0][0]
+    expect(notes).toEqual([48, 52, 55])
   })
 
   it('is there at any point in the question, like the tonic', async () => {
@@ -669,12 +667,12 @@ describe('the chord reference', () => {
     renderExercise()
     await start(user)
     await tap(user, '1', '5')
-    vi.mocked(piano.play).mockClear()
+    vi.mocked(piano.strike).mockClear()
 
     await user.click(
       screen.getByRole('button', { name: 'Play the backing chord' }),
     )
-    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[48, 52, 55]])
+    expect(piano.strike).toHaveBeenCalledExactlyOnceWith([48, 52, 55])
   })
 
   it('does not offer a chord when the backing is switched off', async () => {
@@ -713,16 +711,16 @@ describe('the tonic reference', () => {
     const user = userEvent.setup()
     renderExercise()
     await start(user)
-    vi.mocked(piano.play).mockClear()
+    vi.mocked(piano.strike).mockClear()
 
     await user.click(screen.getByRole('button', { name: 'Play the tonic' }))
-    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[60]])
+    expect(piano.strike).toHaveBeenCalledExactlyOnceWith([60])
 
     // Still there part-way through an answer.
     await tap(user, '1', '5')
-    vi.mocked(piano.play).mockClear()
+    vi.mocked(piano.strike).mockClear()
     await user.click(screen.getByRole('button', { name: 'Play the tonic' }))
-    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[60]])
+    expect(piano.strike).toHaveBeenCalledExactlyOnceWith([60])
   })
 })
 

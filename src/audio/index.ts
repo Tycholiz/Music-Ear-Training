@@ -1,4 +1,4 @@
-export { Piano, piano } from './piano'
+export { NOTE_GAIN, Piano, RELEASE_MS, piano } from './piano'
 export type { LoadStatus, PianoOptions } from './piano'
 export {
   HIGHEST_NOTE,
@@ -11,6 +11,7 @@ export {
 } from './samples'
 export {
   MELODY_TIMING,
+  RING_OUT_MS,
   TIMING,
   buildMelodySchedule,
   buildSchedule,
@@ -19,6 +20,7 @@ export {
   sequence,
   sequenceThenSimultaneous,
   simultaneous,
+  struck,
 } from './schedule'
 export type {
   MelodyPhrase,
