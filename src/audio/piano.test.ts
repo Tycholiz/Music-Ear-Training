@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { Piano } from './piano'
+import { NOTE_GAIN, Piano } from './piano'
 import { SAMPLED_NOTES, nearestSample, playbackRate } from './samples'
-import { sequence, sequenceThenSimultaneous, simultaneous } from './schedule'
+import {
+  buildMelodySchedule,
+  buildSchedule,
+  sequence,
+  sequenceThenSimultaneous,
+  simultaneous,
+} from './schedule'
 import type { Timing } from './schedule'
 
 /**
@@ -18,6 +24,16 @@ interface FakeSource {
   connected: boolean
 }
 
+interface FakeGain {
+  gain: {
+    value: number
+    setValueAtTime: ReturnType<typeof vi.fn>
+    linearRampToValueAtTime: ReturnType<typeof vi.fn>
+    cancelScheduledValues: ReturnType<typeof vi.fn>
+  }
+  connect: ReturnType<typeof vi.fn>
+}
+
 class FakeAudioContext {
   state: 'suspended' | 'running' = 'suspended'
   currentTime = 0
@@ -26,7 +42,7 @@ class FakeAudioContext {
   resumeCount = 0
   decodeCount = 0
   sources: FakeSource[] = []
-  gains: { setValueAtTime: ReturnType<typeof vi.fn> }[] = []
+  gains: FakeGain[] = []
 
   async resume() {
     this.resumeCount++
@@ -63,7 +79,7 @@ class FakeAudioContext {
   }
 
   createGain() {
-    const gain = {
+    const gain: FakeGain = {
       gain: {
         value: 1,
         setValueAtTime: vi.fn(),
@@ -72,7 +88,7 @@ class FakeAudioContext {
       },
       connect: vi.fn(),
     }
-    this.gains.push(gain as never)
+    this.gains.push(gain)
     return gain as unknown as GainNode
   }
 }
@@ -270,6 +286,94 @@ describe('play', () => {
     await expect(harness.piano.play(simultaneous([20]))).rejects.toThrow(
       RangeError,
     )
+  })
+})
+
+describe('playSchedule', () => {
+  let harness: ReturnType<typeof setup>
+
+  beforeEach(async () => {
+    harness = setup()
+    await harness.piano.load()
+  })
+
+  it('plays notes exactly where the schedule puts them', async () => {
+    await harness.piano.playSchedule([
+      { midi: 60, startMs: 0, durationMs: 100 },
+      { midi: 64, startMs: 250, durationMs: 100 },
+    ])
+
+    expect(harness.ctx.sources.map((s) => s.startedAt)).toEqual([0, 0.25])
+    expect(harness.ctx.sources.map((s) => s.stoppedAt)).toEqual([0.1, 0.35])
+  })
+
+  it('is what play routes through, so both share one path', async () => {
+    const spy = vi.spyOn(harness.piano, 'playSchedule')
+    await harness.piano.play(sequence([60, 64]))
+
+    expect(spy).toHaveBeenCalledOnce()
+    expect(spy.mock.calls[0][0]).toEqual(
+      buildSchedule(sequence([60, 64]), timing),
+    )
+  })
+
+  it('unlocks the context and cancels what was playing, like play does', async () => {
+    await harness.piano.playSchedule([
+      { midi: 60, startMs: 0, durationMs: 100 },
+    ])
+    expect(harness.ctx.state).toBe('running')
+
+    harness.ctx.currentTime = 0.05
+    await harness.piano.playSchedule([
+      { midi: 64, startMs: 0, durationMs: 100 },
+    ])
+    // The first voice was cut short rather than left to ring under the second.
+    expect(harness.ctx.sources[0].stoppedAt).toBeCloseTo(0.09)
+  })
+
+  it('rejects notes outside the piano range', async () => {
+    await expect(
+      harness.piano.playSchedule([{ midi: 20, startMs: 0, durationMs: 100 }]),
+    ).rejects.toThrow(RangeError)
+  })
+
+  it('plays at full gain when none is asked for', async () => {
+    await harness.piano.playSchedule([
+      { midi: 60, startMs: 0, durationMs: 100 },
+    ])
+
+    const [gain] = harness.ctx.gains
+    expect(gain.gain.setValueAtTime).toHaveBeenCalledWith(NOTE_GAIN, 0)
+  })
+
+  it('scales a voice down when the schedule asks it to', async () => {
+    // Accompaniment has to sit under what it accompanies. Without this every
+    // voice arrives at the same volume and the backing buries the melody.
+    await harness.piano.playSchedule([
+      { midi: 60, startMs: 0, durationMs: 100 },
+      { midi: 48, startMs: 0, durationMs: 100, gain: 0.4 },
+    ])
+
+    const [melody, backing] = harness.ctx.gains
+    expect(melody.gain.setValueAtTime).toHaveBeenCalledWith(NOTE_GAIN, 0)
+    expect(backing.gain.setValueAtTime).toHaveBeenCalledWith(NOTE_GAIN * 0.4, 0)
+  })
+
+  it('plays a melody over a backing chord', async () => {
+    const notes = buildMelodySchedule({
+      melody: [60, 62, 64],
+      backing: [48, 52, 55],
+    })
+    await harness.piano.playSchedule(notes)
+
+    expect(harness.ctx.sources).toHaveLength(notes.length)
+
+    const levels = harness.ctx.gains.flatMap((g) =>
+      g.gain.setValueAtTime.mock.calls.map((call) => call[0] as number),
+    )
+    // Two voices at two volumes: the melody at full, the backing under it.
+    expect(levels.some((level) => level === NOTE_GAIN)).toBe(true)
+    expect(levels.some((level) => level > 0 && level < NOTE_GAIN)).toBe(true)
   })
 })
 
