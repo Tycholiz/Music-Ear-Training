@@ -37,9 +37,10 @@ const WRONG_FEEDBACK_MS = 800
  *
  * `wrong` is a held moment rather than an end state: the note that broke the
  * run stays red long enough to be read, then the answer clears and the user
- * tries the same melody again.
+ * tries the same melody again. `revealed` is the end state that retrying
+ * lacks — the answer is out, so there is nothing left to enter.
  */
-type Phase = 'entering' | 'wrong' | 'correct'
+type Phase = 'entering' | 'wrong' | 'correct' | 'revealed'
 
 interface Round {
   number: number
@@ -234,6 +235,36 @@ export default function Melody() {
     setEntered((current) => current.slice(0, -1))
   }
 
+  /**
+   * Give up on this melody and be told what it was.
+   *
+   * A wrong note ends the attempt rather than the question, which is right for
+   * a user who is close and wrong for one who is stuck: without this they
+   * retry the same unsolved melody indefinitely, learning nothing new each
+   * time round.
+   *
+   * It costs the question, on the chord root exercise's reasoning that being
+   * told the answer is not identifying it. `scoreOnce` makes that exactly
+   * right in both directions for free — revealing before any mistake charges
+   * the question, and revealing after one charges nothing further, because it
+   * was already lost.
+   */
+  const reveal = () => {
+    if (!round || phase === 'correct' || phase === 'revealed') return
+    if (feedbackTimer.current) clearTimeout(feedbackTimer.current)
+
+    // Revealing mid-mistake catches a wrong note still on screen, and the
+    // red that marked it belongs to a phase we are leaving. Keep only the
+    // prefix the user actually got, or their error would be handed back to
+    // them as one of the answers.
+    const { positions } = checkMelody(entered, round.question)
+    const firstWrong = positions.indexOf(false)
+    if (firstWrong !== -1) setEntered(entered.slice(0, firstWrong))
+
+    scoreOnce(false)
+    setPhase('revealed')
+  }
+
   return (
     <main className="flex h-full flex-col">
       <ExerciseHeader
@@ -261,31 +292,55 @@ export default function Melody() {
               entered={entered}
               length={round.question.degrees.length}
               wrongAt={phase === 'wrong' ? entered.length - 1 : null}
+              revealed={phase === 'revealed' ? round.question.degrees : null}
             />
             {phase === 'wrong' ? (
               <p className="text-sm text-content-muted">
                 Not that one — listen again.
               </p>
             ) : null}
+            {phase === 'revealed' ? (
+              <p className="text-sm text-content-muted">That was the melody.</p>
+            ) : null}
           </div>
 
-          <div className="shrink-0 pb-4">
-            <DegreePad
-              degrees={scaleDegrees}
-              onPress={enter}
-              disabled={phase !== 'entering'}
-            />
-            <div className="flex justify-center pt-2">
+          {phase === 'revealed' ? (
+            <div className="flex shrink-0 justify-center pb-8">
               <button
                 type="button"
-                onClick={undo}
-                disabled={entered.length === 0 || phase !== 'entering'}
-                className="rounded-full px-6 py-2 text-sm text-content-muted active:bg-surface disabled:opacity-30"
+                onClick={nextQuestion}
+                className="rounded-full bg-accent px-8 py-3 text-lg font-medium active:opacity-80"
               >
-                Undo
+                Next
               </button>
             </div>
-          </div>
+          ) : (
+            <div className="shrink-0 pb-4">
+              <DegreePad
+                degrees={scaleDegrees}
+                onPress={enter}
+                disabled={phase !== 'entering'}
+              />
+              <div className="flex justify-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={undo}
+                  disabled={entered.length === 0 || phase !== 'entering'}
+                  className="rounded-full px-6 py-2 text-sm text-content-muted active:bg-surface disabled:opacity-30"
+                >
+                  Undo
+                </button>
+                <button
+                  type="button"
+                  onClick={reveal}
+                  disabled={phase === 'correct'}
+                  className="rounded-full px-6 py-2 text-sm text-content-muted active:bg-surface disabled:opacity-30"
+                >
+                  Reveal
+                </button>
+              </div>
+            </div>
+          )}
         </>
       ) : (
         <StartPanel playable={playable} onStart={nextQuestion} />
@@ -314,6 +369,11 @@ export default function Melody() {
  * enough to be anything else — it goes red and the answer clears. So the row
  * reads as how far the run has got, and the single red slot as where it broke.
  *
+ * A revealed melody fills the slots the user never reached, in a plain style
+ * rather than green. Green means they found it; a note they were handed has
+ * not been found, and saying otherwise would flatter the row into
+ * meaninglessness. Anything they did get stays green — it was still theirs.
+ *
  * The empty slots are the point too: they say how many notes are still to
  * come, which the user would otherwise have to count off the playback while
  * also trying to identify it.
@@ -322,11 +382,14 @@ function Entry({
   entered,
   length,
   wrongAt,
+  revealed,
 }: {
   entered: readonly Degree[]
   length: number
   /** Index of the note that broke the run, while it is being shown. */
   wrongAt: number | null
+  /** The melody itself, once the user has asked to be told it. */
+  revealed: readonly Degree[] | null
 }) {
   return (
     <div
@@ -334,7 +397,9 @@ function Entry({
       className="flex flex-wrap items-center justify-center gap-2 text-2xl font-medium tabular-nums"
     >
       {Array.from({ length }, (_, i) => {
-        const degree = entered[i]
+        const own = entered[i]
+        const given = own === undefined ? revealed?.[i] : undefined
+        const degree = own ?? given
 
         return (
           <span
@@ -342,9 +407,11 @@ function Entry({
             className={`flex h-11 min-w-11 items-center justify-center rounded-lg px-2 ${
               degree === undefined
                 ? 'bg-surface/40 text-content-muted'
-                : i === wrongAt
-                  ? 'bg-incorrect text-white'
-                  : 'bg-correct text-black'
+                : given !== undefined
+                  ? 'bg-surface-raised text-content'
+                  : i === wrongAt
+                    ? 'bg-incorrect text-white'
+                    : 'bg-correct text-black'
             }`}
           >
             {degree === undefined ? '·' : degreeLabel(degree)}

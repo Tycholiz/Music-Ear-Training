@@ -511,6 +511,130 @@ describe('hearing what was pressed', () => {
   })
 })
 
+describe('revealing the answer', () => {
+  it('is offered from the start, not only after a failed attempt', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    expect(screen.getByRole('button', { name: 'Reveal' })).toBeEnabled()
+  })
+
+  it('shows the melody in full', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    await user.click(screen.getByRole('button', { name: 'Reveal' }))
+
+    expect(answer()).toBe('1565')
+    expect(screen.getByText(/That was the melody/i)).toBeVisible()
+  })
+
+  it('does not colour a handed answer as though it was found', async () => {
+    // Green means the user got it. A note they were given has not been got,
+    // and saying otherwise would flatter the row into meaninglessness.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    await user.click(screen.getByRole('button', { name: 'Reveal' }))
+
+    const slots = within(screen.getByLabelText('Your answer')).getAllByText(
+      /^[0-9b]+$/,
+    )
+    for (const slot of slots) {
+      expect(slot.className).not.toContain('bg-correct')
+      expect(slot.className).not.toContain('bg-incorrect')
+    }
+  })
+
+  it('keeps the degrees the user did get as theirs', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    await tap(user, '1', '5')
+    await user.click(screen.getByRole('button', { name: 'Reveal' }))
+
+    const slots = within(screen.getByLabelText('Your answer')).getAllByText(
+      /^[0-9b]+$/,
+    )
+    expect(slots[0].className).toContain('bg-correct')
+    expect(slots[1].className).toContain('bg-correct')
+    expect(slots[2].className).not.toContain('bg-correct')
+    expect(slots[3].className).not.toContain('bg-correct')
+  })
+
+  it('does not hand a wrong note back as one of the answers', async () => {
+    // Revealing mid-mistake catches the red note still on screen.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    await tap(user, '1', '1')
+    await user.click(screen.getByRole('button', { name: 'Reveal' }))
+
+    expect(answer()).toBe('1565')
+    const slots = within(screen.getByLabelText('Your answer')).getAllByText(
+      /^[0-9b]+$/,
+    )
+    expect(slots[0].className).toContain('bg-correct')
+    expect(slots[1].className).not.toContain('bg-correct')
+    expect(slots[1].className).not.toContain('bg-incorrect')
+  })
+
+  it('closes the pad, since there is nothing left to answer', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    await user.click(screen.getByRole('button', { name: 'Reveal' }))
+
+    expect(screen.queryByRole('button', { name: '1' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Next' })).toBeVisible()
+  })
+
+  it('waits to be asked before moving on', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    await user.click(screen.getByRole('button', { name: 'Reveal' }))
+
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+    expect(answer()).toBe('1565')
+
+    await user.click(screen.getByRole('button', { name: 'Next' }))
+    expect(answer()).toBe('····')
+  })
+
+  it('counts as a miss when nothing else has charged the question', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    await user.click(screen.getByRole('button', { name: 'Reveal' }))
+
+    expect(screen.getByLabelText('Score')).toHaveTextContent('0/1')
+  })
+
+  it('does not charge twice when the question was already lost', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await tap(user, '6')
+    expect(screen.getByLabelText('Score')).toHaveTextContent('0/1')
+
+    await user.click(screen.getByRole('button', { name: 'Reveal' }))
+    expect(screen.getByLabelText('Score')).toHaveTextContent('0/1')
+  })
+
+  it('cannot be used to undo a melody already answered correctly', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    await tap(user, '1', '5', '6', '5')
+
+    expect(screen.getByRole('button', { name: 'Reveal' })).toBeDisabled()
+    expect(screen.getByLabelText('Score')).toHaveTextContent('1/1')
+  })
+})
+
 describe('the tonic reference', () => {
   it('can be re-heard at any point in the question', async () => {
     const user = userEvent.setup()
