@@ -58,3 +58,11 @@ export {
   rootAnswer,
 } from './rootQuestion'
 export type { RootQuestion } from './rootQuestion'
+export {
+  backingNotes,
+  canGenerateMelody,
+  checkMelody,
+  generateMelodyQuestion,
+  phraseForMelodyQuestion,
+} from './melodyQuestion'
+export type { MelodyQuestion, MelodyResult } from './melodyQuestion'
