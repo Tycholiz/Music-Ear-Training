@@ -3,12 +3,11 @@ import { useNavigate } from 'react-router'
 import {
   DegreePad,
   ExerciseHeader,
-  ListCard,
-  ListRow,
   ModalSheet,
   ReplayButton,
   SilentSwitchHint,
 } from '../components'
+import { MelodySettingsMenu } from '../customize'
 import { buildMelodySchedule, piano } from '../audio'
 import { degreeLabel, scaleById, type Degree } from '../theory'
 import {
@@ -256,24 +255,17 @@ export default function Melody() {
         <StartPanel playable={playable} onStart={nextQuestion} />
       )}
 
-      {/* Customize lands in #57; until then the menu carries what exists. */}
       <ModalSheet
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
         title="Menu"
       >
-        <div className="p-4">
-          <ListCard>
-            <ListRow
-              label="Reset Score"
-              destructive
-              onClick={() => {
-                resetScore()
-                setMenuOpen(false)
-              }}
-            />
-          </ListCard>
-        </div>
+        <MelodySettingsMenu
+          onResetScore={() => {
+            resetScore()
+            setMenuOpen(false)
+          }}
+        />
       </ModalSheet>
     </main>
   )

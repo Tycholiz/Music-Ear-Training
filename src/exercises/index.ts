@@ -66,3 +66,12 @@ export {
   phraseForMelodyQuestion,
 } from './melodyQuestion'
 export type { MelodyQuestion, MelodyResult } from './melodyQuestion'
+export {
+  BACKING_DESCRIPTIONS,
+  BACKING_NAMES,
+  MELODY_LENGTHS,
+  featuredWarning,
+  isMelodyStuck,
+  melodyRangeWarning,
+  melodyStuckReason,
+} from './melodyValidation'
