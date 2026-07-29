@@ -34,19 +34,34 @@ interface FakeGain {
   connect: ReturnType<typeof vi.fn>
 }
 
+/** Includes `interrupted`, which WebKit has and the specification does not. */
+type FakeState = 'suspended' | 'running' | 'interrupted' | 'closed'
+
 class FakeAudioContext {
-  state: 'suspended' | 'running' = 'suspended'
+  state: FakeState = 'suspended'
   currentTime = 0
   destination = { id: 'destination' }
 
   resumeCount = 0
+  closeCount = 0
   decodeCount = 0
   sources: FakeSource[] = []
   gains: FakeGain[] = []
 
+  /** Set to leave the context stuck, the way iOS sometimes does. */
+  unrevivable = false
+  /** Set to have resume reject rather than quietly fail. */
+  resumeThrows = false
+
   async resume() {
     this.resumeCount++
-    this.state = 'running'
+    if (this.resumeThrows) throw new Error('cannot resume')
+    if (!this.unrevivable) this.state = 'running'
+  }
+
+  async close() {
+    this.closeCount++
+    this.state = 'closed'
   }
 
   async decodeAudioData(_data: ArrayBuffer) {
@@ -96,7 +111,12 @@ class FakeAudioContext {
 const timing: Timing = { onsetMs: 100, releaseMs: 200, chordReleaseMs: 300 }
 
 function setup(options: { failFetch?: boolean } = {}) {
-  const ctx = new FakeAudioContext()
+  // Every context the engine has been handed, oldest first. The engine builds
+  // a new one when it cannot revive the old, so this is how a replacement is
+  // observed.
+  const contexts = [new FakeAudioContext()]
+  const ctx = contexts[0]
+  let handedOut = 0
   const fetchImpl = vi.fn(async () => {
     if (options.failFetch) {
       return {
@@ -111,12 +131,16 @@ function setup(options: { failFetch?: boolean } = {}) {
   })
 
   const piano = new Piano({
-    audioContextFactory: () => ctx as unknown as AudioContext,
+    audioContextFactory: () => {
+      handedOut += 1
+      if (handedOut > 1) contexts.push(new FakeAudioContext())
+      return contexts[contexts.length - 1] as unknown as AudioContext
+    },
     fetchImpl: fetchImpl as unknown as typeof fetch,
     timing,
   })
 
-  return { piano, ctx, fetchImpl }
+  return { piano, ctx, contexts, fetchImpl }
 }
 
 describe('loading', () => {
@@ -192,6 +216,143 @@ describe('unlock', () => {
     })
 
     const { piano } = setup()
+    await piano.unlock()
+    expect(session.type).toBe('playback')
+
+    delete (navigator as unknown as Record<string, unknown>).audioSession
+  })
+})
+
+describe('coming back from an interruption', () => {
+  it('resumes a context iOS interrupted while the app was away', async () => {
+    // The bug: leaving the app for a few minutes silences it until it is
+    // killed and relaunched. WebKit parks the context in `interrupted`, which
+    // is not `suspended` and not in the specification, so the resume that
+    // would have fixed it was never attempted.
+    const { piano, ctx } = setup()
+    await piano.unlock()
+    ctx.state = 'interrupted'
+
+    await piano.unlock()
+    expect(ctx.state).toBe('running')
+  })
+
+  it('still resumes a plain suspended context', async () => {
+    const { piano, ctx } = setup()
+    expect(ctx.state).toBe('suspended')
+
+    await piano.unlock()
+    expect(ctx.state).toBe('running')
+    expect(ctx.resumeCount).toBe(1)
+  })
+
+  it('does not resume one that is already running', async () => {
+    const { piano, ctx } = setup()
+    await piano.unlock()
+    await piano.unlock()
+
+    expect(ctx.resumeCount).toBe(1)
+  })
+
+  it('plays again after an interruption, rather than scheduling into silence', async () => {
+    const { piano, ctx } = setup()
+    await piano.load()
+    await piano.play(simultaneous([60]))
+    ctx.sources = []
+
+    ctx.state = 'interrupted'
+    await piano.play(simultaneous([60]))
+
+    expect(ctx.state).toBe('running')
+    expect(ctx.sources).toHaveLength(1)
+  })
+
+  it('replaces a context that will not come back', async () => {
+    const { piano, ctx, contexts } = setup()
+    await piano.unlock()
+
+    ctx.state = 'interrupted'
+    ctx.unrevivable = true
+    await piano.unlock()
+
+    expect(contexts).toHaveLength(2)
+    expect(contexts[1].state).toBe('running')
+    expect(ctx.closeCount).toBe(1)
+  })
+
+  it('replaces one whose resume rejects outright', async () => {
+    const { piano, ctx, contexts } = setup()
+    await piano.unlock()
+
+    ctx.state = 'interrupted'
+    ctx.resumeThrows = true
+    await expect(piano.unlock()).resolves.toBeUndefined()
+
+    expect(contexts).toHaveLength(2)
+    expect(contexts[1].state).toBe('running')
+  })
+
+  it('replaces a closed context without trying to resume it', async () => {
+    const { piano, ctx, contexts } = setup()
+    await piano.unlock()
+
+    ctx.state = 'closed'
+    const before = ctx.resumeCount
+    await piano.unlock()
+
+    expect(ctx.resumeCount).toBe(before)
+    expect(contexts).toHaveLength(2)
+    expect(contexts[1].state).toBe('running')
+  })
+
+  it('plays through the replacement, using the samples already decoded', async () => {
+    const { piano, ctx, contexts, fetchImpl } = setup()
+    await piano.load()
+    await piano.play(simultaneous([60]))
+    vi.mocked(fetchImpl).mockClear()
+
+    ctx.state = 'interrupted'
+    ctx.unrevivable = true
+    await piano.play(simultaneous([60, 64]))
+
+    // An AudioBuffer belongs to no context in particular, so nothing is
+    // re-fetched to play it on the new one.
+    expect(fetchImpl).not.toHaveBeenCalled()
+    expect(contexts[1].sources).toHaveLength(2)
+  })
+
+  it('drops the voices of a context it replaced', async () => {
+    // They belong to the dead context and will never sound; stopping them
+    // later would be reaching into a corpse.
+    const { piano, ctx, contexts } = setup()
+    await piano.load()
+    await piano.play(simultaneous([60, 64, 67]))
+    const scheduled = ctx.sources.map((source) => source.stoppedAt)
+
+    ctx.state = 'interrupted'
+    ctx.unrevivable = true
+    await piano.unlock()
+
+    contexts[1].currentTime = 0.5
+    expect(() => piano.stop()).not.toThrow()
+    // Untouched since the context died: stop found nothing to reach into.
+    expect(ctx.sources.map((source) => source.stoppedAt)).toEqual(scheduled)
+  })
+
+  it('claims the audio session again on the way back', async () => {
+    // The session is what keeps the ringer switch from silencing us, and an
+    // interruption is exactly the moment it may have been taken away.
+    const session = { type: 'auto' }
+    Object.defineProperty(navigator, 'audioSession', {
+      value: session,
+      configurable: true,
+    })
+
+    const { piano, ctx } = setup()
+    await piano.unlock()
+    session.type = 'auto'
+    ctx.state = 'interrupted'
+
     await piano.unlock()
     expect(session.type).toBe('playback')
 

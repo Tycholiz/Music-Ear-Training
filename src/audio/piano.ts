@@ -102,9 +102,40 @@ export class Piano {
   async unlock(): Promise<void> {
     configureAudioSession()
     this.ctx ??= this.createContext()
-    if (this.ctx.state === 'suspended') {
-      await this.ctx.resume()
-    }
+    await this.revive()
+  }
+
+  /**
+   * Get the context running again after iOS has taken it away.
+   *
+   * Leave the app for long enough and iOS interrupts its audio session. The
+   * context stops, and nothing says so: `play` still resolves, notes are still
+   * scheduled, and the clock they are scheduled against is not moving. The app
+   * goes silent with no error anywhere, and stays silent until it is killed and
+   * relaunched — which works only because that builds a new context.
+   *
+   * This used to resume a `suspended` context and nothing else, which is the
+   * state a *fresh* context starts in and not the one an interrupted context
+   * ends in. WebKit parks it in `interrupted` instead — a state that is not in
+   * the specification and not in the TypeScript lib — so the check was false
+   * exactly when it mattered, and a resume was never attempted.
+   *
+   * Anything that is not running is now resumed, and a context that will not
+   * come back is replaced. The decoded samples survive the swap: an AudioBuffer
+   * belongs to no context in particular, so the new one can play the buffers
+   * the old one decoded without fetching a byte.
+   */
+  private async revive(): Promise<void> {
+    if (await resumed(this.ctx)) return
+
+    const dead = this.ctx
+    // Voices belong to the context that made them; none of them will ever
+    // sound, and stopping them later would be reaching into a corpse.
+    this.voices = []
+    this.ctx = this.createContext()
+    void dead?.close().catch(() => {})
+
+    await resumed(this.ctx)
   }
 
   /** Fetch and decode every sample. Safe to call repeatedly. */
@@ -227,6 +258,40 @@ export class Piano {
     }
     this.voices = []
   }
+}
+
+/**
+ * Whether a context is running, resuming it if it is not.
+ *
+ * `closed` is not worth trying: resuming one throws, and the throw is the
+ * expected outcome rather than a surprise worth catching loudly.
+ */
+async function resumed(ctx: AudioContext | null): Promise<boolean> {
+  if (!ctx) return false
+  if (stateOf(ctx) === 'running') return true
+  if (stateOf(ctx) === 'closed') return false
+
+  try {
+    await ctx.resume()
+  } catch {
+    // An interrupted context sometimes cannot be revived at all. The caller
+    // builds a new one rather than treating this as fatal.
+    return false
+  }
+
+  return stateOf(ctx) === 'running'
+}
+
+/**
+ * The context's state, including the one WebKit invented.
+ *
+ * `interrupted` is what iOS uses when it takes the audio session away from a
+ * backgrounded app. It is not in the specification, so it is not in
+ * `AudioContextState`, so the compiler will not let you compare against it
+ * without being told it exists.
+ */
+function stateOf(ctx: AudioContext): AudioContextState | 'interrupted' {
+  return ctx.state
 }
 
 /** Shared instance used by the app. */
