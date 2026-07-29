@@ -281,9 +281,18 @@ export default function Melody() {
               ref={replayRef}
               onClick={() => playMelody(round.question)}
             />
-            <TonicButton
+            <ReferenceButton
+              label="Tonic"
+              description="Play the tonic"
               onClick={() => void piano.play([[round.question.tonic]])}
             />
+            {round.question.backing.length > 0 && (
+              <ReferenceButton
+                label="Chord"
+                description="Play the backing chord"
+                onClick={() => void piano.play([[...round.question.backing]])}
+              />
+            )}
           </div>
           <SilentSwitchHint />
 
@@ -422,16 +431,38 @@ function Entry({
   )
 }
 
-/** Re-hear where home is, at any point in the question. */
-function TonicButton({ onClick }: { onClick: () => void }) {
+/**
+ * Re-hear a reference, at any point in the question.
+ *
+ * Two of these: the tonic alone, and the chord the melody is heard over. The
+ * chord is the more useful of the two and the one a listener loses first — it
+ * sounds once, under the opening note, and by the fifth degree it has decayed
+ * to almost nothing. Getting it back without the melody on top is the
+ * difference between placing a degree against the harmony and placing it
+ * against a memory of the harmony.
+ *
+ * The chord button is absent rather than disabled when the backing is switched
+ * off. A control for a sound that does not exist is not a control, and the
+ * user turned it off themselves.
+ */
+function ReferenceButton({
+  label,
+  description,
+  onClick,
+}: {
+  label: string
+  /** What it does, for anyone who cannot see a two-word button in context. */
+  description: string
+  onClick: () => void
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label="Play the tonic"
+      aria-label={description}
       className="rounded-full bg-surface px-4 py-2.5 text-sm font-medium active:bg-surface-raised focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
     >
-      Tonic
+      {label}
     </button>
   )
 }

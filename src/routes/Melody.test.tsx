@@ -635,6 +635,80 @@ describe('revealing the answer', () => {
   })
 })
 
+describe('the chord reference', () => {
+  it('plays the backing chord on its own', async () => {
+    // It sounds once, under the opening note, and has decayed to almost
+    // nothing by the fifth degree. Getting it back is the difference between
+    // placing a degree against the harmony and against a memory of it.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    vi.mocked(piano.play).mockClear()
+
+    await user.click(
+      screen.getByRole('button', { name: 'Play the backing chord' }),
+    )
+    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[48, 52, 55]])
+  })
+
+  it('sounds every note of the chord together, not one at a time', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    vi.mocked(piano.play).mockClear()
+
+    await user.click(
+      screen.getByRole('button', { name: 'Play the backing chord' }),
+    )
+    const groups = vi.mocked(piano.play).mock.calls[0][0]
+    expect(groups).toHaveLength(1)
+    expect(groups[0]).toHaveLength(3)
+  })
+
+  it('is there at any point in the question, like the tonic', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    await tap(user, '1', '5')
+    vi.mocked(piano.play).mockClear()
+
+    await user.click(
+      screen.getByRole('button', { name: 'Play the backing chord' }),
+    )
+    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[48, 52, 55]])
+  })
+
+  it('does not offer a chord when the backing is switched off', async () => {
+    // A control for a sound that does not exist is not a control, and the
+    // user turned it off themselves.
+    vi.mocked(exercises.generateMelodyQuestion).mockReturnValue({
+      ...MELODY,
+      backing: [],
+    })
+
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    expect(
+      screen.queryByRole('button', { name: 'Play the backing chord' }),
+    ).toBeNull()
+    // The tonic is still there; it does not depend on the backing.
+    expect(screen.getByRole('button', { name: 'Play the tonic' })).toBeVisible()
+  })
+
+  it('leaves the score alone', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await user.click(
+      screen.getByRole('button', { name: 'Play the backing chord' }),
+    )
+    expect(screen.getByLabelText('Score')).toHaveTextContent('0/0')
+  })
+})
+
 describe('the tonic reference', () => {
   it('can be re-heard at any point in the question', async () => {
     const user = userEvent.setup()
