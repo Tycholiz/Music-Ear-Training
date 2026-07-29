@@ -254,7 +254,7 @@ describe('reconciling a scale change', () => {
     const { user } = openMenu()
     await openScreen(user, 'Scales')
     await user.click(
-      screen.getByRole('checkbox', { name: /^Mixolydian1 2 3 4 5 6 b7$/ }),
+      screen.getByRole('checkbox', { name: /^Mixolydian1 2 3 4 5 6 ♭7$/ }),
     )
 
     await waitFor(() => {

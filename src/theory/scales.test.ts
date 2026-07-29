@@ -35,11 +35,11 @@ describe('degrees', () => {
   it('spells the accidentals as flats, never sharps', () => {
     // b3 is how a minor third is written and read. A button saying #2 would
     // look like a bug, whatever midiToName does for absolute pitches.
-    expect(degreeLabel(1)).toBe('b2')
-    expect(degreeLabel(3)).toBe('b3')
-    expect(degreeLabel(6)).toBe('b5')
-    expect(degreeLabel(8)).toBe('b6')
-    expect(degreeLabel(10)).toBe('b7')
+    expect(degreeLabel(1)).toBe('♭2')
+    expect(degreeLabel(3)).toBe('♭3')
+    expect(degreeLabel(6)).toBe('♭5')
+    expect(degreeLabel(8)).toBe('♭6')
+    expect(degreeLabel(10)).toBe('♭7')
 
     for (const degree of ALL_DEGREES) {
       expect(degreeLabel(degree)).not.toContain('#')

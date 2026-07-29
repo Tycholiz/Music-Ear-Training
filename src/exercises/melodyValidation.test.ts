@@ -125,7 +125,7 @@ describe('melodyStuckReason', () => {
     // saying so beats a blank exercise screen.
     expect(
       melodyStuckReason(settingsWith({ scaleIds: ['major'], featured: [10] })),
-    ).toMatch(/b7 cannot be featured: Major does not contain it/)
+    ).toMatch(/♭7 cannot be featured: Major does not contain it/)
   })
 
   it('gives a reason for every way of being stuck', () => {
