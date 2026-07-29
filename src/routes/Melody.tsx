@@ -308,9 +308,6 @@ export default function Melody() {
                 Not that one — listen again.
               </p>
             ) : null}
-            {phase === 'revealed' ? (
-              <p className="text-sm text-content-muted">That was the melody.</p>
-            ) : null}
           </div>
 
           {phase === 'revealed' ? (

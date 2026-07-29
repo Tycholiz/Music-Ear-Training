@@ -527,7 +527,6 @@ describe('revealing the answer', () => {
     await user.click(screen.getByRole('button', { name: 'Reveal' }))
 
     expect(answer()).toBe('1565')
-    expect(screen.getByText(/That was the melody/i)).toBeVisible()
   })
 
   it('does not colour a handed answer as though it was found', async () => {
