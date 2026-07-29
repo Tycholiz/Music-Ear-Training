@@ -81,6 +81,15 @@ describe('starting', () => {
     expect(screen.getByText(/No chord can be played/i)).toBeVisible()
     expect(screen.queryByRole('button', { name: 'Start' })).toBeNull()
   })
+
+  it('names the kind of chord being played, since the root is the question', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    expect(screen.queryByText('Major Triad')).toBeNull()
+
+    await start(user)
+    expect(screen.getByText('Major Triad')).toBeVisible()
+  })
 })
 
 describe('revealing', () => {
