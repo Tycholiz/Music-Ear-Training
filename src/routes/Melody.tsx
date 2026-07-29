@@ -37,9 +37,10 @@ const WRONG_FEEDBACK_MS = 800
  *
  * `wrong` is a held moment rather than an end state: the note that broke the
  * run stays red long enough to be read, then the answer clears and the user
- * tries the same melody again.
+ * tries the same melody again. `revealed` is the end state that retrying
+ * lacks — the answer is out, so there is nothing left to enter.
  */
-type Phase = 'entering' | 'wrong' | 'correct'
+type Phase = 'entering' | 'wrong' | 'correct' | 'revealed'
 
 interface Round {
   number: number
@@ -234,6 +235,36 @@ export default function Melody() {
     setEntered((current) => current.slice(0, -1))
   }
 
+  /**
+   * Give up on this melody and be told what it was.
+   *
+   * A wrong note ends the attempt rather than the question, which is right for
+   * a user who is close and wrong for one who is stuck: without this they
+   * retry the same unsolved melody indefinitely, learning nothing new each
+   * time round.
+   *
+   * It costs the question, on the chord root exercise's reasoning that being
+   * told the answer is not identifying it. `scoreOnce` makes that exactly
+   * right in both directions for free — revealing before any mistake charges
+   * the question, and revealing after one charges nothing further, because it
+   * was already lost.
+   */
+  const reveal = () => {
+    if (!round || phase === 'correct' || phase === 'revealed') return
+    if (feedbackTimer.current) clearTimeout(feedbackTimer.current)
+
+    // Revealing mid-mistake catches a wrong note still on screen, and the
+    // red that marked it belongs to a phase we are leaving. Keep only the
+    // prefix the user actually got, or their error would be handed back to
+    // them as one of the answers.
+    const { positions } = checkMelody(entered, round.question)
+    const firstWrong = positions.indexOf(false)
+    if (firstWrong !== -1) setEntered(entered.slice(0, firstWrong))
+
+    scoreOnce(false)
+    setPhase('revealed')
+  }
+
   return (
     <main className="flex h-full flex-col">
       <ExerciseHeader
@@ -250,9 +281,18 @@ export default function Melody() {
               ref={replayRef}
               onClick={() => playMelody(round.question)}
             />
-            <TonicButton
+            <ReferenceButton
+              label="Tonic"
+              description="Play the tonic"
               onClick={() => void piano.play([[round.question.tonic]])}
             />
+            {round.question.backing.length > 0 && (
+              <ReferenceButton
+                label="Chord"
+                description="Play the backing chord"
+                onClick={() => void piano.play([[...round.question.backing]])}
+              />
+            )}
           </div>
           <SilentSwitchHint />
 
@@ -261,6 +301,7 @@ export default function Melody() {
               entered={entered}
               length={round.question.degrees.length}
               wrongAt={phase === 'wrong' ? entered.length - 1 : null}
+              revealed={phase === 'revealed' ? round.question.degrees : null}
             />
             {phase === 'wrong' ? (
               <p className="text-sm text-content-muted">
@@ -269,23 +310,43 @@ export default function Melody() {
             ) : null}
           </div>
 
-          <div className="shrink-0 pb-4">
-            <DegreePad
-              degrees={scaleDegrees}
-              onPress={enter}
-              disabled={phase !== 'entering'}
-            />
-            <div className="flex justify-center pt-2">
+          {phase === 'revealed' ? (
+            <div className="flex shrink-0 justify-center pb-8">
               <button
                 type="button"
-                onClick={undo}
-                disabled={entered.length === 0 || phase !== 'entering'}
-                className="rounded-full px-6 py-2 text-sm text-content-muted active:bg-surface disabled:opacity-30"
+                onClick={nextQuestion}
+                className="rounded-full bg-accent px-8 py-3 text-lg font-medium active:opacity-80"
               >
-                Undo
+                Next
               </button>
             </div>
-          </div>
+          ) : (
+            <div className="shrink-0 pb-4">
+              <DegreePad
+                degrees={scaleDegrees}
+                onPress={enter}
+                disabled={phase !== 'entering'}
+              />
+              <div className="flex justify-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={undo}
+                  disabled={entered.length === 0 || phase !== 'entering'}
+                  className="rounded-full px-6 py-2 text-sm text-content-muted active:bg-surface disabled:opacity-30"
+                >
+                  Undo
+                </button>
+                <button
+                  type="button"
+                  onClick={reveal}
+                  disabled={phase === 'correct'}
+                  className="rounded-full px-6 py-2 text-sm text-content-muted active:bg-surface disabled:opacity-30"
+                >
+                  Reveal
+                </button>
+              </div>
+            </div>
+          )}
         </>
       ) : (
         <StartPanel playable={playable} onStart={nextQuestion} />
@@ -314,6 +375,11 @@ export default function Melody() {
  * enough to be anything else — it goes red and the answer clears. So the row
  * reads as how far the run has got, and the single red slot as where it broke.
  *
+ * A revealed melody fills the slots the user never reached, in a plain style
+ * rather than green. Green means they found it; a note they were handed has
+ * not been found, and saying otherwise would flatter the row into
+ * meaninglessness. Anything they did get stays green — it was still theirs.
+ *
  * The empty slots are the point too: they say how many notes are still to
  * come, which the user would otherwise have to count off the playback while
  * also trying to identify it.
@@ -322,11 +388,14 @@ function Entry({
   entered,
   length,
   wrongAt,
+  revealed,
 }: {
   entered: readonly Degree[]
   length: number
   /** Index of the note that broke the run, while it is being shown. */
   wrongAt: number | null
+  /** The melody itself, once the user has asked to be told it. */
+  revealed: readonly Degree[] | null
 }) {
   return (
     <div
@@ -334,7 +403,9 @@ function Entry({
       className="flex flex-wrap items-center justify-center gap-2 text-2xl font-medium tabular-nums"
     >
       {Array.from({ length }, (_, i) => {
-        const degree = entered[i]
+        const own = entered[i]
+        const given = own === undefined ? revealed?.[i] : undefined
+        const degree = own ?? given
 
         return (
           <span
@@ -342,9 +413,11 @@ function Entry({
             className={`flex h-11 min-w-11 items-center justify-center rounded-lg px-2 ${
               degree === undefined
                 ? 'bg-surface/40 text-content-muted'
-                : i === wrongAt
-                  ? 'bg-incorrect text-white'
-                  : 'bg-correct text-black'
+                : given !== undefined
+                  ? 'bg-surface-raised text-content'
+                  : i === wrongAt
+                    ? 'bg-incorrect text-white'
+                    : 'bg-correct text-black'
             }`}
           >
             {degree === undefined ? '·' : degreeLabel(degree)}
@@ -355,16 +428,38 @@ function Entry({
   )
 }
 
-/** Re-hear where home is, at any point in the question. */
-function TonicButton({ onClick }: { onClick: () => void }) {
+/**
+ * Re-hear a reference, at any point in the question.
+ *
+ * Two of these: the tonic alone, and the chord the melody is heard over. The
+ * chord is the more useful of the two and the one a listener loses first — it
+ * sounds once, under the opening note, and by the fifth degree it has decayed
+ * to almost nothing. Getting it back without the melody on top is the
+ * difference between placing a degree against the harmony and placing it
+ * against a memory of the harmony.
+ *
+ * The chord button is absent rather than disabled when the backing is switched
+ * off. A control for a sound that does not exist is not a control, and the
+ * user turned it off themselves.
+ */
+function ReferenceButton({
+  label,
+  description,
+  onClick,
+}: {
+  label: string
+  /** What it does, for anyone who cannot see a two-word button in context. */
+  description: string
+  onClick: () => void
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label="Play the tonic"
+      aria-label={description}
       className="rounded-full bg-surface px-4 py-2.5 text-sm font-medium active:bg-surface-raised focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
     >
-      Tonic
+      {label}
     </button>
   )
 }
