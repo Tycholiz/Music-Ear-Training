@@ -3,7 +3,6 @@ import {
   ALL_DEGREES,
   DEGREES_PER_OCTAVE,
   SCALES,
-  STABLE_DEGREES,
   degreeLabel,
   degreeOf,
   degreePitch,
@@ -11,6 +10,7 @@ import {
   scaleById,
   scaleContains,
   scalesByDifficulty,
+  tonicChord,
 } from './scales'
 import { MIDDLE_C, nameToMidi } from './pitch'
 
@@ -56,10 +56,6 @@ describe('degrees', () => {
     expect(isValidDegree(-1)).toBe(false)
     expect(isValidDegree(1.5)).toBe(false)
     expect(() => degreeLabel(12)).toThrow(RangeError)
-  })
-
-  it('calls the tonic triad stable, and nothing else', () => {
-    expect(STABLE_DEGREES).toEqual([0, 4, 7])
   })
 })
 
@@ -167,6 +163,70 @@ describe('scaleContains', () => {
     for (const degree of ALL_DEGREES) {
       expect(scaleContains(chromatic, degree)).toBe(true)
     }
+  })
+})
+
+describe('tonicChord', () => {
+  it('takes its third from the scale, not from an assumption', () => {
+    expect(tonicChord(scaleById('major'))).toEqual([0, 4, 7])
+    expect(tonicChord(scaleById('natural-minor'))).toEqual([0, 3, 7])
+    expect(tonicChord(scaleById('harmonic-minor'))).toEqual([0, 3, 7])
+    expect(tonicChord(scaleById('dorian'))).toEqual([0, 3, 7])
+    expect(tonicChord(scaleById('mixolydian'))).toEqual([0, 4, 7])
+  })
+
+  it('handles the pentatonics, which have a third but fewer of everything else', () => {
+    expect(tonicChord(scaleById('major-pentatonic'))).toEqual([0, 4, 7])
+    expect(tonicChord(scaleById('minor-pentatonic'))).toEqual([0, 3, 7])
+  })
+
+  it('gives blues a minor third, the only one it has', () => {
+    expect(tonicChord(scaleById('blues'))).toEqual([0, 3, 7])
+  })
+
+  it('leaves the chromatic scale a bare fifth', () => {
+    // Chromatic contains both thirds, so either one would clash with half the
+    // melodies drawn from it. A fifth asserts the tonic and nothing else.
+    expect(tonicChord(scaleById('chromatic'))).toEqual([0, 7])
+  })
+
+  it('never puts a note under the melody that is outside the scale', () => {
+    // This is the whole point: the backing has to be a reference, not a
+    // wrong note sounding against every phrase.
+    for (const scale of SCALES) {
+      for (const degree of tonicChord(scale)) {
+        expect(scaleContains(scale, degree), `${scale.name} ${degree}`).toBe(
+          true,
+        )
+      }
+    }
+  })
+
+  it('never sounds both thirds at once', () => {
+    for (const scale of SCALES) {
+      const chord = tonicChord(scale)
+      expect(chord.includes(3) && chord.includes(4), scale.name).toBe(false)
+    }
+  })
+
+  it('always contains the tonic, ascending and without duplicates', () => {
+    for (const scale of SCALES) {
+      const chord = tonicChord(scale)
+      expect(chord[0], scale.name).toBe(0)
+      expect(chord, scale.name).toEqual([...chord].sort((a, b) => a - b))
+      expect(new Set(chord).size, scale.name).toBe(chord.length)
+    }
+  })
+
+  it('drops the fifth for a scale that has none', () => {
+    // Locrian is not on the ladder, but the rule should not depend on that.
+    const locrian = {
+      id: 'locrian',
+      name: 'Locrian',
+      level: 999,
+      degrees: [0, 1, 3, 5, 6, 8, 10],
+    }
+    expect(tonicChord(locrian)).toEqual([0, 3])
   })
 })
 

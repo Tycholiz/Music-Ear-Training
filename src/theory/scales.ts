@@ -72,14 +72,10 @@ export function degreeLabel(degree: Degree): string {
   return DEGREE_LABELS[degree]
 }
 
-/**
- * The degrees a melody may rest on without needing resolution.
- *
- * The tonic triad. Starting a melody anywhere else leaves the opening note
- * sounding like it is already mid-phrase, which is a poor place to begin
- * transcribing from.
- */
-export const STABLE_DEGREES: readonly Degree[] = [0, 4, 7]
+const TONIC: Degree = 0
+const MINOR_THIRD: Degree = 3
+const MAJOR_THIRD: Degree = 4
+const FIFTH: Degree = 7
 
 export interface Scale {
   /** Stable id used in persisted settings. */
@@ -164,6 +160,42 @@ export function scalesByDifficulty(): Scale[] {
 
 export function scaleContains(scale: Scale, degree: Degree): boolean {
   return scale.degrees.includes(degree)
+}
+
+/**
+ * The tonic chord of a scale: the harmony a melody is heard against.
+ *
+ * Sounding a chord *underneath* the melody is what keeps the tonic available.
+ * The listener never has to remember it, because it never stopped playing —
+ * which also means a melody no longer has to open on the tonic to be
+ * transcribable, since every degree is heard against a reference that is still
+ * there.
+ *
+ * That only works if the chord agrees with the scale. A major triad under a
+ * natural minor melody puts a 3 against the melody's b3: not a reference
+ * point, just a wrong note. So the third is read off the scale rather than
+ * assumed, and dropped entirely where the scale does not commit to one. The
+ * chromatic scale contains both thirds, so any triad clashes with half the
+ * melodies drawn from it; a bare fifth asserts the tonic and says nothing
+ * about quality, which is all chromatic has to say. The fifth is likewise
+ * conditional, so a future scale built on a b5 does not get one it lacks.
+ *
+ * These are also the degrees a melody may open and close on. That is not a
+ * coincidence worth factoring apart: a note sounds at rest exactly when it
+ * belongs to the harmony underneath it, so it is one question, asked twice.
+ */
+export function tonicChord(scale: Scale): Degree[] {
+  const has = (degree: Degree) => scale.degrees.includes(degree)
+  const chord: Degree[] = [TONIC]
+
+  // One third or none — having both means the scale is not committing to a
+  // quality, and neither should the chord.
+  if (has(MINOR_THIRD) !== has(MAJOR_THIRD)) {
+    chord.push(has(MINOR_THIRD) ? MINOR_THIRD : MAJOR_THIRD)
+  }
+  if (has(FIFTH)) chord.push(FIFTH)
+
+  return chord
 }
 
 /**
