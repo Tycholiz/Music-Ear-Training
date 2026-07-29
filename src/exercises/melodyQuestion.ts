@@ -1,6 +1,7 @@
 import { LOWEST_NOTE, isPlayable, type MelodyPhrase } from '../audio'
 import {
   DEGREES_PER_OCTAVE,
+  degreeOf,
   degreePitch,
   scaleById,
   sharedDegrees,
@@ -374,6 +375,28 @@ function nextPosition(
 
 function range(from: number, to: number): number[] {
   return Array.from({ length: to - from + 1 }, (_, i) => from + i)
+}
+
+/**
+ * The pitch to sound when a degree is pressed as a guess.
+ *
+ * Not simply `degreePitch(tonic, degree)`. A melody runs from the tonic to the
+ * octave above it, so the tonic is the one degree with two pitches available —
+ * the bottom note and the top — and `degreePitch` always returns the bottom.
+ * A user who heard the melody's 1 up at the octave, pressed 1, and was
+ * answered an octave lower would reasonably conclude they had misheard, when
+ * what they had actually done was press the right button.
+ *
+ * So the pitch comes from the melody itself wherever the melody has one.
+ * Degrees it never played fall back to the plain octave, which is inside the
+ * same span, so a wrong guess still sounds in the register of the thing it is
+ * being compared against.
+ */
+export function guessPitch(question: MelodyQuestion, degree: Degree): number {
+  const sounded = question.notes.find(
+    (note) => degreeOf(question.tonic, note) === degree,
+  )
+  return sounded ?? degreePitch(question.tonic, degree)
 }
 
 /** Audio for a melody question: the melody, over whatever backs it. */

@@ -4,12 +4,13 @@ import {
   canGenerateMelody,
   checkMelody,
   generateMelodyQuestion,
+  guessPitch,
   phraseForMelodyQuestion,
   type MelodyQuestion,
 } from './melodyQuestion'
 import { DEFAULT_MELODY_SETTINGS, type MelodySettings } from '../settings'
 import { isPlayable } from '../audio'
-import { degreeOf, scaleById } from '../theory'
+import { ALL_DEGREES, degreeOf, scaleById } from '../theory'
 
 function settingsWith(overrides: Partial<MelodySettings> = {}): MelodySettings {
   return { ...DEFAULT_MELODY_SETTINGS, ...overrides }
@@ -425,6 +426,88 @@ describe('backing', () => {
         expect(isPlayable(note), `tonic ${tonic} backed with ${note}`).toBe(
           true,
         )
+      }
+    }
+  })
+})
+
+describe('guessPitch', () => {
+  /**
+   * 6 1 6 1 5 in C, with both 1s up at the octave — the shape that exposed
+   * the bug: pressing 1 answered with C4 while the melody had sung C5.
+   */
+  const OCTAVE_TONIC: MelodyQuestion = {
+    degrees: [9, 0, 9, 0, 7],
+    notes: [69, 72, 69, 72, 67],
+    backing: [48, 52, 55],
+    tonic: 60,
+    scaleId: 'major-pentatonic',
+  }
+
+  it('sounds the tonic where the melody sang it, not where it is written', () => {
+    expect(guessPitch(OCTAVE_TONIC, 0)).toBe(72)
+  })
+
+  it('sounds the low tonic when that is the one the melody used', () => {
+    const low: MelodyQuestion = {
+      ...OCTAVE_TONIC,
+      degrees: [0, 7, 9, 7, 0],
+      notes: [60, 67, 69, 67, 60],
+    }
+    expect(guessPitch(low, 0)).toBe(60)
+  })
+
+  it('agrees with the melody on every degree the melody played', () => {
+    for (const [i, degree] of OCTAVE_TONIC.degrees.entries()) {
+      const pitch = guessPitch(OCTAVE_TONIC, degree)
+      expect(degreeOf(OCTAVE_TONIC.tonic, pitch)).toBe(degree)
+      // And it is a pitch the melody actually contains.
+      expect(OCTAVE_TONIC.notes).toContain(pitch)
+      expect(pitch).toBe(OCTAVE_TONIC.notes[i])
+    }
+  })
+
+  it('places a degree the melody never played inside the same octave', () => {
+    // A wrong guess still has to sound in the register it is being compared
+    // against, or it is no use for comparing.
+    const pitch = guessPitch(OCTAVE_TONIC, 4)
+    expect(pitch).toBe(64)
+    expect(pitch).toBeGreaterThanOrEqual(OCTAVE_TONIC.tonic)
+    expect(pitch).toBeLessThanOrEqual(OCTAVE_TONIC.tonic + 12)
+  })
+
+  it('sounds the right degree whatever it picks', () => {
+    for (const degree of ALL_DEGREES) {
+      expect(
+        degreeOf(OCTAVE_TONIC.tonic, guessPitch(OCTAVE_TONIC, degree)),
+      ).toBe(degree)
+    }
+  })
+
+  it('never sounds anything outside the melody\u2019s own octave', () => {
+    for (const question of sample(settingsWith({ length: 8 }), 60)) {
+      for (const degree of ALL_DEGREES) {
+        const pitch = guessPitch(question, degree)
+        expect(pitch).toBeGreaterThanOrEqual(question.tonic)
+        expect(pitch).toBeLessThanOrEqual(question.tonic + 12)
+      }
+    }
+  })
+
+  it('matches the melody note at every position, for real questions', () => {
+    // The property that was broken: pressing the right degree at a given
+    // position sounds exactly the note that position played.
+    for (const question of sample(settingsWith({ length: 8 }), 100)) {
+      for (const [i, degree] of question.degrees.entries()) {
+        const pitch = guessPitch(question, degree)
+        expect(degreeOf(question.tonic, pitch)).toBe(degree)
+        // Where the degree occurs once, it must be that exact note.
+        const occurrences = question.notes.filter(
+          (note) => degreeOf(question.tonic, note) === degree,
+        )
+        if (new Set(occurrences).size === 1) {
+          expect(pitch, `position ${i}`).toBe(question.notes[i])
+        }
       }
     }
   })

@@ -9,12 +9,7 @@ import {
 } from '../components'
 import { MelodySettingsMenu } from '../customize'
 import { buildMelodySchedule, piano } from '../audio'
-import {
-  combinedDegrees,
-  degreeLabel,
-  degreePitch,
-  type Degree,
-} from '../theory'
+import { combinedDegrees, degreeLabel, type Degree } from '../theory'
 import {
   melodyScoreStore,
   melodySettingsStore,
@@ -25,6 +20,7 @@ import {
   canGenerateMelody,
   checkMelody,
   generateMelodyQuestion,
+  guessPitch,
   phraseForMelodyQuestion,
   selectedScales,
   type MelodyQuestion,
@@ -166,10 +162,11 @@ export default function Melody() {
   const enter = (degree: Degree) => {
     if (!round || phase !== 'entering') return
 
-    // Sound what was pressed. Choosing a degree by name and never hearing it
-    // makes this a guessing game with a keypad; hearing it turns a wrong
-    // answer into information — that was a 6, and the melody was not that.
-    void piano.play([[degreePitch(round.question.tonic, degree)]])
+    // Sound what was pressed, at the pitch this melody used for it. Choosing
+    // a degree by name and never hearing it makes this a guessing game with a
+    // keypad; hearing it turns a wrong answer into information — that was a 6,
+    // and the melody was not that.
+    void piano.play([[guessPitch(round.question, degree)]])
 
     setEntered((current) =>
       current.length >= round.question.degrees.length

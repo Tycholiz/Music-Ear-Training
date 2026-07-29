@@ -63,6 +63,7 @@ export {
   canGenerateMelody,
   checkMelody,
   generateMelodyQuestion,
+  guessPitch,
   phraseForMelodyQuestion,
   selectedScales,
 } from './melodyQuestion'

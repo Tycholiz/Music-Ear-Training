@@ -420,6 +420,31 @@ describe('hearing what was pressed', () => {
     expect(piano.play).toHaveBeenCalledExactlyOnceWith([[69]])
   })
 
+  it('sounds the tonic where this melody sang it, not an octave down', async () => {
+    // The melody is 6 1 6 1 5 with both 1s up at the octave. Answering a
+    // pressed 1 with the low C would tell the user they had misheard when
+    // they had in fact pressed the right button.
+    vi.mocked(exercises.generateMelodyQuestion).mockReturnValue({
+      degrees: [9, 0, 9, 0, 7],
+      notes: [69, 72, 69, 72, 67],
+      backing: [48, 52, 55],
+      tonic: 60,
+      scaleId: 'major-pentatonic',
+    })
+
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    vi.mocked(piano.play).mockClear()
+
+    await tap(user, '6')
+    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[69]])
+
+    vi.mocked(piano.play).mockClear()
+    await tap(user, '1')
+    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[72]])
+  })
+
   it('says nothing once the pad is closed', async () => {
     const user = userEvent.setup()
     renderExercise()
