@@ -1,7 +1,6 @@
 import { LOWEST_NOTE, isPlayable, type MelodyPhrase } from '../audio'
 import {
   DEGREES_PER_OCTAVE,
-  degreeOf,
   degreePitch,
   scaleById,
   sharedDegrees,
@@ -378,25 +377,46 @@ function range(from: number, to: number): number[] {
 }
 
 /**
- * The pitch to sound when a degree is pressed as a guess.
+ * The pitch to sound when a degree is pressed as a guess at a given position.
  *
- * Not simply `degreePitch(tonic, degree)`. A melody runs from the tonic to the
- * octave above it, so the tonic is the one degree with two pitches available —
- * the bottom note and the top — and `degreePitch` always returns the bottom.
- * A user who heard the melody's 1 up at the octave, pressed 1, and was
- * answered an octave lower would reasonably conclude they had misheard, when
- * what they had actually done was press the right button.
+ * Not `degreePitch(tonic, degree)`, and not the degree's first appearance in
+ * the melody either. A melody runs from the tonic to the octave above it, so
+ * the tonic is the one degree with two pitches available — the bottom note and
+ * the top — and a melody may well use both. `1 1 2 1 1`, sung with the first
+ * of those an octave up, is an ordinary shape, and answering every one of
+ * those four presses with the same pitch would be wrong three times or once
+ * whichever pitch was chosen.
  *
- * So the pitch comes from the melody itself wherever the melody has one.
- * Degrees it never played fall back to the plain octave, which is inside the
- * same span, so a wrong guess still sounds in the register of the thing it is
- * being compared against.
+ * So the position decides. The pitch sounded is the pressed degree lying
+ * nearest the note the melody plays *there*, which for a right answer is
+ * exactly that note, and for a wrong one is the same degree in the register
+ * the melody is currently in — which is the register it needs to be compared
+ * against to be any use.
  */
-export function guessPitch(question: MelodyQuestion, degree: Degree): number {
-  const sounded = question.notes.find(
-    (note) => degreeOf(question.tonic, note) === degree,
+export function guessPitch(
+  question: MelodyQuestion,
+  index: number,
+  degree: Degree,
+): number {
+  const reference =
+    question.notes[index] ?? question.notes.at(-1) ?? question.tonic
+
+  return octavesWithin(question.tonic, degree).reduce((best, pitch) =>
+    Math.abs(pitch - reference) < Math.abs(best - reference) ? pitch : best,
   )
-  return sounded ?? degreePitch(question.tonic, degree)
+}
+
+/** Every pitch with this degree that a melody on this tonic could have used. */
+function octavesWithin(tonic: number, degree: Degree): number[] {
+  const pitches: number[] = []
+  for (
+    let pitch = degreePitch(tonic, degree);
+    pitch <= tonic + MELODY_SPAN;
+    pitch += DEGREES_PER_OCTAVE
+  ) {
+    pitches.push(pitch)
+  }
+  return pitches
 }
 
 /** Audio for a melody question: the melody, over whatever backs it. */

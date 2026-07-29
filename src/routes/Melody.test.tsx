@@ -445,6 +445,59 @@ describe('hearing what was pressed', () => {
     expect(piano.play).toHaveBeenCalledExactlyOnceWith([[72]])
   })
 
+  it('follows the octave from note to note within one melody', async () => {
+    // 8 1 2 1 1 as a player would say it — the same degree at two octaves,
+    // both reading as "1" on the pad. One pitch per degree cannot serve this.
+    vi.mocked(exercises.generateMelodyQuestion).mockReturnValue({
+      degrees: [0, 0, 2, 0, 0],
+      notes: [72, 60, 62, 60, 60],
+      backing: [48, 52, 55],
+      tonic: 60,
+      scaleId: 'major-pentatonic',
+    })
+
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    const sounded: number[] = []
+    for (const label of ['1', '1', '2', '1', '1']) {
+      vi.mocked(piano.play).mockClear()
+      await tap(user, label)
+      sounded.push(vi.mocked(piano.play).mock.calls[0][0][0][0])
+    }
+
+    expect(sounded).toEqual([72, 60, 62, 60, 60])
+  })
+
+  it('keeps the octaves straight when two are pressed in the same tick', async () => {
+    // The batching trap again: both presses would read the position this
+    // render was built with, and the second 1 would sound the first one's
+    // octave.
+    vi.mocked(exercises.generateMelodyQuestion).mockReturnValue({
+      degrees: [0, 0, 2, 0, 0],
+      notes: [72, 60, 62, 60, 60],
+      backing: [48, 52, 55],
+      tonic: 60,
+      scaleId: 'major-pentatonic',
+    })
+
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    vi.mocked(piano.play).mockClear()
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '1' }))
+      fireEvent.click(screen.getByRole('button', { name: '1' }))
+    })
+
+    const sounded = vi
+      .mocked(piano.play)
+      .mock.calls.map((call) => call[0][0][0])
+    expect(sounded).toEqual([72, 60])
+  })
+
   it('says nothing once the pad is closed', async () => {
     const user = userEvent.setup()
     renderExercise()

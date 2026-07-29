@@ -81,6 +81,16 @@ export default function Melody() {
    * effect has to read it without waiting for a render to tell it.
    */
   const graded = useRef(false)
+  /**
+   * How many degrees are in, readable without waiting for a render.
+   *
+   * `entered.length` is the same number, but a press has to know it *during*
+   * the press to sound the right octave, and two presses inside one React
+   * batch would both read the length this render was built with. Kept in step
+   * by an effect below, so undo, a cleared attempt and a new question all
+   * correct it without any of them having to remember to.
+   */
+  const position = useRef(0)
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const replayRef = useRef<HTMLButtonElement>(null)
@@ -127,6 +137,10 @@ export default function Melody() {
   }, [settings])
 
   useEffect(() => {
+    position.current = entered.length
+  }, [entered])
+
+  useEffect(() => {
     if (!round) return
     replayRef.current?.focus()
   }, [round])
@@ -162,11 +176,15 @@ export default function Melody() {
   const enter = (degree: Degree) => {
     if (!round || phase !== 'entering') return
 
-    // Sound what was pressed, at the pitch this melody used for it. Choosing
-    // a degree by name and never hearing it makes this a guessing game with a
-    // keypad; hearing it turns a wrong answer into information — that was a 6,
-    // and the melody was not that.
-    void piano.play([[guessPitch(round.question, degree)]])
+    const index = position.current
+    if (index >= round.question.degrees.length) return
+    position.current = index + 1
+
+    // Sound what was pressed, at the pitch this melody uses at this point in
+    // it. Choosing a degree by name and never hearing it makes this a guessing
+    // game with a keypad; hearing it turns a wrong answer into information —
+    // that was a 6, and the melody was not that.
+    void piano.play([[guessPitch(round.question, index, degree)]])
 
     setEntered((current) =>
       current.length >= round.question.degrees.length

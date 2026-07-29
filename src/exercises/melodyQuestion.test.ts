@@ -433,83 +433,91 @@ describe('backing', () => {
 
 describe('guessPitch', () => {
   /**
-   * 6 1 6 1 5 in C, with both 1s up at the octave — the shape that exposed
-   * the bug: pressing 1 answered with C4 while the melody had sung C5.
+   * 1 1 2 1 1 in C, sung with the *first* of those an octave up: 8 1 2 1 1 as
+   * a player would say it. The exercise does not distinguish the octave from
+   * the tonic, so all four read as "1" — which is what makes this the case a
+   * single pitch per degree cannot serve.
    */
-  const OCTAVE_TONIC: MelodyQuestion = {
-    degrees: [9, 0, 9, 0, 7],
-    notes: [69, 72, 69, 72, 67],
+  const BOTH_OCTAVES: MelodyQuestion = {
+    degrees: [0, 0, 2, 0, 0],
+    notes: [72, 60, 62, 60, 60],
     backing: [48, 52, 55],
     tonic: 60,
     scaleId: 'major-pentatonic',
   }
 
-  it('sounds the tonic where the melody sang it, not where it is written', () => {
-    expect(guessPitch(OCTAVE_TONIC, 0)).toBe(72)
+  it('sounds the octave where the melody sang the octave', () => {
+    expect(guessPitch(BOTH_OCTAVES, 0, 0)).toBe(72)
   })
 
-  it('sounds the low tonic when that is the one the melody used', () => {
-    const low: MelodyQuestion = {
-      ...OCTAVE_TONIC,
-      degrees: [0, 7, 9, 7, 0],
-      notes: [60, 67, 69, 67, 60],
-    }
-    expect(guessPitch(low, 0)).toBe(60)
+  it('sounds the tonic where the melody sang the tonic', () => {
+    expect(guessPitch(BOTH_OCTAVES, 1, 0)).toBe(60)
+    expect(guessPitch(BOTH_OCTAVES, 3, 0)).toBe(60)
+    expect(guessPitch(BOTH_OCTAVES, 4, 0)).toBe(60)
   })
 
-  it('agrees with the melody on every degree the melody played', () => {
-    for (const [i, degree] of OCTAVE_TONIC.degrees.entries()) {
-      const pitch = guessPitch(OCTAVE_TONIC, degree)
-      expect(degreeOf(OCTAVE_TONIC.tonic, pitch)).toBe(degree)
-      // And it is a pitch the melody actually contains.
-      expect(OCTAVE_TONIC.notes).toContain(pitch)
-      expect(pitch).toBe(OCTAVE_TONIC.notes[i])
-    }
+  it('gives the same degree a different pitch at different positions', () => {
+    // The whole point: one pitch per degree cannot answer this melody.
+    const first = guessPitch(BOTH_OCTAVES, 0, 0)
+    const second = guessPitch(BOTH_OCTAVES, 1, 0)
+    expect(first).not.toBe(second)
+    expect(first - second).toBe(12)
   })
 
-  it('places a degree the melody never played inside the same octave', () => {
-    // A wrong guess still has to sound in the register it is being compared
-    // against, or it is no use for comparing.
-    const pitch = guessPitch(OCTAVE_TONIC, 4)
-    expect(pitch).toBe(64)
-    expect(pitch).toBeGreaterThanOrEqual(OCTAVE_TONIC.tonic)
-    expect(pitch).toBeLessThanOrEqual(OCTAVE_TONIC.tonic + 12)
-  })
-
-  it('sounds the right degree whatever it picks', () => {
-    for (const degree of ALL_DEGREES) {
-      expect(
-        degreeOf(OCTAVE_TONIC.tonic, guessPitch(OCTAVE_TONIC, degree)),
-      ).toBe(degree)
+  it('answers a right guess with exactly the note that position played', () => {
+    for (const [i, degree] of BOTH_OCTAVES.degrees.entries()) {
+      expect(guessPitch(BOTH_OCTAVES, i, degree)).toBe(BOTH_OCTAVES.notes[i])
     }
   })
 
-  it('never sounds anything outside the melody\u2019s own octave', () => {
-    for (const question of sample(settingsWith({ length: 8 }), 60)) {
+  it('puts a wrong guess in the register the melody is in at that point', () => {
+    // Pressing 5 against the high 1 should not answer from the bottom of the
+    // melody; it is being compared against what is sounding around it.
+    const high = guessPitch(BOTH_OCTAVES, 0, 7)
+    const low = guessPitch(BOTH_OCTAVES, 1, 7)
+    expect(Math.abs(high - 72)).toBeLessThanOrEqual(Math.abs(low - 72))
+  })
+
+  it('sounds the degree that was pressed, whatever octave it picks', () => {
+    for (const [i] of BOTH_OCTAVES.notes.entries()) {
       for (const degree of ALL_DEGREES) {
-        const pitch = guessPitch(question, degree)
-        expect(pitch).toBeGreaterThanOrEqual(question.tonic)
-        expect(pitch).toBeLessThanOrEqual(question.tonic + 12)
+        expect(
+          degreeOf(BOTH_OCTAVES.tonic, guessPitch(BOTH_OCTAVES, i, degree)),
+        ).toBe(degree)
       }
     }
   })
 
-  it('matches the melody note at every position, for real questions', () => {
-    // The property that was broken: pressing the right degree at a given
-    // position sounds exactly the note that position played.
-    for (const question of sample(settingsWith({ length: 8 }), 100)) {
-      for (const [i, degree] of question.degrees.entries()) {
-        const pitch = guessPitch(question, degree)
-        expect(degreeOf(question.tonic, pitch)).toBe(degree)
-        // Where the degree occurs once, it must be that exact note.
-        const occurrences = question.notes.filter(
-          (note) => degreeOf(question.tonic, note) === degree,
-        )
-        if (new Set(occurrences).size === 1) {
-          expect(pitch, `position ${i}`).toBe(question.notes[i])
+  it('stays inside the octave the melody is written across', () => {
+    for (const question of sample(settingsWith({ length: 8 }), 60)) {
+      for (const [i] of question.notes.entries()) {
+        for (const degree of ALL_DEGREES) {
+          const pitch = guessPitch(question, i, degree)
+          expect(pitch).toBeGreaterThanOrEqual(question.tonic)
+          expect(pitch).toBeLessThanOrEqual(question.tonic + 12)
         }
       }
     }
+  })
+
+  it('answers every right guess with its own note, across real questions', () => {
+    // The property both versions of this bug broke: pressing the right degree
+    // at a position sounds exactly the note that position played — including
+    // when the melody used the tonic at both octaves.
+    for (const question of sample(settingsWith({ length: 8 }), 150)) {
+      for (const [i, degree] of question.degrees.entries()) {
+        expect(guessPitch(question, i, degree), `position ${i}`).toBe(
+          question.notes[i],
+        )
+      }
+    }
+  })
+
+  it('copes with a position past the end of the melody', () => {
+    expect(() => guessPitch(BOTH_OCTAVES, 99, 0)).not.toThrow()
+    expect(degreeOf(BOTH_OCTAVES.tonic, guessPitch(BOTH_OCTAVES, 99, 0))).toBe(
+      0,
+    )
   })
 })
 
