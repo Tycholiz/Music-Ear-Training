@@ -7,7 +7,13 @@ import {
   playbackRate,
   sampleUrl,
 } from './samples'
-import { TIMING, buildSchedule, type NoteGroup, type Timing } from './schedule'
+import {
+  TIMING,
+  buildSchedule,
+  type NoteGroup,
+  type ScheduledNote,
+  type Timing,
+} from './schedule'
 import { configureAudioSession } from './audioSession'
 
 /**
@@ -27,8 +33,13 @@ const RELEASE_MS = 180
 /** Fade used when playback is cancelled part-way through. */
 const CANCEL_MS = 40
 
-/** Per-note gain. Chords stack several of these, so leave headroom. */
-const NOTE_GAIN = 0.8
+/**
+ * Per-note gain. Chords stack several of these, so leave headroom.
+ *
+ * Exported because `ScheduledNote.gain` scales it: a caller asking for a
+ * quieter voice is asking for a fraction of this, not of full scale.
+ */
+export const NOTE_GAIN = 0.8
 
 interface Voice {
   source: AudioBufferSourceNode
@@ -135,6 +146,18 @@ export class Piano {
    * replay button restarts cleanly instead of stacking voices.
    */
   async play(groups: readonly NoteGroup[]): Promise<void> {
+    await this.playSchedule(buildSchedule(groups, this.timing))
+  }
+
+  /**
+   * Play notes that have already been placed on the clock.
+   *
+   * Note groups cover everything with one sustain rule for the whole phrase.
+   * A melody over a held chord needs two at once — detached on top, sustained
+   * underneath — which no arrangement of groups can express, so that caller
+   * builds its own schedule and hands it over.
+   */
+  async playSchedule(notes: readonly ScheduledNote[]): Promise<void> {
     await this.unlock()
     await this.load()
     this.stop()
@@ -143,22 +166,20 @@ export class Piano {
     if (!ctx) return
 
     const startedAt = ctx.currentTime
-    for (const note of buildSchedule(groups, this.timing)) {
+    for (const note of notes) {
       if (!isPlayable(note.midi)) {
         throw new RangeError(
           `Note ${note.midi} is outside the piano range ${LOWEST_NOTE}-${HIGHEST_NOTE}`,
         )
       }
-      this.startVoice(ctx, startedAt, note.midi, note.startMs, note.durationMs)
+      this.startVoice(ctx, startedAt, note)
     }
   }
 
   private startVoice(
     ctx: AudioContext,
     startedAt: number,
-    midi: number,
-    startMs: number,
-    durationMs: number,
+    { midi, startMs, durationMs, gain: gainScale = 1 }: ScheduledNote,
   ) {
     const sampleMidi = nearestSample(midi)
     const buffer = this.buffers.get(sampleMidi)
@@ -174,9 +195,10 @@ export class Piano {
 
     // Hold at full gain, then fade over the last RELEASE_MS so the note
     // decays instead of being chopped off.
+    const level = NOTE_GAIN * gainScale
     const gain = ctx.createGain()
-    gain.gain.setValueAtTime(NOTE_GAIN, startAt)
-    gain.gain.setValueAtTime(NOTE_GAIN, releaseAt)
+    gain.gain.setValueAtTime(level, startAt)
+    gain.gain.setValueAtTime(level, releaseAt)
     gain.gain.linearRampToValueAtTime(0, endAt)
 
     source.connect(gain)

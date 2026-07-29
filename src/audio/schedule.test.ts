@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import {
+  MELODY_TIMING,
   TIMING,
+  buildMelodySchedule,
   buildSchedule,
   scheduleDurationMs,
+  scheduleEndMs,
   sequence,
   sequenceThenSimultaneous,
   simultaneous,
+  type MelodyTiming,
   type Timing,
 } from './schedule'
 
@@ -134,5 +138,205 @@ describe('default TIMING', () => {
   it('sustains a real sequence into an overlap', () => {
     const [first, second] = buildSchedule(sequence([60, 64]))
     expect(first.startMs + first.durationMs).toBeGreaterThan(second.startMs)
+  })
+})
+
+/** Round numbers again: 4 melody notes, backing restruck once mid-phrase. */
+const melodyTiming: MelodyTiming = {
+  onsetMs: 100,
+  noteMs: 120,
+  releaseMs: 200,
+  backingRestrikeMs: 250,
+}
+
+/** Just the melody layer — everything at the default gain. */
+function melodyOf(notes: ReturnType<typeof buildMelodySchedule>) {
+  return notes.filter((n) => n.gain === undefined)
+}
+
+/** Just the backing layer. */
+function backingOf(notes: ReturnType<typeof buildMelodySchedule>) {
+  return notes.filter((n) => n.gain !== undefined)
+}
+
+describe('scheduleEndMs', () => {
+  it('is the end of the last note to stop, not the last to start', () => {
+    expect(
+      scheduleEndMs([
+        { midi: 60, startMs: 0, durationMs: 1000 },
+        { midi: 64, startMs: 100, durationMs: 200 },
+      ]),
+    ).toBe(1000)
+  })
+
+  it('is zero for an empty schedule', () => {
+    expect(scheduleEndMs([])).toBe(0)
+  })
+
+  it('agrees with scheduleDurationMs on a note-group schedule', () => {
+    const groups = sequenceThenSimultaneous([60, 64])
+    expect(scheduleEndMs(buildSchedule(groups, timing))).toBe(
+      scheduleDurationMs(groups, timing),
+    )
+  })
+})
+
+describe('buildMelodySchedule', () => {
+  it('plays nothing for an empty melody', () => {
+    expect(buildMelodySchedule({ melody: [] }, melodyTiming)).toEqual([])
+    expect(
+      buildMelodySchedule({ melody: [], backing: [60, 64, 67] }, melodyTiming),
+    ).toEqual([])
+  })
+
+  it('spaces the melody one onset apart, in order', () => {
+    const melody = melodyOf(
+      buildMelodySchedule({ melody: [60, 62, 64] }, melodyTiming),
+    )
+    expect(melody.map((n) => n.midi)).toEqual([60, 62, 64])
+    expect(melody.map((n) => n.startMs)).toEqual([0, 100, 200])
+  })
+
+  it('detaches the melody instead of holding it to the end', () => {
+    // The whole reason this exists rather than reusing buildSchedule: eight
+    // notes still ringing at the end is a cluster, not a phrase.
+    const melody = melodyOf(
+      buildMelodySchedule({ melody: [60, 62, 64, 65] }, melodyTiming),
+    )
+    for (const note of melody) expect(note.durationMs).toBe(120)
+
+    const last = melody.at(-1)!
+    for (const note of melody.slice(0, -1)) {
+      expect(note.startMs + note.durationMs).toBeLessThan(
+        last.startMs + last.durationMs,
+      )
+    }
+  })
+
+  it('overlaps consecutive notes slightly, so they join rather than click apart', () => {
+    const [first, second] = melodyOf(
+      buildMelodySchedule({ melody: [60, 62] }, melodyTiming),
+    )
+    expect(first.startMs + first.durationMs).toBeGreaterThan(second.startMs)
+  })
+
+  it('plays the melody unaccompanied when there is no backing', () => {
+    const notes = buildMelodySchedule({ melody: [60, 62, 64] }, melodyTiming)
+    expect(backingOf(notes)).toEqual([])
+    expect(notes).toHaveLength(3)
+  })
+
+  it('starts the backing with the first melody note', () => {
+    const backing = backingOf(
+      buildMelodySchedule(
+        { melody: [60, 62, 64], backing: [48, 52, 55] },
+        melodyTiming,
+      ),
+    )
+    const opening = backing.filter((n) => n.startMs === 0)
+    expect(opening.map((n) => n.midi)).toEqual([48, 52, 55])
+  })
+
+  it('keeps the backing under the last note as well as the first', () => {
+    // A single strike would have decayed away by the end, leaving the degrees
+    // a tiring listener is most likely to lose with the least support.
+    const notes = buildMelodySchedule(
+      { melody: [60, 62, 64, 65, 67, 69], backing: [48, 55] },
+      melodyTiming,
+    )
+    const melodyEnd = scheduleEndMs(melodyOf(notes))
+    const covered = backingOf(notes).some(
+      (n) => n.startMs < melodyEnd && n.startMs + n.durationMs >= melodyEnd,
+    )
+    expect(covered).toBe(true)
+  })
+
+  it('restrikes the backing rather than letting one strike carry it', () => {
+    const backing = backingOf(
+      buildMelodySchedule(
+        { melody: [60, 62, 64, 65, 67, 69], backing: [48] },
+        melodyTiming,
+      ),
+    )
+    // 6 notes at 100ms spans past two 250ms restrikes.
+    expect(backing.map((n) => n.startMs)).toEqual([0, 250, 500])
+  })
+
+  it('hands each strike over to the next without doubling a note', () => {
+    const backing = backingOf(
+      buildMelodySchedule(
+        { melody: [60, 62, 64, 65, 67, 69], backing: [48] },
+        melodyTiming,
+      ),
+    )
+    for (const [i, note] of backing.slice(0, -1).entries()) {
+      expect(note.startMs + note.durationMs).toBe(backing[i + 1].startMs)
+    }
+  })
+
+  it('does not restrike the backing after the melody has finished', () => {
+    const notes = buildMelodySchedule(
+      { melody: [60, 62], backing: [48] },
+      melodyTiming,
+    )
+    const melodyEnd = scheduleEndMs(melodyOf(notes))
+    for (const note of backingOf(notes)) {
+      expect(note.startMs).toBeLessThan(melodyEnd)
+    }
+  })
+
+  it('rings the backing on past the melody', () => {
+    const notes = buildMelodySchedule(
+      { melody: [60, 62], backing: [48] },
+      melodyTiming,
+    )
+    expect(scheduleEndMs(notes)).toBe(
+      scheduleEndMs(melodyOf(notes)) + melodyTiming.releaseMs,
+    )
+  })
+
+  it('puts the backing below the melody in volume', () => {
+    const notes = buildMelodySchedule(
+      { melody: [60, 62], backing: [48, 55] },
+      melodyTiming,
+    )
+    for (const note of backingOf(notes)) {
+      expect(note.gain).toBeGreaterThan(0)
+      expect(note.gain).toBeLessThan(1)
+    }
+    for (const note of melodyOf(notes)) {
+      expect(note.gain).toBeUndefined()
+    }
+  })
+})
+
+describe('default MELODY_TIMING', () => {
+  it('moves faster than an interval question, so a run reads as a phrase', () => {
+    expect(MELODY_TIMING.onsetMs).toBeLessThan(TIMING.onsetMs)
+  })
+
+  it('rings each note past the next onset', () => {
+    expect(MELODY_TIMING.noteMs).toBeGreaterThan(MELODY_TIMING.onsetMs)
+  })
+
+  it('restrikes the backing well inside a piano note’s decay', () => {
+    expect(MELODY_TIMING.backingRestrikeMs).toBeGreaterThan(
+      MELODY_TIMING.onsetMs,
+    )
+    expect(MELODY_TIMING.backingRestrikeMs).toBeLessThan(3000)
+  })
+
+  it('holds the backing under a realistic melody at the real timing', () => {
+    const notes = buildMelodySchedule({
+      melody: [60, 62, 64, 65, 67, 69, 71, 72],
+      backing: [48, 52, 55],
+    })
+    const melodyEnd = scheduleEndMs(melodyOf(notes))
+    for (let at = 0; at < melodyEnd; at += 50) {
+      const sounding = backingOf(notes).some(
+        (n) => n.startMs <= at && n.startMs + n.durationMs > at,
+      )
+      expect(sounding, `nothing under the melody at ${at}ms`).toBe(true)
+    }
   })
 })

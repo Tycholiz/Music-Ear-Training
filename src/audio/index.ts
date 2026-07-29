@@ -10,14 +10,23 @@ export {
   sampleUrl,
 } from './samples'
 export {
+  MELODY_TIMING,
   TIMING,
+  buildMelodySchedule,
   buildSchedule,
   scheduleDurationMs,
+  scheduleEndMs,
   sequence,
   sequenceThenSimultaneous,
   simultaneous,
 } from './schedule'
-export type { NoteGroup, ScheduledNote, Timing } from './schedule'
+export type {
+  MelodyPhrase,
+  MelodyTiming,
+  NoteGroup,
+  ScheduledNote,
+  Timing,
+} from './schedule'
 export {
   configureAudioSession,
   isIos,
