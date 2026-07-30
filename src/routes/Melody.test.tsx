@@ -392,33 +392,46 @@ describe('hearing what was pressed', () => {
     const user = userEvent.setup()
     renderExercise()
     await start(user)
-    vi.mocked(piano.strike).mockClear()
+    vi.mocked(piano.play).mockClear()
 
     await tap(user, '1')
-    expect(piano.strike).toHaveBeenCalledExactlyOnceWith([60])
+    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[60]])
   })
 
   it('sounds it at the pitch it has against this melody\u2019s tonic', async () => {
     const user = userEvent.setup()
     renderExercise()
     await start(user)
-    vi.mocked(piano.strike).mockClear()
+    vi.mocked(piano.play).mockClear()
 
     // The 5 above a tonic of C4 is G4.
     await tap(user, '5')
-    expect(piano.strike).toHaveBeenCalledExactlyOnceWith([67])
+    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[67]])
   })
 
   it('sounds a wrong degree too, which is the point', async () => {
     const user = userEvent.setup()
     renderExercise()
     await start(user)
-    vi.mocked(piano.strike).mockClear()
+    vi.mocked(piano.play).mockClear()
 
     // 6 is wrong in first place, and the user should still hear what they
     // picked so they can tell it against what they remember.
     await tap(user, '6')
-    expect(piano.strike).toHaveBeenCalledExactlyOnceWith([69])
+    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[69]])
+  })
+
+  it('does not linger the way a struck reference does', async () => {
+    // Unlike Tonic and Chord, a guess happens once per key in a quick
+    // sequence — struck, it would ring for seconds and pile up under
+    // whatever was pressed next. It keeps play's ordinary release instead.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    vi.mocked(piano.strike).mockClear()
+
+    await tap(user, '1')
+    expect(piano.strike).not.toHaveBeenCalled()
   })
 
   it('sounds the tonic where this melody sang it, not an octave down', async () => {
@@ -436,14 +449,14 @@ describe('hearing what was pressed', () => {
     const user = userEvent.setup()
     renderExercise()
     await start(user)
-    vi.mocked(piano.strike).mockClear()
+    vi.mocked(piano.play).mockClear()
 
     await tap(user, '6')
-    expect(piano.strike).toHaveBeenCalledExactlyOnceWith([69])
+    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[69]])
 
-    vi.mocked(piano.strike).mockClear()
+    vi.mocked(piano.play).mockClear()
     await tap(user, '1')
-    expect(piano.strike).toHaveBeenCalledExactlyOnceWith([72])
+    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[72]])
   })
 
   it('follows the octave from note to note within one melody', async () => {
@@ -463,9 +476,9 @@ describe('hearing what was pressed', () => {
 
     const sounded: number[] = []
     for (const label of ['1', '1', '2', '1', '1']) {
-      vi.mocked(piano.strike).mockClear()
+      vi.mocked(piano.play).mockClear()
       await tap(user, label)
-      sounded.push(vi.mocked(piano.strike).mock.calls[0][0][0])
+      sounded.push(vi.mocked(piano.play).mock.calls[0][0][0][0])
     }
 
     expect(sounded).toEqual([72, 60, 62, 60, 60])
@@ -486,14 +499,16 @@ describe('hearing what was pressed', () => {
     const user = userEvent.setup()
     renderExercise()
     await start(user)
-    vi.mocked(piano.strike).mockClear()
+    vi.mocked(piano.play).mockClear()
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: '1' }))
       fireEvent.click(screen.getByRole('button', { name: '1' }))
     })
 
-    const sounded = vi.mocked(piano.strike).mock.calls.map((call) => call[0][0])
+    const sounded = vi
+      .mocked(piano.play)
+      .mock.calls.map((call) => call[0][0][0])
     expect(sounded).toEqual([72, 60])
   })
 
@@ -502,11 +517,11 @@ describe('hearing what was pressed', () => {
     renderExercise()
     await start(user)
     await tap(user, '1', '5', '6', '5')
-    vi.mocked(piano.strike).mockClear()
+    vi.mocked(piano.play).mockClear()
 
     // Every degree button is disabled at this point; nothing can sound.
     expect(screen.getByRole('button', { name: '1' })).toBeDisabled()
-    expect(piano.strike).not.toHaveBeenCalled()
+    expect(piano.play).not.toHaveBeenCalled()
   })
 })
 
