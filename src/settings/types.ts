@@ -119,6 +119,16 @@ export interface ProgressionSettings {
   cadences: Cadence[]
   /** How many chords to identify. */
   length: number
+  /**
+   * Inversions the voicing may use. Root position is 0.
+   *
+   * Not part of the answer — `I⁶` is still `I` — so this changes how the
+   * exercise *sounds* rather than what it asks. Root position alone makes every
+   * voice jump at once, which is a chord chart being read out; allowing the
+   * others lets the bass move by step and the inner voices hold their common
+   * tones, which is a progression.
+   */
+  inversions: number[]
   range: NoteRange
 }
 
@@ -183,6 +193,10 @@ export const DEFAULT_PROGRESSION_SETTINGS: ProgressionSettings = {
   numerals: ['I', 'IV', 'V'],
   cadences: ['authentic'],
   length: 3,
+  // All three by default, unlike the chord exercise where inversions are the
+  // answer and start switched off. Here they cost the user no difficulty and
+  // buy the progression its voice leading, so there is nothing to ease into.
+  inversions: [0, 1, 2],
   range: DEFAULT_RANGE,
 }
 

@@ -89,3 +89,4 @@ export type {
   ProgressionQuestion,
   ProgressionResult,
 } from './progressionQuestion'
+export { keyChord, voiceMovement, voiceProgression } from './progressionVoicing'

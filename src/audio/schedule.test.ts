@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { RELEASE_MS } from './piano'
 import {
   MELODY_TIMING,
+  PROGRESSION_TIMING,
   RING_OUT_MS,
   TIMING,
   buildMelodySchedule,
+  buildProgressionSchedule,
   buildSchedule,
   scheduleDurationMs,
   scheduleEndMs,
@@ -337,6 +339,105 @@ describe('legato', () => {
     )
     const overlap = notes[0].durationMs / MELODY_TIMING.onsetMs
     expect(overlap).toBeLessThan(3)
+  })
+})
+
+describe('buildProgressionSchedule', () => {
+  const progressionTiming = { onsetMs: 900, chordMs: 1150 }
+
+  const CHORDS = [
+    [60, 64, 67],
+    [59, 62, 67],
+    [60, 64, 67],
+  ]
+
+  it('plays nothing for nothing', () => {
+    expect(buildProgressionSchedule([], progressionTiming)).toEqual([])
+  })
+
+  it('strikes each chord together, one onset apart', () => {
+    const notes = buildProgressionSchedule(CHORDS, progressionTiming)
+    expect(notes.filter((n) => n.startMs === 0).map((n) => n.midi)).toEqual([
+      60, 64, 67,
+    ])
+    expect([...new Set(notes.map((n) => n.startMs))]).toEqual([0, 900, 1800])
+  })
+
+  it('releases each chord as the next takes over', () => {
+    // Not buildSchedule, which holds everything to the end — four triads under
+    // that rule finish as a twelve-note cluster, and the user is asked to
+    // identify four chords rather than the pile they add up to.
+    const notes = buildProgressionSchedule(CHORDS, progressionTiming)
+    const first = notes.filter((n) => n.startMs === 0)
+
+    for (const note of first) {
+      expect(note.durationMs).toBe(1150)
+      expect(note.ringOut).toBeFalsy()
+    }
+  })
+
+  it('never has more than two chords sounding at once', () => {
+    const notes = buildProgressionSchedule(
+      [CHORDS[0], CHORDS[1], CHORDS[2], CHORDS[0], CHORDS[1]],
+      progressionTiming,
+    )
+    const melodyEnd = 4 * 900
+
+    for (let at = 0; at < melodyEnd; at += 50) {
+      const sounding = notes.filter(
+        (n) => n.startMs <= at && n.startMs + n.durationMs > at,
+      )
+      // Three notes per chord, so six voices is two chords overlapping.
+      expect(sounding.length, `at ${at}ms`).toBeLessThanOrEqual(6)
+    }
+  })
+
+  it('holds each chord at full volume until the next has begun', () => {
+    // The same rule the melody needed: a chord that began fading before its
+    // successor struck would make a run of them pulse rather than move.
+    const notes = buildProgressionSchedule(CHORDS, progressionTiming)
+    const onsets = [...new Set(notes.map((n) => n.startMs))].sort(
+      (a, b) => a - b,
+    )
+
+    for (const [i, onset] of onsets.slice(0, -1).entries()) {
+      const chord = notes.filter((n) => n.startMs === onset)
+      const fadeBeginsAt = onset + chord[0].durationMs - RELEASE_MS
+      expect(fadeBeginsAt, `chord ${i}`).toBeGreaterThan(onsets[i + 1])
+    }
+  })
+
+  it('leaves the last chord ringing, because it is the cadence', () => {
+    // The whole point of a cadence is the arrival, and cutting it off at a
+    // scheduled length is where the sound being taken away is most obvious.
+    const notes = buildProgressionSchedule(CHORDS, progressionTiming)
+    const last = notes.filter((n) => n.startMs === 1800)
+
+    expect(last).toHaveLength(3)
+    for (const note of last) expect(note.ringOut).toBe(true)
+  })
+
+  it('rings out a one-chord progression too', () => {
+    for (const note of buildProgressionSchedule(
+      [CHORDS[0]],
+      progressionTiming,
+    )) {
+      expect(note.ringOut).toBe(true)
+    }
+  })
+})
+
+describe('default PROGRESSION_TIMING', () => {
+  it('changes chords more slowly than a melody moves', () => {
+    // At a melody's pace a progression is a blur: a chord needs long enough to
+    // be heard as a chord, with its quality settled, before the next arrives.
+    expect(PROGRESSION_TIMING.onsetMs).toBeGreaterThan(MELODY_TIMING.onsetMs)
+  })
+
+  it('clears the release fade, so a run of chords does not pulse', () => {
+    expect(PROGRESSION_TIMING.chordMs - RELEASE_MS).toBeGreaterThan(
+      PROGRESSION_TIMING.onsetMs,
+    )
   })
 })
 

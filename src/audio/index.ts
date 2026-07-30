@@ -11,9 +11,11 @@ export {
 } from './samples'
 export {
   MELODY_TIMING,
+  PROGRESSION_TIMING,
   RING_OUT_MS,
   TIMING,
   buildMelodySchedule,
+  buildProgressionSchedule,
   buildSchedule,
   scheduleDurationMs,
   scheduleEndMs,
@@ -25,6 +27,7 @@ export {
 export type {
   MelodyPhrase,
   MelodyTiming,
+  ProgressionTiming,
   NoteGroup,
   ScheduledNote,
   Timing,
