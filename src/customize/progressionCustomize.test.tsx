@@ -86,6 +86,58 @@ describe('choosing chords', () => {
     expect(labels.at(-1)).toBe('♭II')
   })
 
+  it('groups the chords by where they come from', async () => {
+    const { user } = openMenu()
+    await openScreen(user, 'Chords')
+
+    const headings = screen
+      .getAllByRole('heading')
+      .map((element) => element.textContent)
+
+    // The modal's own title heads the list. Asserted rather than sliced past
+    // silently, so a change to the modal chrome fails here instead of quietly
+    // shifting which headings are being checked.
+    expect(headings[0]).toBe('Chords')
+    expect(headings.slice(1)).toEqual([
+      'Diatonic',
+      'Secondary dominants',
+      'Borrowed from the parallel minor',
+      'Chromatic',
+    ])
+  })
+
+  it('offers III before any borrowed chord, though it is harder', async () => {
+    const { user } = openMenu()
+    await openScreen(user, 'Chords')
+
+    // The reason the sections are not in ladder order. Read off the rendered
+    // order rather than the table, since it is the screen that has to get
+    // this right.
+    const labels = screen
+      .getAllByRole('checkbox')
+      .map((element) => element.textContent?.trim())
+
+    for (const borrowed of ['iv', '♭III', '♭VI', '♭VII']) {
+      expect(labels.indexOf('III'), borrowed).toBeLessThan(
+        labels.indexOf(borrowed),
+      )
+    }
+    // And it leads its own section rather than trailing II.
+    expect(labels.indexOf('III')).toBeLessThan(labels.indexOf('II'))
+  })
+
+  it('still shows every chord exactly once across the sections', async () => {
+    const { user } = openMenu()
+    await openScreen(user, 'Chords')
+
+    const labels = screen
+      .getAllByRole('checkbox')
+      .map((element) => element.textContent?.trim())
+
+    expect(labels).toHaveLength(15)
+    expect(new Set(labels).size).toBe(15)
+  })
+
   it('takes more chords', async () => {
     const { user } = openMenu()
     await openScreen(user, 'Chords')

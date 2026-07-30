@@ -35,6 +35,18 @@ import { DEGREES_PER_OCTAVE, type Degree } from './scales'
 
 export type NumeralQuality = 'major' | 'minor' | 'diminished'
 
+/**
+ * Where a numeral comes from, which is the first thing a musician wants to
+ * know about one.
+ *
+ * Not the same question as `level`. The ladder says how hard a chord is to
+ * hear; this says what it *is* — in the key, borrowed, or pointing at
+ * something. They disagree, and both are worth having: `iv` and `II` are about
+ * equally hard and come from completely different places.
+ */
+export type NumeralCategory =
+  'diatonic' | 'secondary-dominant' | 'borrowed' | 'chromatic'
+
 export interface RomanNumeral {
   /** Stable id used in persisted settings. */
   readonly id: string
@@ -43,6 +55,7 @@ export interface RomanNumeral {
   /** Semitones above the tonic that the chord is built on. */
   readonly root: Degree
   readonly quality: NumeralQuality
+  readonly category: NumeralCategory
   /**
    * Where this sits on the difficulty ladder, lowest first. Spaced, so a
    * numeral can be slotted in later without renumbering the rest.
@@ -69,30 +82,143 @@ const CHORD_FOR_QUALITY: Record<NumeralQuality, string> = {
  * secondary dominants, which are majors where the key wants minors and so are
  * heard as pointing somewhere. `♭II` last: it is rare enough that hearing it at
  * all is the achievement.
+ *
+ * Chords sharing a level are left in the order they are written here, since
+ * `numeralsByDifficulty` sorts stably. That is load-bearing for `III`, which
+ * leads the secondary dominants rather than falling after `II` alphabetically.
+ *
+ * How the *Customize* screen groups these is `NUMERAL_SECTIONS`, which is a
+ * different question with a different answer.
  */
 export const NUMERALS: readonly RomanNumeral[] = [
-  { id: 'I', label: 'I', root: 0, quality: 'major', level: 10 },
-  { id: 'IV', label: 'IV', root: 5, quality: 'major', level: 10 },
-  { id: 'V', label: 'V', root: 7, quality: 'major', level: 10 },
+  {
+    id: 'I',
+    label: 'I',
+    root: 0,
+    quality: 'major',
+    category: 'diatonic',
+    level: 10,
+  },
+  {
+    id: 'IV',
+    label: 'IV',
+    root: 5,
+    quality: 'major',
+    category: 'diatonic',
+    level: 10,
+  },
+  {
+    id: 'V',
+    label: 'V',
+    root: 7,
+    quality: 'major',
+    category: 'diatonic',
+    level: 10,
+  },
 
-  { id: 'vi', label: 'vi', root: 9, quality: 'minor', level: 20 },
-  { id: 'ii', label: 'ii', root: 2, quality: 'minor', level: 20 },
+  {
+    id: 'vi',
+    label: 'vi',
+    root: 9,
+    quality: 'minor',
+    category: 'diatonic',
+    level: 20,
+  },
+  {
+    id: 'ii',
+    label: 'ii',
+    root: 2,
+    quality: 'minor',
+    category: 'diatonic',
+    level: 20,
+  },
 
-  { id: 'iii', label: 'iii', root: 4, quality: 'minor', level: 30 },
-  { id: 'vii-dim', label: 'vii°', root: 11, quality: 'diminished', level: 30 },
+  {
+    id: 'iii',
+    label: 'iii',
+    root: 4,
+    quality: 'minor',
+    category: 'diatonic',
+    level: 30,
+  },
+  {
+    id: 'vii-dim',
+    label: 'vii°',
+    root: 11,
+    quality: 'diminished',
+    category: 'diatonic',
+    level: 30,
+  },
 
   // Borrowed from the parallel minor.
-  { id: 'iv', label: 'iv', root: 5, quality: 'minor', level: 40 },
-  { id: 'bIII', label: '♭III', root: 3, quality: 'major', level: 40 },
-  { id: 'bVI', label: '♭VI', root: 8, quality: 'major', level: 40 },
-  { id: 'bVII', label: '♭VII', root: 10, quality: 'major', level: 40 },
+  {
+    id: 'iv',
+    label: 'iv',
+    root: 5,
+    quality: 'minor',
+    category: 'borrowed',
+    level: 40,
+  },
+  {
+    id: 'bIII',
+    label: '♭III',
+    root: 3,
+    quality: 'major',
+    category: 'borrowed',
+    level: 40,
+  },
+  {
+    id: 'bVI',
+    label: '♭VI',
+    root: 8,
+    quality: 'major',
+    category: 'borrowed',
+    level: 40,
+  },
+  {
+    id: 'bVII',
+    label: '♭VII',
+    root: 10,
+    quality: 'major',
+    category: 'borrowed',
+    level: 40,
+  },
 
-  // Secondary dominants: majors where the key wants minors.
-  { id: 'II', label: 'II', root: 2, quality: 'major', level: 50 },
-  { id: 'III', label: 'III', root: 4, quality: 'major', level: 50 },
-  { id: 'VI', label: 'VI', root: 9, quality: 'major', level: 50 },
+  // Secondary dominants: majors where the key wants minors. `III` leads,
+  // because it is far and away the one heard most — see NUMERAL_SECTIONS.
+  {
+    id: 'III',
+    label: 'III',
+    root: 4,
+    quality: 'major',
+    category: 'secondary-dominant',
+    level: 50,
+  },
+  {
+    id: 'II',
+    label: 'II',
+    root: 2,
+    quality: 'major',
+    category: 'secondary-dominant',
+    level: 50,
+  },
+  {
+    id: 'VI',
+    label: 'VI',
+    root: 9,
+    quality: 'major',
+    category: 'secondary-dominant',
+    level: 50,
+  },
 
-  { id: 'bII', label: '♭II', root: 1, quality: 'major', level: 60 },
+  {
+    id: 'bII',
+    label: '♭II',
+    root: 1,
+    quality: 'major',
+    category: 'chromatic',
+    level: 60,
+  },
 ] as const
 
 export function numeralById(id: string): RomanNumeral {
@@ -103,9 +229,62 @@ export function numeralById(id: string): RomanNumeral {
   return numeral
 }
 
-/** The ladder in order, easiest first. Customize lists them this way. */
+/** The ladder in order, easiest first. The answer pad is laid out this way. */
 export function numeralsByDifficulty(): RomanNumeral[] {
   return [...NUMERALS].sort((a, b) => a.level - b.level)
+}
+
+export interface NumeralSection {
+  readonly category: NumeralCategory
+  readonly title: string
+  /** One line on what this group *is*, since the grouping raises the question. */
+  readonly description: string
+}
+
+/**
+ * The categories in the order they are offered, and what each one is.
+ *
+ * Not difficulty order, and deliberately not. The secondary dominants sit above
+ * the borrowed chords even though they are further up the ladder, because `III`
+ * is the out-of-key chord a listener meets first and by a distance the most
+ * common — burying it below `♭VI` and `♭VII` puts the useful chord where a
+ * ladder happened to leave it rather than where it is wanted.
+ *
+ * Inside a section the ladder order stands. It is guidance and it still reads
+ * as guidance once the sections are small enough to take in at a glance; what
+ * grouping fixes is fifteen rows in one column, not the order within them.
+ */
+export const NUMERAL_SECTIONS: readonly NumeralSection[] = [
+  {
+    category: 'diatonic',
+    title: 'Diatonic',
+    description:
+      'The seven chords of the key itself. I, IV and V are what most music is made of; the rest are listed as they get harder to hear.',
+  },
+  {
+    category: 'secondary-dominant',
+    title: 'Secondary dominants',
+    description:
+      'Majors where the key wants minors, each pointing at the chord it leads to. III is much the most common — it is the dominant of vi.',
+  },
+  {
+    category: 'borrowed',
+    title: 'Borrowed from the parallel minor',
+    description:
+      'The first chords that sound like a colour rather than a function.',
+  },
+  {
+    category: 'chromatic',
+    title: 'Chromatic',
+    description: 'Rare enough that hearing it at all is the achievement.',
+  },
+] as const
+
+/** The numerals of one category, easiest first. */
+export function numeralsInCategory(category: NumeralCategory): RomanNumeral[] {
+  return numeralsByDifficulty().filter(
+    (numeral) => numeral.category === category,
+  )
 }
 
 /** The chord a numeral builds, as a `CHORDS` entry. */
