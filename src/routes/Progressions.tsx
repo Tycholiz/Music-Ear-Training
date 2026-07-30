@@ -105,6 +105,29 @@ export default function Progressions() {
     [settings],
   )
 
+  /**
+   * Play one chord of the progression on its own.
+   *
+   * The step between hearing chords and hearing chords *in a progression*: a
+   * user who catches the first two and loses the third can pick that one out
+   * rather than replaying the whole thing and trying to catch it going past.
+   *
+   * Taken from `voiceProgression`, not voiced standalone. The register and
+   * inversion are part of what the user is matching against their memory of
+   * the playback, and a chord placed centre-range instead would be a different
+   * arrangement of the same harmony — the mistake logged three times in the
+   * README under "Sound feedback follows the position, not the note".
+   *
+   * `play` rather than `strike`: slots get tapped in quick succession, and
+   * struck chords ring for seconds and pile up under each other.
+   */
+  const playChordAt = useCallback(
+    (question: ProgressionQuestion, index: number) => {
+      void piano.play([voiceProgression(question, settings)[index]])
+    },
+    [settings],
+  )
+
   const nextQuestion = useCallback(() => {
     setEntered([])
     setPhase('entering')
@@ -261,6 +284,7 @@ export default function Progressions() {
             answered={answered ?? []}
             length={round.question.numerals.length}
             revealed={phase === 'revealed'}
+            onPlay={(index) => playChordAt(round.question, index)}
           />
           <SilentSwitchHint />
 
@@ -337,15 +361,35 @@ export default function Progressions() {
  * appear, so everything in the row is right by construction, and the button
  * that flashed has already said so. A revealed progression is marked as given
  * rather than found, because it was.
+ *
+ * ## Every slot plays its own chord
+ *
+ * Replay plays the whole progression and the Key button plays the tonic, so a
+ * user who can hear the first two chords and loses the third has nothing
+ * between "all of it" and "none of it" — their only option is to play the
+ * whole thing again and try to catch that one going past. Tapping a slot picks
+ * it out.
+ *
+ * Deliberately available before that position has been answered, since that is
+ * the entire point: it is a scaffold for working up to hearing a progression
+ * whole. It costs no score either. It sounds a chord without naming it, so the
+ * user still has to identify what they heard — there is nothing to charge for.
+ *
+ * The slots only sound; the pad is what answers. Nothing here can grade, so a
+ * tap cannot fall through into an attempt, and this stays live in every phase
+ * — including `revealed`, where the slots hold the answer and hearing it named
+ * and played together is the lesson.
  */
 function Answer({
   answered,
   length,
   revealed,
+  onPlay,
 }: {
   answered: readonly string[]
   length: number
   revealed: boolean
+  onPlay: (index: number) => void
 }) {
   return (
     <div
@@ -356,9 +400,15 @@ function Answer({
         const id = answered[i]
 
         return (
-          <span
+          <button
             key={i}
-            className={`flex h-10 min-w-12 items-center justify-center rounded-lg px-2 ${
+            type="button"
+            onClick={() => onPlay(i)}
+            // `·` is not an accessible name, and neither is a numeral on its
+            // own once the row is pressable: what the control does is play,
+            // and which one it is is the position rather than the label.
+            aria-label={`Play chord ${i + 1}`}
+            className={`flex h-10 min-w-12 items-center justify-center rounded-lg px-2 active:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
               id === undefined
                 ? 'bg-surface/40 text-content-muted'
                 : revealed
@@ -367,7 +417,7 @@ function Answer({
             }`}
           >
             {id === undefined ? '·' : numeralById(id).label}
-          </span>
+          </button>
         )
       })}
     </div>

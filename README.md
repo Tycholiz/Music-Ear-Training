@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1101 tests across 43 files.** All of `npm run lint`, `npm run build`,
+**1107 tests across 43 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -232,6 +232,21 @@ the position being answered.**
 
 In each case the sound existed to turn a wrong answer into information, and
 instead made a right answer look wrong.
+
+The rule now covers a fourth caller: **the progression answer slots are
+tappable**, and each plays its own chord taken from `voiceProgression`, not
+voiced standalone. It exists as a scaffold — a user who hears the first two
+chords and loses the third can pick that one out instead of replaying the whole
+phrase and trying to catch it going past. It costs no score, because it sounds
+a chord without naming it and the user still has to identify what they heard.
+
+Testing this needs a progression chosen for the purpose. The obvious `I IV V I`
+is useless for it twice over: its first and last chords are voiced identically,
+so a slot playing the wrong one of the two passes, and its voice leading happens
+to land on the centre-placed voicing every time, so `voiceChordAlone` and
+`voiceProgression` are indistinguishable and the register claim above cannot
+fail. The tests use `I ♭VII ♭VI V I`, where all five voicings differ and three
+of them differ from standalone.
 
 ### Scoring: only the first attempt
 
