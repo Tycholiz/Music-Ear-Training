@@ -21,7 +21,7 @@ import {
   canGenerateProgression,
   generateProgressionQuestion,
   keyChord,
-  voiceChordAlone,
+  voiceGuess,
   voiceProgression,
   type ProgressionQuestion,
 } from '../exercises'
@@ -178,12 +178,11 @@ export default function Progressions() {
     const index = position.current
     if (index >= round.question.numerals.length) return
 
-    // Sound what was pressed. Naming a chord and never hearing it makes this a
-    // guessing game with a keypad; hearing it turns a wrong answer into
-    // information — that was the subdominant, and the progression was not.
-    void piano.play([
-      voiceChordAlone(numeralId, round.question.tonic, settings),
-    ])
+    // Sound what was pressed, voiced as the chord at this position would have
+    // been. Naming a chord and never hearing it makes this a guessing game with
+    // a keypad; hearing it turns a wrong answer into information — that was the
+    // subdominant, and the progression was not.
+    void piano.play([voiceGuess(round.question, index, numeralId, settings)])
 
     if (numeralId !== round.question.numerals[index]) {
       lightUp(numeralId, false)

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   keyChord,
+  voiceGuess,
   voiceMovement,
   voiceProgression,
   voicingsFor,
@@ -254,6 +255,82 @@ describe('voiceProgression', () => {
     expect(voiceProgression(question, settings)).toEqual(
       voiceProgression(question, settings),
     )
+  })
+})
+
+describe('voiceGuess', () => {
+  it('sounds a right guess exactly as the progression played it', () => {
+    // The point of the whole function: a user comparing what they pressed
+    // against what they heard must be comparing the same arrangement, or the
+    // right chord in the wrong register reads as the wrong chord.
+    const settings = wideOpen({ length: 6 })
+
+    for (const question of sample(settings, 100)) {
+      const groups = voiceProgression(question, settings)
+
+      for (const [index, id] of question.numerals.entries()) {
+        expect(
+          voiceGuess(question, index, id, settings),
+          `${id} at ${index}`,
+        ).toEqual(groups[index])
+      }
+    }
+  })
+
+  it('puts a wrong guess in the register the progression is in', () => {
+    // So what differs between what they pressed and what they heard is the
+    // harmony rather than the arrangement.
+    const settings = wideOpen({ length: 6 })
+
+    for (const question of sample(settings, 60)) {
+      const groups = voiceProgression(question, settings)
+
+      for (let index = 1; index < question.numerals.length; index++) {
+        for (const wrong of settings.numerals) {
+          if (wrong === question.numerals[index]) continue
+
+          const guess = voiceGuess(question, index, wrong, settings)
+          // No further from the chord before it than the real answer's own
+          // candidates could manage — it is chosen by the same rule.
+          const options = voicingsFor(
+            numeralById(wrong),
+            question.tonic,
+            settings,
+          )
+          const lowest = Math.min(
+            ...options.map((o) => voiceMovement(groups[index - 1], o)),
+          )
+          expect(voiceMovement(groups[index - 1], guess)).toBe(lowest)
+        }
+      }
+    }
+  })
+
+  it('places the opening guess by register, as the progression does', () => {
+    const settings = wideOpen({ length: 4 })
+    for (const question of sample(settings, 40)) {
+      const [first] = voiceProgression(question, settings)
+      expect(voiceGuess(question, 0, question.numerals[0], settings)).toEqual(
+        first,
+      )
+    }
+  })
+
+  it('keeps a guess inside the range and on the piano', () => {
+    const range = { low: 48, high: 79 }
+    const settings = wideOpen({ range, length: 6 })
+
+    for (const question of sample(settings, 40)) {
+      for (let index = 0; index < question.numerals.length; index++) {
+        for (const id of settings.numerals) {
+          for (const note of voiceGuess(question, index, id, settings)) {
+            expect(note).toBeGreaterThanOrEqual(range.low)
+            expect(note).toBeLessThanOrEqual(range.high)
+            expect(isPlayable(note)).toBe(true)
+          }
+        }
+      }
+    }
   })
 })
 

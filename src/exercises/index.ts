@@ -91,6 +91,7 @@ export type {
 export {
   keyChord,
   voiceChordAlone,
+  voiceGuess,
   voiceMovement,
   voiceProgression,
   voicingsFor,
