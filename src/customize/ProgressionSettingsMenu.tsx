@@ -1,21 +1,329 @@
-import { ListCard, ListRow } from '../components'
+import {
+  CheckRow,
+  ListCard,
+  ListRow,
+  RadioGroup,
+  RadioRow,
+  useModalNav,
+} from '../components'
+import {
+  progressionSettingsStore,
+  usePersisted,
+  type ProgressionSettings,
+} from '../settings'
+import { CADENCES, midiToName, numeralsByDifficulty } from '../theory'
+import type { Cadence } from '../theory'
+import {
+  CADENCE_DESCRIPTIONS,
+  CADENCE_NAMES,
+  INVERSION_NAMES,
+  PROGRESSION_INVERSIONS,
+  PROGRESSION_LENGTHS,
+  cadenceWarning,
+  canDisableNumeral,
+  numeralLockWarning,
+  progressionRangeWarning,
+  progressionStuckReason,
+  usableCadences,
+} from '../exercises'
+import { RangeScreen } from './RangeScreen'
 
 /**
- * Hamburger menu for the chord progression exercise.
+ * Hamburger menu for the chord progression exercise, and the Customize screen
+ * it pushes.
  *
- * Customize lands in #76; until then the menu carries what exists, so the
- * header's menu button is not a dead end.
+ * The theme running through these screens is that chords and cadences depend on
+ * each other, and the dependency is enforced by prevention rather than by
+ * warning after the fact. A cadence needs its chords; a chord holding up the
+ * last remaining cadence cannot be switched off. Between the two, the exercise
+ * cannot be configured into a state with no way to end a progression.
  */
 export function ProgressionSettingsMenu({
   onResetScore,
 }: {
   onResetScore: () => void
 }) {
+  const { push } = useModalNav()
+
   return (
     <div className="p-4">
       <ListCard>
         <ListRow label="Reset Score" destructive onClick={onResetScore} />
+        <ListRow
+          label="Customize Exercise"
+          chevron
+          onClick={() =>
+            push({ title: 'Customize', content: <CustomizeScreen /> })
+          }
+        />
       </ListCard>
     </div>
+  )
+}
+
+function CustomizeScreen() {
+  const { push } = useModalNav()
+  const [settings] = usePersisted(progressionSettingsStore)
+  const stuck = progressionStuckReason(settings)
+
+  return (
+    <div className="flex flex-col gap-6 p-4">
+      <ListCard>
+        <ListRow
+          label="Chords"
+          value={`${settings.numerals.length} selected`}
+          chevron
+          onClick={() => push({ title: 'Chords', content: <NumeralsScreen /> })}
+        />
+        <ListRow
+          label="Cadences"
+          value={cadenceSummary(settings)}
+          chevron
+          onClick={() =>
+            push({ title: 'Cadences', content: <CadencesScreen /> })
+          }
+        />
+        <ListRow
+          label="Length"
+          value={`${settings.length} chords`}
+          chevron
+          onClick={() => push({ title: 'Length', content: <LengthScreen /> })}
+        />
+        <ListRow
+          label="Inversions"
+          value={`${settings.inversions.length} selected`}
+          chevron
+          onClick={() =>
+            push({ title: 'Inversions', content: <InversionsScreen /> })
+          }
+        />
+        <ListRow
+          label="Range"
+          value={`${midiToName(settings.range.low)}–${midiToName(settings.range.high)}`}
+          chevron
+          onClick={() =>
+            push({ title: 'Range', content: <ProgressionRangeScreen /> })
+          }
+        />
+      </ListCard>
+
+      {stuck && (
+        <p className="px-4 text-center text-sm text-incorrect">{stuck}</p>
+      )}
+    </div>
+  )
+}
+
+/** One name, or a count once there are too many to read at a glance. */
+function cadenceSummary(settings: ProgressionSettings): string {
+  const usable = usableCadences(settings)
+  if (usable.length === 0) return 'None'
+  if (usable.length === 1) return CADENCE_NAMES[usable[0]]
+  return `${usable.length} selected`
+}
+
+/**
+ * The chord vocabulary, easiest first.
+ *
+ * Ladder order rather than alphabetical, because the order is the guidance: `I`
+ * `IV` `V` first, since most music is made of them and a progression drawn only
+ * from those three has nowhere else it could have gone. Then the chords that add
+ * colour, then the ones heard as pointing somewhere.
+ *
+ * A chord an enabled cadence depends on is locked rather than dropping the
+ * cadence when it goes. The note underneath says which chord and why — a
+ * disabled control without an explanation is just a broken one.
+ */
+function NumeralsScreen() {
+  const [settings, setSettings] = usePersisted(progressionSettingsStore)
+  const chosen = new Set(settings.numerals)
+
+  const toggle = (numeralId: string, checked: boolean) => {
+    const numerals = checked
+      ? numeralsByDifficulty()
+          .map((numeral) => numeral.id)
+          .filter((id) => chosen.has(id) || id === numeralId)
+      : settings.numerals.filter((id) => id !== numeralId)
+
+    setSettings({ ...settings, numerals })
+  }
+
+  const locked = settings.numerals
+    .map((id) => numeralLockWarning(id, settings))
+    .find((warning) => warning !== null)
+
+  return (
+    <div className="flex flex-col gap-6 p-4">
+      <ListCard footer="Listed easiest first. I, IV and V are what most music is made of; the chords further down add colour, or are heard as pointing somewhere.">
+        {numeralsByDifficulty().map((numeral) => {
+          const checked = chosen.has(numeral.id)
+
+          return (
+            <CheckRow
+              key={numeral.id}
+              label={numeral.label}
+              checked={checked}
+              disabled={checked && !canDisableNumeral(numeral.id, settings)}
+              onChange={(next) => toggle(numeral.id, next)}
+            />
+          )
+        })}
+      </ListCard>
+
+      {locked && (
+        <p className="px-4 text-center text-sm text-content-muted">{locked}</p>
+      )}
+    </div>
+  )
+}
+
+/**
+ * How progressions may end.
+ *
+ * Every progression cadences — one that stops on `ii` is a fragment rather than
+ * a progression. What this chooses is *which* ways, and the four do not all land
+ * on `I`: with more than one selected the final chord stays unpredictable, which
+ * is what keeps the last answer from being free.
+ *
+ * A cadence whose chords are switched off is shown but disabled, with the chords
+ * it needs named underneath. Hiding it would leave the user wondering where it
+ * had gone.
+ */
+function CadencesScreen() {
+  const [settings, setSettings] = usePersisted(progressionSettingsStore)
+  const chosen = new Set(settings.cadences)
+  const usable = usableCadences(settings)
+
+  const toggle = (cadence: Cadence, checked: boolean) => {
+    const cadences = checked
+      ? CADENCES.filter((option) => chosen.has(option) || option === cadence)
+      : settings.cadences.filter((option) => option !== cadence)
+
+    setSettings({ ...settings, cadences: [...cadences] })
+  }
+
+  const unavailable = CADENCES.map((cadence) => ({
+    cadence,
+    warning: cadenceWarning(cadence, settings),
+  })).filter((entry) => entry.warning !== null)
+
+  return (
+    <div className="flex flex-col gap-6 p-4">
+      <ListCard footer="With more than one selected, each progression picks a way to end — and you are not told which. They do not all land on I, which is what keeps the last chord from being a formality.">
+        {CADENCES.map((cadence) => {
+          const available = cadenceWarning(cadence, settings) === null
+          const checked = chosen.has(cadence) && available
+
+          return (
+            <CheckRow
+              key={cadence}
+              label={
+                <>
+                  <span className="block">{CADENCE_NAMES[cadence]}</span>
+                  <span className="block text-sm text-content-muted">
+                    {CADENCE_DESCRIPTIONS[cadence]}
+                  </span>
+                </>
+              }
+              checked={checked}
+              // Either its chords are switched off, or it is the last one that
+              // works and a progression would have no way to end without it.
+              disabled={!available || (checked && usable.length === 1)}
+              onChange={(next) => toggle(cadence, next)}
+            />
+          )
+        })}
+      </ListCard>
+
+      {unavailable.map(({ cadence, warning }) => (
+        <p
+          key={cadence}
+          className="px-4 text-center text-sm text-content-muted"
+        >
+          <span className="text-content">{CADENCE_NAMES[cadence]}:</span>{' '}
+          {warning}
+        </p>
+      ))}
+    </div>
+  )
+}
+
+function LengthScreen() {
+  const [settings, setSettings] = usePersisted(progressionSettingsStore)
+
+  return (
+    <div className="flex flex-col gap-6 p-4">
+      <ListCard footer="Two chords is a bare cadence, which is the right place to start and no less real for being short. Past eight, identifying chords turns into remembering how many there were.">
+        <RadioGroup label="Length">
+          {PROGRESSION_LENGTHS.map((length) => (
+            <RadioRow
+              key={length}
+              label={`${length} chords`}
+              selected={length === settings.length}
+              onSelect={() => setSettings({ ...settings, length })}
+            />
+          ))}
+        </RadioGroup>
+      </ListCard>
+    </div>
+  )
+}
+
+/**
+ * Which inversions the voicing may use.
+ *
+ * Not part of the answer — `I⁶` is still `I` — so this changes how the exercise
+ * *sounds* rather than what it asks. Root position alone makes every voice jump
+ * at once, which is a chord chart being read aloud; allowing the others lets the
+ * bass step and the inner voices hold their common tones, and the voices end up
+ * travelling about a quarter as far.
+ */
+function InversionsScreen() {
+  const [settings, setSettings] = usePersisted(progressionSettingsStore)
+  const chosen = new Set(settings.inversions)
+
+  const toggle = (inversion: number, checked: boolean) => {
+    const inversions = checked
+      ? PROGRESSION_INVERSIONS.filter(
+          (option) => chosen.has(option) || option === inversion,
+        )
+      : settings.inversions.filter((option) => option !== inversion)
+
+    setSettings({ ...settings, inversions: [...inversions] })
+  }
+
+  return (
+    <div className="flex flex-col gap-6 p-4">
+      <ListCard footer="Inversions are heard, not answered — a chord in any inversion is still the same numeral. What this changes is how smoothly the progression moves.">
+        {PROGRESSION_INVERSIONS.map((inversion) => {
+          const checked = chosen.has(inversion)
+
+          return (
+            <CheckRow
+              key={inversion}
+              label={INVERSION_NAMES[inversion]}
+              checked={checked}
+              disabled={checked && settings.inversions.length === 1}
+              onChange={(next) => toggle(inversion, next)}
+            />
+          )
+        })}
+      </ListCard>
+    </div>
+  )
+}
+
+function ProgressionRangeScreen() {
+  const [settings, setSettings] = usePersisted(progressionSettingsStore)
+
+  return (
+    <RangeScreen
+      range={settings.range}
+      onChange={(range: ProgressionSettings['range']) =>
+        setSettings({ ...settings, range })
+      }
+      footer="Every voice of every chord is placed inside this range."
+      warning={progressionRangeWarning(settings)}
+    />
   )
 }
