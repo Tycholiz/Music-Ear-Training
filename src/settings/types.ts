@@ -1,4 +1,4 @@
-import { UNAMBIGUOUS_ROOT_CHORD_IDS, nameToMidi } from '../theory'
+import { UNAMBIGUOUS_ROOT_CHORD_IDS, nameToMidi, type Cadence } from '../theory'
 
 /**
  * Everything that persists between sessions: what the user has chosen to be
@@ -86,21 +86,6 @@ export interface MelodySettings {
   backing: MelodyBacking
   range: NoteRange
 }
-
-/**
- * How a progression comes to rest.
- *
- * Every progression cadences: one that ends on `ii` is not a progression, it is
- * a fragment, and training the ear on fragments trains it on something it will
- * never hear. But cadencing is not the same as ending on `I` — if it were, the
- * last answer would be free before the user had heard anything. Real music
- * gives four ways out and they do not all land in the same place, so "always
- * resolves" and "the ending is unpredictable" turn out to be one design rather
- * than two competing ones.
- */
-export const CADENCES = ['authentic', 'plagal', 'half', 'deceptive'] as const
-
-export type Cadence = (typeof CADENCES)[number]
 
 /**
  * How long a progression may be.

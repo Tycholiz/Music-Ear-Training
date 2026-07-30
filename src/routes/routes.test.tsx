@@ -8,6 +8,7 @@ import Intervals from './Intervals'
 import Chords from './Chords'
 import ChordRoot from './ChordRoot'
 import Melody from './Melody'
+import Progressions from './Progressions'
 import { piano } from '../audio'
 
 function renderAt(path: string) {
@@ -22,6 +23,7 @@ function renderAt(path: string) {
           { path: 'chords', element: <Chords /> },
           { path: 'chord-root', element: <ChordRoot /> },
           { path: 'melody', element: <Melody /> },
+          { path: 'progressions', element: <Progressions /> },
         ],
       },
     ],
@@ -67,6 +69,12 @@ describe('routing', () => {
 
   it('renders the melody exercise directly at /melody', () => {
     renderAt('/melody')
+    expect(screen.getByLabelText('Score')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Start' })).toBeVisible()
+  })
+
+  it('renders the progression exercise directly at /progressions', () => {
+    renderAt('/progressions')
     expect(screen.getByLabelText('Score')).toBeVisible()
     expect(screen.getByRole('button', { name: 'Start' })).toBeVisible()
   })

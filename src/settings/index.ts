@@ -1,5 +1,4 @@
 export {
-  CADENCES,
   CHORD_PLAY_MODES,
   DEFAULT_CHORD_SETTINGS,
   DEFAULT_INTERVAL_SETTINGS,
@@ -17,7 +16,6 @@ export {
   recordGuess,
 } from './types'
 export type {
-  Cadence,
   ChordPlayMode,
   ChordSettings,
   IntervalPlayMode,
@@ -37,6 +35,8 @@ export {
   intervalSettingsStore,
   melodyScoreStore,
   melodySettingsStore,
+  progressionScoreStore,
+  progressionSettingsStore,
   rootScoreStore,
   rootSettingsStore,
 } from './stores'

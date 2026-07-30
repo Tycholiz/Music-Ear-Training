@@ -8,6 +8,7 @@ import Intervals from './routes/Intervals.tsx'
 import Chords from './routes/Chords.tsx'
 import ChordRoot from './routes/ChordRoot.tsx'
 import Melody from './routes/Melody.tsx'
+import Progressions from './routes/Progressions.tsx'
 
 const router = createBrowserRouter([
   {
@@ -19,6 +20,7 @@ const router = createBrowserRouter([
       { path: 'chords', element: <Chords /> },
       { path: 'chord-root', element: <ChordRoot /> },
       { path: 'melody', element: <Melody /> },
+      { path: 'progressions', element: <Progressions /> },
     ],
   },
 ])

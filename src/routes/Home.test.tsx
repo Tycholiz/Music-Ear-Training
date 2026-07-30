@@ -24,6 +24,9 @@ describe('Home', () => {
       screen.getByRole('link', { name: 'Chord Root Recognition' }),
     ).toBeVisible()
     expect(screen.getByRole('link', { name: 'Melody Dictation' })).toBeVisible()
+    expect(
+      screen.getByRole('link', { name: 'Chord Progression Recognition' }),
+    ).toBeVisible()
   })
 
   it('points each row at its exercise route', () => {
@@ -40,11 +43,14 @@ describe('Home', () => {
     expect(
       screen.getByRole('link', { name: 'Melody Dictation' }),
     ).toHaveAttribute('href', '/melody')
+    expect(
+      screen.getByRole('link', { name: 'Chord Progression Recognition' }),
+    ).toHaveAttribute('href', '/progressions')
   })
 
   it('uses real links, so exercises can be opened in a new tab', () => {
     renderHome()
-    expect(screen.getAllByRole('link')).toHaveLength(4)
+    expect(screen.getAllByRole('link')).toHaveLength(5)
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 

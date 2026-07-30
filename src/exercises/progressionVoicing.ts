@@ -161,6 +161,65 @@ function best(options: number[][], score: (notes: number[]) => number) {
 }
 
 /**
+ * One chord on its own, with nothing to lead from or to.
+ *
+ * Placed near the middle of the range, the same way a progression's opening
+ * chord is. For anything sounded outside a progression — the key reference, and
+ * the opening chord of a guess — where there is no neighbour to move least from.
+ */
+export function voiceChordAlone(
+  numeralId: string,
+  tonic: number,
+  settings: ProgressionSettings,
+): number[] {
+  const numeral = numeralById(numeralId)
+  const options = voicingsFor(numeral, tonic, settings)
+  if (options.length === 0) {
+    return chordNotes(numeralRoot(numeral, tonic), numeralChord(numeral), 0)
+  }
+  return best(options, (notes) => Math.abs(meanPitch(notes) - centre(settings)))
+}
+
+/**
+ * How a guessed chord should sound at a given position.
+ *
+ * Not the standalone voicing. The progression's chords are voice-led, so the
+ * same chord placed on its own sits in a different register and inversion from
+ * the one heard in the progression a moment earlier — and a user comparing what
+ * they pressed against what they remember would be comparing two arrangements
+ * of the same harmony, and could reasonably conclude they had the wrong chord.
+ *
+ * So it is voiced as though it *were* the chord at that position: least-moving
+ * from whatever the progression actually played before it. A right guess then
+ * sounds exactly like the chord it is identifying, and a wrong one sounds like
+ * the chord that would have been there — same register, so what differs between
+ * them is the harmony rather than the arrangement.
+ */
+export function voiceGuess(
+  question: ProgressionQuestion,
+  index: number,
+  numeralId: string,
+  settings: ProgressionSettings,
+): number[] {
+  // Nothing before the opening chord to lead from, which is the one position
+  // the progression itself also places by register.
+  if (index <= 0) return voiceChordAlone(numeralId, question.tonic, settings)
+
+  const previous = voiceProgression(question, settings)[index - 1]
+  const numeral = numeralById(numeralId)
+  const options = voicingsFor(numeral, question.tonic, settings)
+  if (options.length === 0) {
+    return chordNotes(
+      numeralRoot(numeral, question.tonic),
+      numeralChord(numeral),
+      0,
+    )
+  }
+
+  return best(options, (notes) => voiceMovement(previous, notes))
+}
+
+/**
  * The tonic chord, for the Key button.
  *
  * Voiced on its own rather than taken from the progression, since the user may
@@ -172,10 +231,5 @@ export function keyChord(
   question: ProgressionQuestion,
   settings: ProgressionSettings,
 ): number[] {
-  const tonicNumeral = numeralById('I')
-  const options = voicingsFor(tonicNumeral, question.tonic, settings)
-  if (options.length === 0) {
-    return chordNotes(question.tonic, numeralChord(tonicNumeral), 0)
-  }
-  return best(options, (notes) => Math.abs(meanPitch(notes) - centre(settings)))
+  return voiceChordAlone('I', question.tonic, settings)
 }
