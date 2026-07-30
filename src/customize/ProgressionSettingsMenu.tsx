@@ -193,7 +193,7 @@ function NumeralsScreen() {
                   warning ? (
                     <>
                       <span className="block">{numeral.label}</span>
-                      <span className="block text-sm text-incorrect">
+                      <span className="block text-xs text-incorrect">
                         Locked: {warning}
                       </span>
                     </>
