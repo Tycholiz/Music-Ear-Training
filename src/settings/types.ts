@@ -87,6 +87,41 @@ export interface MelodySettings {
   range: NoteRange
 }
 
+/**
+ * How a progression comes to rest.
+ *
+ * Every progression cadences: one that ends on `ii` is not a progression, it is
+ * a fragment, and training the ear on fragments trains it on something it will
+ * never hear. But cadencing is not the same as ending on `I` — if it were, the
+ * last answer would be free before the user had heard anything. Real music
+ * gives four ways out and they do not all land in the same place, so "always
+ * resolves" and "the ending is unpredictable" turn out to be one design rather
+ * than two competing ones.
+ */
+export const CADENCES = ['authentic', 'plagal', 'half', 'deceptive'] as const
+
+export type Cadence = (typeof CADENCES)[number]
+
+/**
+ * How long a progression may be.
+ *
+ * Two is a bare cadence, which is the right first exercise and no less real for
+ * being short. Eight is where identifying chords turns into remembering how
+ * many there were.
+ */
+export const MIN_PROGRESSION_LENGTH = 2
+export const MAX_PROGRESSION_LENGTH = 8
+
+export interface ProgressionSettings {
+  /** Enabled roman numeral ids. The difficulty ladder. */
+  numerals: string[]
+  /** Which ways a progression may resolve. */
+  cadences: Cadence[]
+  /** How many chords to identify. */
+  length: number
+  range: NoteRange
+}
+
 export interface Score {
   correct: number
   total: number
@@ -134,6 +169,20 @@ export const DEFAULT_MELODY_SETTINGS: MelodySettings = {
   featured: [],
   length: 5,
   backing: 'chord',
+  range: DEFAULT_RANGE,
+}
+
+/**
+ * The bottom of the ladder: three chords, drawn from the three chords.
+ *
+ * `I IV V` with an authentic cadence is the most unambiguous progression there
+ * is — there is nowhere else it could have gone, which is what makes it the
+ * right place to start rather than a toy.
+ */
+export const DEFAULT_PROGRESSION_SETTINGS: ProgressionSettings = {
+  numerals: ['I', 'IV', 'V'],
+  cadences: ['authentic'],
+  length: 3,
   range: DEFAULT_RANGE,
 }
 

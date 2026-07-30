@@ -16,16 +16,21 @@ import { DEGREES_PER_OCTAVE, type Degree } from './scales'
  * ## The labels are the answer, so they have to be exact
  *
  * Case and accidentals do real work. `I` and `i` are different chords; `III`
- * and `bIII` are different chords; `vii°` is a third thing again. These strings
+ * and `♭III` are different chords; `vii°` is a third thing again. These strings
  * are what the user reads off a button and what the exercise marks them
- * against, so a numeral labelled `III` where `bIII` was meant does not look
+ * against, so a numeral labelled `III` where `♭III` was meant does not look
  * untidy, it tells the user the wrong answer.
  *
- * ## Triads only
+ * Flats are written `♭` rather than `b`, matching the degree labels in
+ * `scales.ts`. The ids stay ASCII: they go into persisted settings, where a
+ * stable key matters more than a pretty one, and where nothing reads them.
  *
- * Sevenths are a quality distinction needing their own buttons — `V` and `V7`
- * both — and the pad has to fit on a phone. Better added once the exercise
- * exists and the pad's real size is known than guessed at now.
+ * ## Sevenths are not a separate answer
+ *
+ * A dominant seventh at a cadence is one of the most ordinary sounds in music,
+ * and this exercise does not ask the user to tell it from a plain `V` — both
+ * are `V`. So the table holds triads, and a seventh sounded in a progression is
+ * a fact about how it was voiced rather than a different chord to identify.
  */
 
 export type NumeralQuality = 'major' | 'minor' | 'diminished'
@@ -62,7 +67,7 @@ const CHORD_FOR_QUALITY: Record<NumeralQuality, string> = {
  * their neighbours. Then the chords borrowed from the parallel minor, which are
  * the first ones that sound like a colour rather than a function. Then the
  * secondary dominants, which are majors where the key wants minors and so are
- * heard as pointing somewhere. `bII` last: it is rare enough that hearing it at
+ * heard as pointing somewhere. `♭II` last: it is rare enough that hearing it at
  * all is the achievement.
  */
 export const NUMERALS: readonly RomanNumeral[] = [
@@ -78,16 +83,16 @@ export const NUMERALS: readonly RomanNumeral[] = [
 
   // Borrowed from the parallel minor.
   { id: 'iv', label: 'iv', root: 5, quality: 'minor', level: 40 },
-  { id: 'bIII', label: 'bIII', root: 3, quality: 'major', level: 40 },
-  { id: 'bVI', label: 'bVI', root: 8, quality: 'major', level: 40 },
-  { id: 'bVII', label: 'bVII', root: 10, quality: 'major', level: 40 },
+  { id: 'bIII', label: '♭III', root: 3, quality: 'major', level: 40 },
+  { id: 'bVI', label: '♭VI', root: 8, quality: 'major', level: 40 },
+  { id: 'bVII', label: '♭VII', root: 10, quality: 'major', level: 40 },
 
   // Secondary dominants: majors where the key wants minors.
   { id: 'II', label: 'II', root: 2, quality: 'major', level: 50 },
   { id: 'III', label: 'III', root: 4, quality: 'major', level: 50 },
   { id: 'VI', label: 'VI', root: 9, quality: 'major', level: 50 },
 
-  { id: 'bII', label: 'bII', root: 1, quality: 'major', level: 60 },
+  { id: 'bII', label: '♭II', root: 1, quality: 'major', level: 60 },
 ] as const
 
 export function numeralById(id: string): RomanNumeral {

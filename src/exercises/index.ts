@@ -77,3 +77,15 @@ export {
   melodyRangeWarning,
   melodyStuckReason,
 } from './melodyValidation'
+export {
+  cadenceNumerals,
+  canGenerateProgression,
+  checkProgression,
+  generateProgressionQuestion,
+  progressionNumerals,
+  usableCadences,
+} from './progressionQuestion'
+export type {
+  ProgressionQuestion,
+  ProgressionResult,
+} from './progressionQuestion'
