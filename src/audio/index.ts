@@ -30,8 +30,10 @@ export type {
   Timing,
 } from './schedule'
 export {
-  configureAudioSession,
+  claimPlaybackSession,
+  holdsPlaybackSession,
   isIos,
+  releasePlaybackSession,
   ringerSwitchMayMute,
   supportsAudioSession,
 } from './audioSession'

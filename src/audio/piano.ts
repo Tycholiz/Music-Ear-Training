@@ -15,7 +15,7 @@ import {
   type ScheduledNote,
   type Timing,
 } from './schedule'
-import { configureAudioSession } from './audioSession'
+import { claimPlaybackSession, releasePlaybackSession } from './audioSession'
 
 /**
  * Piano playback.
@@ -39,6 +39,16 @@ export const RELEASE_MS = 180
 
 /** Fade used when playback is cancelled part-way through. */
 const CANCEL_MS = 40
+
+/**
+ * How long after the last voice ends before the audio session is given back.
+ *
+ * Long enough that a run of guesses, or a melody followed by the chord being
+ * asked for again, counts as one stretch of sound rather than a dozen separate
+ * claims — and short enough that the Dynamic Island does not sit there
+ * advertising an app that has finished making noise.
+ */
+const IDLE_RELEASE_MS = 2000
 
 /**
  * Per-note gain. Chords stack several of these, so leave headroom.
@@ -90,6 +100,7 @@ export interface PianoOptions {
 
 export class Piano {
   private ctx: AudioContext | null = null
+  private idleTimer: ReturnType<typeof setTimeout> | null = null
   /** The limiter every voice is routed through. Belongs to `ctx`. */
   private master: DynamicsCompressorNode | null = null
   private readonly buffers = new Map<number, AudioBuffer>()
@@ -132,11 +143,16 @@ export class Piano {
    * anything scheduled before a tap unlocks it.
    *
    * Also claims a playback audio session, which is what keeps the iPhone's
-   * ringer switch from silencing the app. Done here rather than at startup
-   * because a user gesture is the one moment Safari is guaranteed to honour it.
+   * ringer switch from silencing the app. Claimed here rather than at startup
+   * because a user gesture is the one moment Safari is guaranteed to honour it,
+   * and given back once nothing is sounding — see `audioSession`.
    */
   async unlock(): Promise<void> {
-    configureAudioSession()
+    if (this.idleTimer !== null) {
+      clearTimeout(this.idleTimer)
+      this.idleTimer = null
+    }
+    claimPlaybackSession()
     this.ctx ??= this.createContext()
     await this.revive()
   }
@@ -290,7 +306,24 @@ export class Piano {
     this.voices.push(voice)
     source.onended = () => {
       this.voices = this.voices.filter((v) => v !== voice)
+      if (this.voices.length === 0) this.releaseWhenIdle()
     }
+  }
+
+  /**
+   * Give the audio session back, shortly after the last voice has ended.
+   *
+   * Shortly, rather than at once: a run of guesses is a note every few hundred
+   * milliseconds, and dropping the session between each one would have iOS
+   * changing category over and over while the user is mid-answer. The delay
+   * lets a phrase finish being a phrase before we let go of it.
+   */
+  private releaseWhenIdle(): void {
+    if (this.idleTimer !== null) clearTimeout(this.idleTimer)
+    this.idleTimer = setTimeout(() => {
+      this.idleTimer = null
+      if (this.voices.length === 0) releasePlaybackSession()
+    }, IDLE_RELEASE_MS)
   }
 
   /**
