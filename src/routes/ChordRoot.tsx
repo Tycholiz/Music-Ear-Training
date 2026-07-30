@@ -48,7 +48,17 @@ export default function ChordRoot() {
 
   const [round, setRound] = useState<Round | null>(null)
   const [revealed, setRevealed] = useState(false)
+  const [graded, setGraded] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  /**
+   * Whether this question has already been graded.
+   *
+   * A ref as well as state, for the reason the melody and progression screens
+   * keep one: two taps inside a single React batch both read the `graded` this
+   * render was built with, so state alone cannot stop the second. The ref is
+   * the authority; the state exists only to grey the buttons out.
+   */
+  const gradedRef = useRef(false)
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const replayRef = useRef<HTMLButtonElement>(null)
 
@@ -56,6 +66,8 @@ export default function ChordRoot() {
 
   const nextQuestion = useCallback(() => {
     setRevealed(false)
+    setGraded(false)
+    gradedRef.current = false
     setRound((current) => ({
       number: (current?.number ?? 0) + 1,
       question: generateRootQuestion(settings),
@@ -74,6 +86,8 @@ export default function ChordRoot() {
   useEffect(() => {
     setRound(null)
     setRevealed(false)
+    setGraded(false)
+    gradedRef.current = false
   }, [settings])
 
   // Park focus on Replay for every new question, so space hears the chord
@@ -99,8 +113,27 @@ export default function ChordRoot() {
     setRevealed(true)
   }
 
+  /**
+   * Record the first grade of this question and nothing after it.
+   *
+   * The guard is not only about the score. Every grade schedules an advance,
+   * and two of them land in separate timer callbacks — separate tasks, so
+   * separate React commits — which meant two questions were generated and two
+   * chords played a fraction of a second apart, the second cutting off the
+   * first. It reads as the exercise changing its mind about what it just
+   * asked, and it shows: the quality label changes with the second chord
+   * whenever the two generated chords differ.
+   *
+   * Second taps are easy to invite here, because grading is the one press in
+   * this exercise that produces no immediate sound of its own — nothing
+   * happens for `AUTO_ADVANCE_MS` and the buttons sit there looking unpressed.
+   * Hence the disabled state as well as the guard: the tap is refused *and*
+   * seen to have landed.
+   */
   const grade = (correct: boolean) => {
-    if (!round || !revealed) return
+    if (!round || !revealed || gradedRef.current) return
+    gradedRef.current = true
+    setGraded(true)
     setScore(recordGuess(score, correct))
     advanceTimer.current = setTimeout(nextQuestion, AUTO_ADVANCE_MS)
   }
@@ -148,14 +181,16 @@ export default function ChordRoot() {
                   <button
                     type="button"
                     onClick={() => grade(true)}
-                    className="rounded-full bg-correct px-8 py-3 font-medium text-black active:opacity-80"
+                    disabled={graded}
+                    className="rounded-full bg-correct px-8 py-3 font-medium text-black active:opacity-80 disabled:opacity-40"
                   >
                     Correct
                   </button>
                   <button
                     type="button"
                     onClick={() => grade(false)}
-                    className="rounded-full bg-incorrect px-8 py-3 font-medium text-white active:opacity-80"
+                    disabled={graded}
+                    className="rounded-full bg-incorrect px-8 py-3 font-medium text-white active:opacity-80 disabled:opacity-40"
                   >
                     Wrong
                   </button>

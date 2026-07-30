@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import ChordRoot from './ChordRoot'
@@ -222,6 +222,73 @@ describe('advancing', () => {
       { timeout: 3000 },
     )
     expect(piano.play).toHaveBeenCalledWith([[64, 67, 72]])
+  })
+
+  /**
+   * Two taps on a grading button used to schedule two advances. They fire in
+   * separate timer callbacks, so React commits each on its own, and the screen
+   * generated two questions and played two chords a fraction of a second
+   * apart — the second interrupting the first, with the quality label changing
+   * under it.
+   */
+  it('advances once when a grading button is tapped twice', async () => {
+    const user = userEvent.setup()
+    // A second question that is a different chord, so a second advance would
+    // be unmistakable in both the audio and the label.
+    const SEVENTH: RootQuestion = {
+      notes: [60, 64, 67, 70],
+      chordId: 'dominant-7th',
+      inversion: 0,
+      playMode: 'block',
+      root: 60,
+    }
+    let generated = 0
+    vi.mocked(exercises.generateRootQuestion).mockImplementation(() =>
+      generated++ === 0 ? INVERTED : SEVENTH,
+    )
+
+    renderExercise()
+    await startAndReveal(user)
+    const correct = screen.getByRole('button', { name: 'Correct' })
+    await user.click(correct)
+    await user.click(correct)
+    vi.mocked(piano.play).mockClear()
+
+    await waitFor(
+      () => expect(screen.getByText('Dominant 7th')).toBeVisible(),
+      { timeout: 3000 },
+    )
+    // Long enough for a second advance's timer to have fired.
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+
+    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[60, 64, 67, 70]])
+    expect(rootScoreStore.read()).toEqual({ correct: 1, total: 1 })
+  })
+
+  /** The same two presses, arriving inside one React batch. */
+  it('advances once when both grading buttons are pressed in one batch', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await startAndReveal(user)
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Correct' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Wrong' }))
+    })
+
+    // The first press is the one that counts; the second is not a miss.
+    expect(rootScoreStore.read()).toEqual({ correct: 1, total: 1 })
+  })
+
+  it('greys the grading buttons out once the grade has landed', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await startAndReveal(user)
+
+    await user.click(screen.getByRole('button', { name: 'Correct' }))
+
+    expect(screen.getByRole('button', { name: 'Correct' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Wrong' })).toBeDisabled()
   })
 })
 
