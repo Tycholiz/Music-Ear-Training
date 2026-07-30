@@ -9,6 +9,7 @@ import {
 } from './progressionQuestion'
 import {
   DEFAULT_PROGRESSION_SETTINGS,
+  MIN_PROGRESSION_LENGTH,
   type ProgressionSettings,
 } from '../settings'
 import { CADENCES, NUMERALS, cadenceNumerals } from '../theory'
@@ -220,6 +221,124 @@ describe('always the length that was asked for', () => {
       for (const question of sample(settings, 30)) {
         expect(question.numerals, `length ${length}`).toHaveLength(length)
       }
+    }
+  })
+})
+
+describe('up to, rather than exactly', () => {
+  const upTo = (length: number, overrides: Partial<ProgressionSettings> = {}) =>
+    settingsWith({
+      numerals: ALL_NUMERALS,
+      cadences: [...CADENCES],
+      length,
+      upTo: true,
+      ...overrides,
+    })
+
+  it('changes nothing at all while it is off', () => {
+    for (const length of [2, 4, 8]) {
+      const settings = upTo(length, { upTo: false })
+      for (const question of sample(settings, 40)) {
+        expect(question.numerals, `length ${length}`).toHaveLength(length)
+      }
+    }
+  })
+
+  it('uses every length between the minimum and the ceiling', () => {
+    // Measured rather than asserted against a threshold. The failure worth
+    // catching is a range that collapses — always the ceiling, or always the
+    // floor — and a `toBeLessThan` on the ceiling's share would pass for a
+    // generator that only ever produced two.
+    const lengths = sample(upTo(6), 600).map((q) => q.numerals.length)
+    const seen = new Set(lengths)
+
+    expect([...seen].sort((a, b) => a - b)).toEqual([2, 3, 4, 5, 6])
+    for (const length of seen) {
+      const share = lengths.filter((n) => n === length).length / lengths.length
+      expect(share, `length ${length}`).toBeGreaterThan(0.1)
+      expect(share, `length ${length}`).toBeLessThan(0.35)
+    }
+  })
+
+  it('never goes over the ceiling or under the shortest question offered', () => {
+    for (const question of sample(upTo(5), 300)) {
+      expect(question.numerals.length).toBeGreaterThanOrEqual(
+        MIN_PROGRESSION_LENGTH,
+      )
+      expect(question.numerals.length).toBeLessThanOrEqual(5)
+    }
+  })
+
+  it('is a single question at the minimum, where there is no room to vary', () => {
+    for (const question of sample(upTo(MIN_PROGRESSION_LENGTH), 40)) {
+      expect(question.numerals).toHaveLength(MIN_PROGRESSION_LENGTH)
+    }
+  })
+
+  it('still cadences and still only uses enabled chords', () => {
+    const numerals = ['I', 'IV', 'V', 'vi']
+    for (const question of sample(
+      settingsWith({
+        numerals,
+        cadences: [...CADENCES],
+        length: 6,
+        upTo: true,
+      }),
+      200,
+    )) {
+      for (const id of question.numerals) expect(numerals, id).toContain(id)
+      expect(
+        question.numerals.slice(-cadenceNumerals(question.cadence).length),
+      ).toEqual([...cadenceNumerals(question.cadence)])
+    }
+  })
+
+  it('accepts a selection that only a shorter progression can satisfy', () => {
+    // IV and V with a half cadence reach V at two chords and nowhere at three:
+    // V leads only to I and vi, so nothing can precede the IV. Exactly the
+    // case the ceiling is meant to open up.
+    const settings = settingsWith({
+      numerals: ['IV', 'V'],
+      cadences: ['half'],
+      length: 3,
+    })
+
+    expect(canGenerateProgression(settings)).toBe(false)
+    expect(canGenerateProgression({ ...settings, upTo: true })).toBe(true)
+    for (const question of sample({ ...settings, upTo: true }, 40)) {
+      expect(question.numerals.length).toBeLessThanOrEqual(3)
+    }
+  })
+
+  it('says it cannot when no length in the range works', () => {
+    const settings = settingsWith({
+      numerals: ['I', 'V'],
+      cadences: ['plagal'],
+      length: 6,
+      upTo: true,
+    })
+
+    expect(canGenerateProgression(settings)).toBe(false)
+    expect(() => generateProgressionQuestion(settings)).toThrow()
+  })
+
+  it('builds every question at a length it can actually reach', () => {
+    // The promise the exact-reachability work makes, now made per question
+    // rather than once per setting: a length picked and then found impossible
+    // would surface as a throw mid-exercise.
+    for (const numerals of [
+      ['I', 'V'],
+      ['I', 'IV', 'V'],
+      ['I', 'V', 'vii-dim'],
+      ALL_NUMERALS,
+    ]) {
+      const settings = settingsWith({
+        numerals,
+        cadences: [...CADENCES],
+        length: 8,
+        upTo: true,
+      })
+      expect(() => sample(settings, 100), numerals.join(',')).not.toThrow()
     }
   })
 })

@@ -6,11 +6,13 @@ import {
   intervalScoreStore,
   intervalSettingsStore,
   melodySettingsStore,
+  progressionSettingsStore,
 } from './stores'
 import {
   DEFAULT_CHORD_SETTINGS,
   DEFAULT_INTERVAL_SETTINGS,
   DEFAULT_MELODY_SETTINGS,
+  DEFAULT_PROGRESSION_SETTINGS,
   EMPTY_SCORE,
   recordGuess,
 } from './types'
@@ -22,6 +24,7 @@ beforeEach(() => {
   chordSettingsStore.reset()
   intervalScoreStore.reset()
   chordScoreStore.reset()
+  progressionSettingsStore.reset()
 })
 
 /** Write a raw value past the typed API, the way a corrupt blob would look. */
@@ -164,6 +167,34 @@ describe('sanitising chord settings', () => {
   it('drops unknown play modes', () => {
     poison(key, { ...DEFAULT_CHORD_SETTINGS, playModes: ['block', 'humming'] })
     expect(chordSettingsStore.read().playModes).toEqual(['block'])
+  })
+})
+
+describe('sanitising progression settings', () => {
+  const key = 'met.settings.progressions'
+
+  it('reads a blob saved before "up to" existed as the behaviour it had', () => {
+    // The field was added rather than the version bumped, since widening a
+    // setting is backward compatible. What is not compatible is `undefined`
+    // reaching the generator, where it is neither true nor false at the point
+    // that decides how many chords to build.
+    const { upTo, ...before } = DEFAULT_PROGRESSION_SETTINGS
+    expect(upTo).toBe(false)
+
+    poison(key, { ...before, length: 5 })
+
+    expect(progressionSettingsStore.read().upTo).toBe(false)
+    expect(progressionSettingsStore.read().length).toBe(5)
+  })
+
+  it('keeps "up to" once it has been set', () => {
+    poison(key, { ...DEFAULT_PROGRESSION_SETTINGS, upTo: true })
+    expect(progressionSettingsStore.read().upTo).toBe(true)
+  })
+
+  it('refuses a non-boolean rather than passing it through as truthy', () => {
+    poison(key, { ...DEFAULT_PROGRESSION_SETTINGS, upTo: 'yes' })
+    expect(progressionSettingsStore.read().upTo).toBe(false)
   })
 })
 

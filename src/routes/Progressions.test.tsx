@@ -180,6 +180,30 @@ describe('naming the chords', () => {
     ).toHaveLength(4)
   })
 
+  it('counts the slots off this question, not off the length setting', async () => {
+    // What makes "up to" work at all. The setting is a ceiling, so the row has
+    // to follow the progression that was actually generated — a row sized from
+    // settings.length would hand the count back the moment it varied.
+    progressionSettingsStore.write({
+      ...DEFAULT_PROGRESSION_SETTINGS,
+      length: 8,
+      upTo: true,
+    })
+    vi.mocked(exercises.generateProgressionQuestion).mockReturnValue({
+      numerals: ['I', 'V', 'I'],
+      tonic: 60,
+      cadence: 'authentic',
+    })
+
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    expect(
+      within(screen.getByLabelText('Your answer')).getAllByText('·'),
+    ).toHaveLength(3)
+  })
+
   it('appends each correct chord to the answer', async () => {
     const user = userEvent.setup()
     renderExercise()

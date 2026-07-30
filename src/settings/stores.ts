@@ -231,6 +231,12 @@ export const progressionSettingsStore = createStore<ProgressionSettings>({
         max: MAX_PROGRESSION_LENGTH,
         fallback: defaults.length,
       }),
+      // A blob written before `upTo` existed has no such key, and `undefined`
+      // reaching the generator would be neither true nor false at the point
+      // that decides how many chords to build. Anything but a real boolean
+      // falls back to the default, which is the behaviour those blobs were
+      // saved under.
+      upTo: typeof raw.upTo === 'boolean' ? raw.upTo : defaults.upTo,
       inversions: sanitizeSelection(
         raw.inversions,
         TRIAD_INVERSIONS,

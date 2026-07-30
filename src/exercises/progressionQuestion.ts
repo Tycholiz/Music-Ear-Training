@@ -6,7 +6,7 @@ import {
   type Cadence,
   type RomanNumeral,
 } from '../theory'
-import type { ProgressionSettings } from '../settings'
+import { MIN_PROGRESSION_LENGTH, type ProgressionSettings } from '../settings'
 import type { Random } from './intervalQuestion'
 
 /**
@@ -41,6 +41,15 @@ import type { Random } from './intervalQuestion'
  * chord tone and the assertion read `>0.8` against a real rate of 100%. Five
  * cadence types, landing on `I`, `I`, `V`, `vi` and `vi`, mean the ending stays
  * unpredictable while every progression still resolves.
+ *
+ * ## The number of chords can be a question too
+ *
+ * With `upTo` set, `length` is a ceiling and each question picks its own. The
+ * row of empty slots on screen otherwise announces how long the phrase will be
+ * before a note has sounded, so the user never has to hear where it ends —
+ * and hearing where a phrase ends is part of hearing it. The length is chosen
+ * before the cadence, because which cadences fit depends on how many chords
+ * there are.
  *
  * ## No chord twice in a row
  *
@@ -151,14 +160,49 @@ export function usableCadences(settings: ProgressionSettings): Cadence[] {
  * make that impossible. So this asks the question properly rather than
  * approximating it — see `viablePositions`.
  */
-function reachableCadences(settings: ProgressionSettings): Cadence[] {
+function reachableCadences(
+  settings: ProgressionSettings,
+  length: number,
+): Cadence[] {
   const enabled = uniqueNumerals(settings)
   return usableCadences(settings).filter((cadence) => {
-    const runUp = settings.length - cadenceNumerals(cadence).length
+    const runUp = length - cadenceNumerals(cadence).length
     if (runUp < 0) return false
     if (runUp === 0) return true
     return viablePositions(cadence, enabled, runUp)[0].length > 0
   })
+}
+
+/**
+ * The lengths a question is allowed to come out at.
+ *
+ * `upTo` turns `length` from an exact count into a ceiling. The floor is the
+ * shortest progression the exercise offers at all rather than anything derived
+ * from the setting: two chords is a bare cadence, which the Length screen
+ * already calls the right place to start, so it is a legitimate question and
+ * not a degenerate one.
+ */
+function allowedLengths(settings: ProgressionSettings): number[] {
+  if (!settings.upTo) return [settings.length]
+  const lengths: number[] = []
+  for (let n = MIN_PROGRESSION_LENGTH; n <= settings.length; n++)
+    lengths.push(n)
+  return lengths
+}
+
+/**
+ * The allowed lengths that can actually reach an enabled cadence.
+ *
+ * Not every length in the range works: with only `I` and `V` switched on there
+ * is nowhere for a long run-up to go, and an authentic cadence needs two
+ * chords before it can happen at all. Filtering here rather than retrying in
+ * the generator keeps the promise the rest of this file makes — whatever is
+ * offered can be built, at exactly the length claimed.
+ */
+function viableLengths(settings: ProgressionSettings): number[] {
+  return allowedLengths(settings).filter(
+    (length) => reachableCadences(settings, length).length > 0,
+  )
 }
 
 /**
@@ -168,10 +212,15 @@ function reachableCadences(settings: ProgressionSettings): Cadence[] {
  * generator spinning. Exact rather than hopeful — an approximate answer here
  * would have the generator quietly returning a shorter progression than was
  * asked for, which is the kind of wrong that never raises anything.
+ *
+ * With `upTo` set this is *more* permissive, and deliberately: a selection that
+ * cannot fill five chords but can fill three is now playable, because five was
+ * only ever a ceiling. The exactness is unchanged — every length it accepts can
+ * be built at that length.
  */
 export function canGenerateProgression(settings: ProgressionSettings): boolean {
   if (settings.range.high - settings.range.low < 12) return false
-  return reachableCadences(settings).length > 0
+  return viableLengths(settings).length > 0
 }
 
 /**
@@ -213,10 +262,15 @@ export function generateProgressionQuestion(
   }
 
   const enabled = uniqueNumerals(settings)
-  const cadence = pick(reachableCadences(settings), random)
+  // Length first, then a cadence that fits it. The other way round would have
+  // to discard cadences after choosing them — a half cadence can happen in one
+  // chord and an authentic one cannot — and a retry loop here is exactly what
+  // the exact-reachability work exists to avoid.
+  const length = pick(viableLengths(settings), random)
+  const cadence = pick(reachableCadences(settings, length), random)
 
   return {
-    numerals: walkTo(cadence, enabled, settings.length, random),
+    numerals: walkTo(cadence, enabled, length, random),
     tonic: pickTonic(settings, random),
     cadence,
   }

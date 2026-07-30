@@ -102,8 +102,20 @@ export interface ProgressionSettings {
   numerals: string[]
   /** Which ways a progression may resolve. */
   cadences: Cadence[]
-  /** How many chords to identify. */
+  /** How many chords to identify — an upper bound when `upTo` is set. */
   length: number
+  /**
+   * Treat `length` as a ceiling rather than an exact count.
+   *
+   * With it off, every progression is exactly `length` chords, so the row of
+   * empty slots says how long the phrase will be before a note has sounded and
+   * the user never has to hear where it ends. With it on the length varies per
+   * question, and working out how long the thing was becomes part of listening
+   * to it.
+   *
+   * Off by default, so existing users keep the exercise they have.
+   */
+  upTo: boolean
   /**
    * Inversions the voicing may use. Root position is 0.
    *
@@ -178,6 +190,7 @@ export const DEFAULT_PROGRESSION_SETTINGS: ProgressionSettings = {
   numerals: ['I', 'IV', 'V'],
   cadences: ['authentic'],
   length: 3,
+  upTo: false,
   // All three by default, unlike the chord exercise where inversions are the
   // answer and start switched off. Here they cost the user no difficulty and
   // buy the progression its voice leading, so there is nothing to ease into.

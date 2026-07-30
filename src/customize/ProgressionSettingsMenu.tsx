@@ -91,7 +91,7 @@ function CustomizeScreen() {
         />
         <ListRow
           label="Length"
-          value={`${settings.length} chords`}
+          value={lengthSummary(settings)}
           chevron
           onClick={() => push({ title: 'Length', content: <LengthScreen /> })}
         />
@@ -118,6 +118,18 @@ function CustomizeScreen() {
       )}
     </div>
   )
+}
+
+/**
+ * The length as a count or as a ceiling.
+ *
+ * Which of the two it is has to be on the summary row. A user who set "up to
+ * 5" and reads back "5 chords" would reasonably conclude it had not taken.
+ */
+function lengthSummary(settings: ProgressionSettings): string {
+  return settings.upTo
+    ? `Up to ${settings.length} chords`
+    : `${settings.length} chords`
 }
 
 /** One name, or a count once there are too many to read at a glance. */
@@ -264,6 +276,13 @@ function CadencesScreen() {
   )
 }
 
+/**
+ * How many chords, and whether that is a count or a ceiling.
+ *
+ * `Up to` sits below the lengths rather than above them, because it modifies
+ * the choice that has just been made — read top to bottom it says "five
+ * chords, or rather up to five", which is the order the thought arrives in.
+ */
 function LengthScreen() {
   const [settings, setSettings] = usePersisted(progressionSettingsStore)
 
@@ -280,6 +299,16 @@ function LengthScreen() {
             />
           ))}
         </RadioGroup>
+      </ListCard>
+
+      <ListCard
+        footer={`Each progression is a random length up to ${settings.length} chords, rather than always ${settings.length}. The row of empty slots otherwise says how long the phrase is before you have heard a note of it.`}
+      >
+        <CheckRow
+          label="Up to"
+          checked={settings.upTo}
+          onChange={(upTo) => setSettings({ ...settings, upTo })}
+        />
       </ListCard>
     </div>
   )

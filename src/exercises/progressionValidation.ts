@@ -179,7 +179,13 @@ export function progressionStuckReason(
   // Reachability, which no single setting is to blame for: the chords are
   // enabled and the cadence is available, but the transition table cannot get
   // from one to the other in the number of chords asked for.
-  return `No progression of ${settings.length} chords can reach an enabled cadence from these chords. Try a different length, or enable more chords.`
+  //
+  // With `upTo` on, no length in the whole range works, so naming the ceiling
+  // alone would read as though a shorter one had not been tried.
+  const lengths = settings.upTo
+    ? `of any length up to ${settings.length} chords`
+    : `of ${settings.length} chords`
+  return `No progression ${lengths} can reach an enabled cadence from these chords. Try a different length, or enable more chords.`
 }
 
 /** Nothing at all can be generated; the exercise itself is stuck. */

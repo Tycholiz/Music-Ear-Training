@@ -375,6 +375,43 @@ describe('length', () => {
 
     await waitFor(() => expect(progressionSettingsStore.read().length).toBe(6))
   })
+
+  it('starts as an exact count rather than a ceiling', async () => {
+    const { user } = openMenu()
+    await openScreen(user, 'Length')
+
+    expect(row('Up to')).toHaveAttribute('aria-checked', 'false')
+  })
+
+  it('turns the length into a ceiling', async () => {
+    const { user } = openMenu()
+    await openScreen(user, 'Length')
+    await user.click(row('Up to'))
+
+    await waitFor(() => expect(progressionSettingsStore.read().upTo).toBe(true))
+  })
+
+  it('explains what the ceiling means, naming the length that is set', async () => {
+    progressionSettingsStore.write(settingsWith({ length: 6 }))
+    const { user } = openMenu()
+    await openScreen(user, 'Length')
+
+    expect(
+      screen.getByText(/random length up to 6 chords, rather than always 6/),
+    ).toBeVisible()
+  })
+
+  it('says on the summary row which of the two it is', async () => {
+    // A user who set "up to 5" and read back "5 chords" would reasonably
+    // conclude it had not taken.
+    progressionSettingsStore.write(settingsWith({ length: 5, upTo: true }))
+    const { user } = openMenu()
+    await user.click(screen.getByRole('button', { name: /Customize Exercise/ }))
+
+    expect(
+      screen.getByRole('button', { name: /^Length/ }).textContent,
+    ).toContain('Up to 5 chords')
+  })
 })
 
 describe('inversions', () => {
