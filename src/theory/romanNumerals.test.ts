@@ -31,7 +31,7 @@ describe('NUMERALS', () => {
     // I and i are different chords; getting this backwards tells the user the
     // wrong answer rather than merely looking untidy.
     for (const numeral of NUMERALS) {
-      const letters = numeral.label.replace(/[b°]/g, '')
+      const letters = numeral.label.replace(/[♭°]/g, '')
       const isUpper = letters === letters.toUpperCase()
 
       if (numeral.quality === 'major') {
@@ -39,6 +39,21 @@ describe('NUMERALS', () => {
       } else {
         expect(isUpper, numeral.label).toBe(false)
       }
+    }
+  })
+
+  it('writes flats as ♭ rather than b, matching the degree labels', () => {
+    // Consistency with `scales.ts`, where a b would read as a note name.
+    const flats = NUMERALS.filter((n) => n.label.includes('♭'))
+    expect(flats.map((n) => n.label)).toEqual(['♭III', '♭VI', '♭VII', '♭II'])
+    for (const numeral of NUMERALS) {
+      expect(numeral.label, numeral.label).not.toContain('b')
+    }
+  })
+
+  it('keeps ids ASCII, since they are persisted rather than read', () => {
+    for (const numeral of NUMERALS) {
+      expect(numeral.id, numeral.id).toMatch(/^[A-Za-z-]+$/)
     }
   })
 
@@ -67,7 +82,7 @@ describe('NUMERALS', () => {
   })
 
   it('distinguishes a borrowed chord from the diatonic one a degree away', () => {
-    // III and bIII are both major and both near the third degree. Confusing
+    // III and ♭III are both major and both near the third degree. Confusing
     // them is the mistake the labels exist to prevent.
     expect(numeralById('III').root).toBe(4)
     expect(numeralById('bIII').root).toBe(3)
@@ -110,7 +125,7 @@ describe('the difficulty ladder', () => {
   })
 
   it('puts the rarest chord last', () => {
-    expect(numeralsByDifficulty().at(-1)?.label).toBe('bII')
+    expect(numeralsByDifficulty().at(-1)?.label).toBe('♭II')
   })
 
   it('orders by level, not by table position or label', () => {
@@ -126,7 +141,7 @@ describe('the difficulty ladder', () => {
       ),
     )
     const firstChromatic = Math.min(
-      ...['iv', 'bIII', 'bVI', 'bVII', 'II', 'III', 'VI', 'bII'].map((l) =>
+      ...['iv', '♭III', '♭VI', '♭VII', 'II', 'III', 'VI', '♭II'].map((l) =>
         ordered.indexOf(l),
       ),
     )
