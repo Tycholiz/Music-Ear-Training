@@ -26,7 +26,6 @@ import {
   PROGRESSION_INVERSIONS,
   PROGRESSION_LENGTHS,
   cadenceWarning,
-  canDisableNumeral,
   numeralLockWarning,
   progressionRangeWarning,
   progressionStuckReason,
@@ -157,8 +156,11 @@ function cadenceSummary(settings: ProgressionSettings): string {
  * take over from it.
  *
  * A chord an enabled cadence depends on is locked rather than dropping the
- * cadence when it goes. The note underneath says which chord and why — a
- * disabled control without an explanation is just a broken one.
+ * cadence when it goes. Each locked row carries its own explanation, in red,
+ * directly under the chord it belongs to — the same multi-line label the
+ * Cadences screen already uses for its description text, so a locked row
+ * never has to be found by scanning a note somewhere else on the screen.
+ * Still disabled: the row does not respond to a tap, only reads why.
  */
 function NumeralsScreen() {
   const [settings, setSettings] = usePersisted(progressionSettingsStore)
@@ -174,33 +176,39 @@ function NumeralsScreen() {
     setSettings({ ...settings, numerals })
   }
 
-  const locked = settings.numerals
-    .map((id) => numeralLockWarning(id, settings))
-    .find((warning) => warning !== null)
-
   return (
     <div className="flex flex-col gap-6 p-4">
       {NUMERAL_SECTIONS.map((section) => (
         <ListCard key={section.category} title={section.title}>
           {numeralsInCategory(section.category).map((numeral) => {
             const checked = chosen.has(numeral.id)
+            const warning = checked
+              ? numeralLockWarning(numeral.id, settings)
+              : null
 
             return (
               <CheckRow
                 key={numeral.id}
-                label={numeral.label}
+                label={
+                  warning ? (
+                    <>
+                      <span className="block">{numeral.label}</span>
+                      <span className="block text-xs text-incorrect">
+                        Locked: {warning}
+                      </span>
+                    </>
+                  ) : (
+                    numeral.label
+                  )
+                }
                 checked={checked}
-                disabled={checked && !canDisableNumeral(numeral.id, settings)}
+                disabled={warning !== null}
                 onChange={(next) => toggle(numeral.id, next)}
               />
             )
           })}
         </ListCard>
       ))}
-
-      {locked && (
-        <p className="px-4 text-center text-sm text-content-muted">{locked}</p>
-      )}
     </div>
   )
 }
