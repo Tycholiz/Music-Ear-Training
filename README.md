@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1083 tests across 43 files.** All of `npm run lint`, `npm run build`,
+**1099 tests across 43 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -197,6 +197,15 @@ Progression generation does **exact reachability**, computing backwards which
 chords can occupy each position while still leaving the cadence reachable. The
 first version walked forwards, gave up on dead ends, and fell back on the bare
 cadence — silently returning a shorter progression than the settings asked for.
+
+Progressions also have an **`Up to` length**, which makes the setting a ceiling
+and picks a length per question. Without it the row of empty slots announces how
+long the phrase will be before a note has sounded, and the user never has to
+hear where it ends. The length is chosen _before_ the cadence, since which
+cadences fit depends on how many chords there are; exact reachability then runs
+per length, which makes the setting **more** permissive rather than less — a
+selection that cannot fill five chords but can fill three is playable, because
+five was only ever a ceiling.
 
 ### Voicing: what the inversions setting is actually for
 
