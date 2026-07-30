@@ -169,11 +169,7 @@ function NumeralsScreen() {
   return (
     <div className="flex flex-col gap-6 p-4">
       {NUMERAL_SECTIONS.map((section) => (
-        <ListCard
-          key={section.category}
-          title={section.title}
-          footer={section.description}
-        >
+        <ListCard key={section.category} title={section.title}>
           {numeralsInCategory(section.category).map((numeral) => {
             const checked = chosen.has(numeral.id)
 

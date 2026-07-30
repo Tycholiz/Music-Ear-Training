@@ -223,10 +223,9 @@ describe('the sections', () => {
     }
   })
 
-  it('gives every section a title and a description', () => {
+  it('gives every section a title', () => {
     for (const section of NUMERAL_SECTIONS) {
       expect(section.title.length, section.category).toBeGreaterThan(0)
-      expect(section.description.length, section.category).toBeGreaterThan(0)
     }
   })
 })

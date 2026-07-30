@@ -238,7 +238,6 @@ export interface NumeralSection {
   readonly category: NumeralCategory
   readonly title: string
   /** One line on what this group *is*, since the grouping raises the question. */
-  readonly description: string
 }
 
 /**
@@ -258,25 +257,18 @@ export const NUMERAL_SECTIONS: readonly NumeralSection[] = [
   {
     category: 'diatonic',
     title: 'Diatonic',
-    description:
-      'The seven chords of the key itself. I, IV and V are what most music is made of; the rest are listed as they get harder to hear.',
   },
   {
     category: 'secondary-dominant',
     title: 'Secondary dominants',
-    description:
-      'Majors where the key wants minors, each pointing at the chord it leads to. III is much the most common — it is the dominant of vi.',
   },
   {
     category: 'borrowed',
     title: 'Borrowed from the parallel minor',
-    description:
-      'The first chords that sound like a colour rather than a function.',
   },
   {
     category: 'chromatic',
     title: 'Chromatic',
-    description: 'Rare enough that hearing it at all is the achievement.',
   },
 ] as const
 
