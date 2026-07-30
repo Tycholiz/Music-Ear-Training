@@ -197,7 +197,7 @@ function NumeralsScreen() {
  * How progressions may end.
  *
  * Every progression cadences — one that stops on `ii` is a fragment rather than
- * a progression. What this chooses is *which* ways, and the four do not all land
+ * a progression. What this chooses is *which* ways, and the five do not all land
  * on `I`: with more than one selected the final chord stays unpredictable, which
  * is what keeps the last answer from being free.
  *

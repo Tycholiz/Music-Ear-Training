@@ -38,8 +38,8 @@ import type { Random } from './intervalQuestion'
  *
  * If it were, the last answer would be free before the user heard a note. That
  * is the fault the melody generator shipped with, where every melody ended on a
- * chord tone and the assertion read `>0.8` against a real rate of 100%. Four
- * cadence types, landing on `I`, `I`, `V` and `vi`, mean the ending stays
+ * chord tone and the assertion read `>0.8` against a real rate of 100%. Five
+ * cadence types, landing on `I`, `I`, `V`, `vi` and `vi`, mean the ending stays
  * unpredictable while every progression still resolves.
  *
  * ## No chord twice in a row
@@ -56,6 +56,22 @@ import type { Random } from './intervalQuestion'
  * like moves, not every pair that is theoretically defensible. `I` is the hub
  * and can go almost anywhere; the secondary dominants exist to point at one
  * chord each and so have a single successor.
+ *
+ * ## A chord needs more than one way in, not just one way out
+ *
+ * `III` used to be reachable only from `I`. That was survivable while it was an
+ * ordinary chord in the middle of a walk, and stopped being so the moment it
+ * became the approach chord of the `secondary` cadence: every such progression
+ * then ended `I III vi`, and at three chords there was exactly one progression
+ * the generator could produce. A question with one possible answer is not a
+ * hard question, it is a memorised one.
+ *
+ * So `IV` and `vi` lead to `III` as well. Both are ordinary — `IV III vi` is
+ * the subdominant handing over to the dominant of the relative minor, and
+ * `vi III vi` is `i V i` heard in that minor. What this is not is a licence to
+ * widen the table whenever something is hard to reach: the fix for a
+ * *cadence* that cannot be approached is more approaches, and the fix for a
+ * chord nobody uses is to leave it alone.
  */
 const SUCCESSORS: Record<string, readonly string[]> = {
   I: [
@@ -75,9 +91,9 @@ const SUCCESSORS: Record<string, readonly string[]> = {
   ],
   ii: ['V', 'vii-dim', 'IV'],
   iii: ['vi', 'IV', 'ii'],
-  IV: ['V', 'I', 'ii', 'vii-dim', 'iv'],
+  IV: ['V', 'I', 'ii', 'vii-dim', 'iv', 'III'],
   V: ['I', 'vi'],
-  vi: ['ii', 'IV', 'V', 'iii'],
+  vi: ['ii', 'IV', 'V', 'iii', 'III'],
   'vii-dim': ['I'],
   iv: ['V', 'I', 'bVII'],
   bIII: ['bVI', 'bVII', 'IV', 'I'],

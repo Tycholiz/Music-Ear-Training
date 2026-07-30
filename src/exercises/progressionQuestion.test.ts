@@ -106,6 +106,7 @@ describe('usableCadences', () => {
     expect(cadenceNumerals('plagal')).toEqual(['IV', 'I'])
     expect(cadenceNumerals('half')).toEqual(['V'])
     expect(cadenceNumerals('deceptive')).toEqual(['V', 'vi'])
+    expect(cadenceNumerals('secondary')).toEqual(['III', 'vi'])
   })
 })
 
@@ -260,6 +261,30 @@ describe('cadences', () => {
     expect(onTonic / questions.length).toBeLessThan(0.9)
   })
 
+  it('spreads the final chord across all three landings', () => {
+    // Five cadences landing on I, I, V, vi and vi. An upper bound as well as
+    // a lower one, because "does not always end on I" passes at 89% and the
+    // last answer would still be most of a giveaway.
+    const questions = sample(
+      settingsWith({
+        numerals: ALL_NUMERALS,
+        cadences: [...CADENCES],
+        length: 4,
+      }),
+      600,
+    )
+    const share = (id: string) =>
+      questions.filter((q) => q.numerals.at(-1) === id).length /
+      questions.length
+
+    expect(share('I')).toBeGreaterThan(0.25)
+    expect(share('I')).toBeLessThan(0.55)
+    expect(share('vi')).toBeGreaterThan(0.25)
+    expect(share('vi')).toBeLessThan(0.55)
+    expect(share('V')).toBeGreaterThan(0.1)
+    expect(share('V')).toBeLessThan(0.3)
+  })
+
   it('reaches every enabled cadence type across many questions', () => {
     const used = new Set(
       sample(
@@ -285,6 +310,40 @@ describe('cadences', () => {
     )) {
       expect(question.numerals.at(-1)).toBe('V')
     }
+  })
+
+  it('lands a secondary cadence on vi, by way of the dominant of vi', () => {
+    for (const question of sample(
+      settingsWith({
+        numerals: ALL_NUMERALS,
+        cadences: ['secondary'],
+        length: 4,
+      }),
+      60,
+    )) {
+      expect(question.numerals.slice(-2)).toEqual(['III', 'vi'])
+    }
+  })
+
+  it('approaches III from more than one chord', () => {
+    // The failure this cadence shipped with in draft. III was reachable only
+    // from I, so every secondary progression ended `I III vi` and a
+    // three-chord one had exactly one possible answer — a question that is
+    // memorised rather than heard. Measured directly rather than asserted
+    // against a threshold, since the broken version scores 1 and any fix
+    // scores more.
+    const approaches = new Set(
+      sample(
+        settingsWith({
+          numerals: ALL_NUMERALS,
+          cadences: ['secondary'],
+          length: 3,
+        }),
+        200,
+      ).map((question) => question.numerals[0]),
+    )
+
+    expect(approaches.size).toBeGreaterThan(1)
   })
 
   it('lands a deceptive cadence on vi, having promised I', () => {
@@ -352,12 +411,14 @@ describe('harmonic shape', () => {
       'IV>ii',
       'IV>vii-dim',
       'IV>iv',
+      'IV>III',
       'V>I',
       'V>vi',
       'vi>ii',
       'vi>IV',
       'vi>V',
       'vi>iii',
+      'vi>III',
       'vii-dim>I',
       'iv>V',
       'iv>I',

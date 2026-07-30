@@ -26,6 +26,7 @@ export const CADENCE_NAMES: Record<Cadence, string> = {
   plagal: 'Plagal',
   half: 'Half',
   deceptive: 'Deceptive',
+  secondary: 'Secondary',
 }
 
 /**
@@ -39,6 +40,8 @@ export const CADENCE_DESCRIPTIONS: Record<Cadence, string> = {
   plagal: 'IV to I. Home by a softer route — the "amen" ending.',
   half: 'Arrives on V and stops there, unresolved. Asks a question.',
   deceptive: 'Promises I after V and gives vi instead.',
+  secondary:
+    'III to vi. Borrows the dominant of vi and lands there — an authentic cadence in the relative minor.',
 }
 
 export const PROGRESSION_LENGTHS: readonly number[] = Array.from(

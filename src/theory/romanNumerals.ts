@@ -312,7 +312,13 @@ export function numeralRoot(
  * numerals it is made of. Which ones an exercise offers is a setting; what each
  * one *is* is not.
  */
-export const CADENCES = ['authentic', 'plagal', 'half', 'deceptive'] as const
+export const CADENCES = [
+  'authentic',
+  'plagal',
+  'half',
+  'deceptive',
+  'secondary',
+] as const
 
 export type Cadence = (typeof CADENCES)[number]
 
@@ -323,12 +329,20 @@ export type Cadence = (typeof CADENCES)[number]
  * close; a half cadence arrives on the dominant and stays open; a deceptive one
  * promises `I` and gives `vi` instead. Which is what lets a progression always
  * resolve without its last chord being predictable.
+ *
+ * `secondary` is the odd one out in a second way: it is the only cadence whose
+ * approach chord is not in the key. `III` is the dominant *of* `vi`, so `III`
+ * to `vi` is an authentic cadence heard in the relative minor — the progression
+ * comes properly to rest, just not at home. It earns its place because that is
+ * one of the most common ways real music resolves somewhere other than the
+ * tonic, and until now nothing here could end that way at all.
  */
 const CADENCE_ENDINGS: Record<Cadence, readonly string[]> = {
   authentic: ['V', 'I'],
   plagal: ['IV', 'I'],
   half: ['V'],
   deceptive: ['V', 'vi'],
+  secondary: ['III', 'vi'],
 }
 
 /** The chords a cadence is made of, and so the ones it needs enabled. */
