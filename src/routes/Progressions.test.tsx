@@ -436,6 +436,153 @@ describe('the key reference', () => {
   })
 })
 
+describe('hearing one chord at a time', () => {
+  /**
+   * A descending progression, chosen so the test can actually fail.
+   *
+   * Two properties the default `I IV V I` does not have, and without which
+   * this whole block would guard nothing:
+   *
+   * 1. **All five voicings are different.** `I IV V I` voices its first and
+   *    last chord identically, so a slot playing the wrong one of the two
+   *    would pass.
+   * 2. **Three of them differ from the same chord voiced standalone.** In
+   *    `I IV V I` the voice leading happens to land on the centre-placed
+   *    voicing every time, so `voiceChordAlone` and `voiceProgression` are
+   *    indistinguishable and the register claim below is untestable.
+   */
+  const DESCENDING: ProgressionQuestion = {
+    numerals: ['I', 'bVII', 'bVI', 'V', 'I'],
+    tonic: 57,
+    cadence: 'authentic',
+  }
+
+  function withDescendingChords() {
+    const settings = {
+      ...DEFAULT_PROGRESSION_SETTINGS,
+      numerals: ['I', 'V', 'bVI', 'bVII'],
+    }
+    progressionSettingsStore.write(settings)
+    vi.mocked(exercises.generateProgressionQuestion).mockReturnValue(DESCENDING)
+    return exercises.voiceProgression(DESCENDING, settings)
+  }
+
+  /** The nth slot of the answer row. */
+  function slot(position: number) {
+    return screen.getByRole('button', { name: `Play chord ${position}` })
+  }
+
+  it('plays the chord at the slot that was tapped, and only that one', async () => {
+    const voiced = withDescendingChords()
+    // All five differ, so a slot playing its neighbour would fail.
+    expect(new Set(voiced.map((notes) => notes.join(','))).size).toBe(5)
+
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    for (const position of [1, 2, 3, 4, 5]) {
+      vi.mocked(piano.play).mockClear()
+      await user.click(slot(position))
+      expect(piano.play, `chord ${position}`).toHaveBeenCalledExactlyOnceWith([
+        voiced[position - 1],
+      ])
+    }
+  })
+
+  it('voices the chord as the progression voiced it, not standalone', async () => {
+    // The mistake logged three times in the README under "Sound feedback
+    // follows the position, not the note": a chord placed centre-range is a
+    // different arrangement of the same harmony, and a user comparing it
+    // against what they remember could reasonably conclude they had the wrong
+    // chord.
+    const voiced = withDescendingChords()
+    const settings = progressionSettingsStore.read()
+    const standalone = DESCENDING.numerals.map((id) =>
+      exercises.voiceChordAlone(id, DESCENDING.tonic, settings),
+    )
+
+    // Positions 3, 4 and 5 have been pushed down the keyboard by the voice
+    // leading. Without them the two functions agree and this proves nothing.
+    const moved = [2, 3, 4].filter(
+      (i) => voiced[i].join() !== standalone[i].join(),
+    )
+    expect(moved).toEqual([2, 3, 4])
+
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    for (const i of moved) {
+      vi.mocked(piano.play).mockClear()
+      await user.click(slot(i + 1))
+      expect(piano.play, `chord ${i + 1}`).toHaveBeenCalledWith([voiced[i]])
+      expect(piano.play, `chord ${i + 1}`).not.toHaveBeenCalledWith([
+        standalone[i],
+      ])
+    }
+  })
+
+  it('plays a position that has not been answered yet', async () => {
+    // The entire point — a scaffold for working up to hearing the whole
+    // progression, so it cannot wait until the user has got there.
+    const voiced = withDescendingChords()
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    expect(answer()).toBe('·····')
+    vi.mocked(piano.play).mockClear()
+    await user.click(slot(5))
+
+    expect(piano.play).toHaveBeenCalledExactlyOnceWith([voiced[4]])
+  })
+
+  it('never scores, never advances, and never counts as a guess', async () => {
+    withDescendingChords()
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    for (const position of [1, 2, 3, 4, 5]) {
+      await user.click(slot(position))
+    }
+
+    expect(screen.getByLabelText('Score')).toHaveTextContent('0/0')
+    expect(answer()).toBe('·····')
+    // Still the first question, and still waiting on the pad.
+    expect(padButton('I')).toBeEnabled()
+  })
+
+  it('still plays once the progression has been revealed', async () => {
+    const voiced = withDescendingChords()
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    await user.click(screen.getByRole('button', { name: 'Reveal' }))
+
+    // The slots hold the answer now; hearing it named and played together is
+    // the lesson the reveal exists for.
+    expect(answer()).toBe('I♭VII♭VIVI')
+    vi.mocked(piano.play).mockClear()
+    await user.click(slot(3))
+
+    expect(piano.play).toHaveBeenCalledExactlyOnceWith([voiced[2]])
+  })
+
+  it('labels each slot by what it does, since a dot is not a name', async () => {
+    withDescendingChords()
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    for (const position of [1, 2, 3, 4, 5]) {
+      expect(slot(position)).toBeEnabled()
+    }
+    expect(screen.queryByRole('button', { name: 'Play chord 6' })).toBeNull()
+  })
+})
+
 describe('revealing the answer', () => {
   it('is offered from the start, not only after a failed attempt', async () => {
     const user = userEvent.setup()
