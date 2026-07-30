@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ModalSheet } from '../components'
 import {
@@ -78,11 +78,16 @@ describe('choosing chords', () => {
     const { user } = openMenu()
     await openScreen(user, 'Chords')
 
+    // A locked row's textContent carries its red explanation too (I and V
+    // are locked by default), so this checks the leading label rather than
+    // an exact match.
     const labels = screen
       .getAllByRole('checkbox')
       .map((element) => element.textContent?.trim())
 
-    expect(labels.slice(0, 3)).toEqual(['I', 'IV', 'V'])
+    expect(labels.slice(0, 3).map((text) => text?.split('Locked:')[0])).toEqual(
+      ['I', 'IV', 'V'],
+    )
     expect(labels.at(-1)).toBe('♭II')
   })
 
@@ -194,16 +199,31 @@ describe('chords a cadence depends on', () => {
     expect(row('I')).toBeDisabled()
   })
 
-  it('says which chord is locked and why', async () => {
+  it('does nothing when a locked chord is pressed', async () => {
     const { user } = openMenu()
     await openScreen(user, 'Chords')
 
-    expect(screen.getByText(/last chord holding the authentic/i)).toBeVisible()
+    await user.click(row('V'))
+    expect(progressionSettingsStore.read().numerals).toContain('V')
   })
 
-  it('locks III and vi when the secondary cadence is the only one left', async () => {
+  it('shows the reason as red text on the locked row itself', async () => {
+    const { user } = openMenu()
+    await openScreen(user, 'Chords')
+
+    // On the row, not off in a note elsewhere on the screen.
+    expect(
+      within(row('V')).getByText(
+        /^Locked: V is the last chord holding the authentic/i,
+      ),
+    ).toHaveClass('text-incorrect')
+  })
+
+  it('gives each locked row its own explanation, not one shared line', async () => {
     // The rule is general rather than written per cadence, so a new cadence
-    // has to pick it up without anything being taught about it.
+    // has to pick it up without anything being taught about it, and each of
+    // two simultaneously-locked chords gets its own line rather than the
+    // screen showing whichever one happened to be checked first.
     progressionSettingsStore.write(
       settingsWith({
         numerals: ['I', 'IV', 'V', 'vi', 'III'],
@@ -217,7 +237,17 @@ describe('chords a cadence depends on', () => {
     expect(row('vi')).toBeDisabled()
     // Nothing else is holding it up, so the diatonic chords are free.
     expect(row('V')).toBeEnabled()
-    expect(screen.getByText(/last chord holding the secondary/i)).toBeVisible()
+
+    expect(
+      within(row('III')).getByText(
+        /^Locked: III is the last chord holding the secondary/i,
+      ),
+    ).toBeVisible()
+    expect(
+      within(row('vi')).getByText(
+        /^Locked: vi is the last chord holding the secondary/i,
+      ),
+    ).toBeVisible()
   })
 
   it('frees a chord once another cadence can carry the progression', async () => {
@@ -230,6 +260,7 @@ describe('chords a cadence depends on', () => {
     await openScreen(user, 'Chords')
 
     expect(row('V')).toBeEnabled()
+    expect(within(row('V')).queryByText(/^Locked:/)).toBeNull()
     // I is in both cadences, so it is still the last thing holding them up.
     expect(row('I')).toBeDisabled()
   })
@@ -244,6 +275,22 @@ describe('chords a cadence depends on', () => {
     for (const label of ['I', 'V']) {
       expect(row(label)).toBeDisabled()
     }
+  })
+
+  it('says the chord is the only one left when nothing else is to blame', async () => {
+    // Both cadences the chord could hold are already unusable for other
+    // reasons, so `numeralLockWarning` cannot name one — the case that used
+    // to fall through to no explanation at all.
+    progressionSettingsStore.write(
+      settingsWith({ numerals: ['I'], cadences: ['authentic'] }),
+    )
+    const { user } = openMenu()
+    await openScreen(user, 'Chords')
+
+    expect(row('I')).toBeDisabled()
+    expect(
+      within(row('I')).getByText(/^Locked: I is the only chord left/),
+    ).toBeVisible()
   })
 })
 

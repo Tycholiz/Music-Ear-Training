@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1099 tests across 43 files.** All of `npm run lint`, `npm run build`,
+**1101 tests across 43 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -332,6 +332,13 @@ place deliberately; remove it or revive it, but do not assume it is wired up.
 - **Shared UI is parameterised, not duplicated.** `ChordSettingsMenu` serves two
   exercises via a store prop and an `extraRows` slot. `RangeScreen` takes its
   value, footer and warning from the caller.
+- **A disabled control names its reason on the row, not off in a shared note.**
+  The progression chords screen used to print one line under the whole card,
+  for whichever locked chord happened to come first — nowhere near the row a
+  user had actually pressed, and silent for every other locked row on screen.
+  Each locked `CheckRow` now carries its own explanation as red text in its
+  label, using the multi-line label pattern the Cadences screen already had.
+  The row stays `disabled`; a tap still does nothing.
 - **New pads pack their buttons**, unlike `AnswerGrid` which holds empty
   positions. For a _selection_ the gaps are the point — major pentatonic would
   leave seven of twelve cells blank — and nothing can move mid-question because
