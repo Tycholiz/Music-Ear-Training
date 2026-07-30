@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NOTE_GAIN, Piano } from './piano'
+import { holdsPlaybackSession, releasePlaybackSession } from './audioSession'
 import { SAMPLED_NOTES, nearestSample, playbackRate } from './samples'
 import {
   buildMelodySchedule,
@@ -254,6 +255,88 @@ describe('unlock', () => {
     expect(session.type).toBe('playback')
 
     delete (navigator as unknown as Record<string, unknown>).audioSession
+  })
+})
+
+describe('holding the audio session only while sounding', () => {
+  /** Stand in for Safari 16.4+, and report what the session type is doing. */
+  function withAudioSession() {
+    const session = { type: 'auto' }
+    Object.defineProperty(navigator, 'audioSession', {
+      value: session,
+      configurable: true,
+    })
+    return session
+  }
+
+  afterEach(() => {
+    releasePlaybackSession()
+    delete (navigator as unknown as Record<string, unknown>).audioSession
+  })
+
+  it('gives the session back once the last voice has ended', async () => {
+    // A held session is one iOS can take back, and holding one between
+    // two-second chords is what left the app silent after a spell away.
+    vi.useFakeTimers()
+    const session = withAudioSession()
+    const { piano, ctx } = setup()
+    await piano.load()
+    await piano.play(simultaneous([60]))
+    expect(session.type).toBe('playback')
+
+    for (const source of ctx.sources) source.onended?.()
+    vi.advanceTimersByTime(5000)
+
+    expect(session.type).toBe('auto')
+    expect(holdsPlaybackSession()).toBe(false)
+  })
+
+  it('keeps it while anything is still sounding', async () => {
+    vi.useFakeTimers()
+    const session = withAudioSession()
+    const { piano, ctx } = setup()
+    await piano.load()
+    await piano.play(simultaneous([60, 64, 67]))
+
+    // One of three voices ends; the chord is still going.
+    ctx.sources[0].onended?.()
+    vi.advanceTimersByTime(5000)
+
+    expect(session.type).toBe('playback')
+  })
+
+  it('does not drop it between notes of a quick run of guesses', async () => {
+    // Dropping the session between each press would have iOS changing category
+    // over and over while the user is mid-answer.
+    vi.useFakeTimers()
+    const session = withAudioSession()
+    const { piano, ctx } = setup()
+    await piano.load()
+
+    await piano.play(simultaneous([60]))
+    for (const source of ctx.sources) source.onended?.()
+    vi.advanceTimersByTime(300)
+
+    await piano.play(simultaneous([64]))
+    expect(session.type).toBe('playback')
+
+    vi.advanceTimersByTime(300)
+    expect(session.type).toBe('playback')
+  })
+
+  it('claims it again for the next thing played', async () => {
+    vi.useFakeTimers()
+    const session = withAudioSession()
+    const { piano, ctx } = setup()
+    await piano.load()
+
+    await piano.play(simultaneous([60]))
+    for (const source of ctx.sources) source.onended?.()
+    vi.advanceTimersByTime(5000)
+    expect(session.type).toBe('auto')
+
+    await piano.play(simultaneous([64]))
+    expect(session.type).toBe('playback')
   })
 })
 
