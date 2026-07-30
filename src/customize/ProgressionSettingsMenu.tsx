@@ -157,10 +157,11 @@ function cadenceSummary(settings: ProgressionSettings): string {
  * take over from it.
  *
  * A chord an enabled cadence depends on is locked rather than dropping the
- * cadence when it goes. The note underneath says which chord and why — a
- * disabled control without an explanation is just a broken one.
+ * cadence when it goes. Pressing it says which cadence is holding it and offers
+ * the way out — see `LockedChordScreen`.
  */
 function NumeralsScreen() {
+  const { push } = useModalNav()
   const [settings, setSettings] = usePersisted(progressionSettingsStore)
   const chosen = new Set(settings.numerals)
 
@@ -174,33 +175,73 @@ function NumeralsScreen() {
     setSettings({ ...settings, numerals })
   }
 
-  const locked = settings.numerals
-    .map((id) => numeralLockWarning(id, settings))
-    .find((warning) => warning !== null)
-
   return (
     <div className="flex flex-col gap-6 p-4">
       {NUMERAL_SECTIONS.map((section) => (
         <ListCard key={section.category} title={section.title}>
           {numeralsInCategory(section.category).map((numeral) => {
             const checked = chosen.has(numeral.id)
+            const locked = checked && !canDisableNumeral(numeral.id, settings)
 
             return (
               <CheckRow
                 key={numeral.id}
                 label={numeral.label}
                 checked={checked}
-                disabled={checked && !canDisableNumeral(numeral.id, settings)}
+                locked={locked}
                 onChange={(next) => toggle(numeral.id, next)}
+                onLockedPress={() =>
+                  push({
+                    title: numeral.label,
+                    content: <LockedChordScreen numeralId={numeral.id} />,
+                  })
+                }
               />
             )
           })}
         </ListCard>
       ))}
+    </div>
+  )
+}
 
-      {locked && (
-        <p className="px-4 text-center text-sm text-content-muted">{locked}</p>
-      )}
+/**
+ * Why a chord cannot be switched off, and what to do about it.
+ *
+ * Replaces a single line under the card that named whichever locked chord came
+ * first and sat nowhere near the row the user had pressed. This arrives on the
+ * press, about the chord that was pressed.
+ *
+ * A pushed screen rather than a new alert component: the sheet already owns a
+ * navigation stack with a back chevron, an Escape handler and a focus-holding
+ * dialog, and none of that is worth building a second time for one paragraph.
+ *
+ * The way out is a button rather than an OK, because enabling another cadence
+ * is exactly the thing that frees the chord — being told the rule and left on
+ * the screen that cannot act on it is only half an answer. It replaces this
+ * screen rather than stacking on it, so backing out of Cadences returns to the
+ * chords rather than to an explanation that the visit has just made untrue.
+ */
+function LockedChordScreen({ numeralId }: { numeralId: string }) {
+  const { pop, push } = useModalNav()
+  const [settings] = usePersisted(progressionSettingsStore)
+  const reason = numeralLockWarning(numeralId, settings)
+
+  return (
+    <div className="flex flex-col gap-6 p-4">
+      <p className="text-sm text-content-muted">{reason}</p>
+
+      <ListCard>
+        <ListRow
+          label="Cadences"
+          value={cadenceSummary(settings)}
+          chevron
+          onClick={() => {
+            pop()
+            push({ title: 'Cadences', content: <CadencesScreen /> })
+          }}
+        />
+      </ListCard>
     </div>
   )
 }

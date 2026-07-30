@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1099 tests across 43 files.** All of `npm run lint`, `npm run build`,
+**1111 tests across 43 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -332,6 +332,15 @@ place deliberately; remove it or revive it, but do not assume it is wired up.
 - **Shared UI is parameterised, not duplicated.** `ChordSettingsMenu` serves two
   exercises via a store prop and an `extraRows` slot. `RangeScreen` takes its
   value, footer and warning from the caller.
+- **A control that declines has to say why, at the point it declines.**
+  `CheckRow` has two ways of not being changeable: `disabled` for an option that
+  is simply unavailable, and `locked` for one held on by something the user
+  could go and change. Locked rows stay pressable and use `aria-disabled`, so
+  the press lands and is answered — a control that refuses silently is
+  indistinguishable from a broken one, and an explanation parked elsewhere on
+  the screen is not near enough to be an answer. The progression chords screen
+  is the one doing this so far; the disabled rows on Cadences and Inversions
+  have the same problem.
 - **New pads pack their buttons**, unlike `AnswerGrid` which holds empty
   positions. For a _selection_ the gaps are the point — major pentatonic would
   leave seven of twelve cells blank — and nothing can move mid-question because

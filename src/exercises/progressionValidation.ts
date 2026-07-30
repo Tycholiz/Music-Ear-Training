@@ -116,7 +116,13 @@ export function canDisableNumeral(
   return usableCadences(without).length > 0
 }
 
-/** Why a chord is locked on, or null when it is free. */
+/**
+ * Why a chord is locked on, or null when it is free.
+ *
+ * Total wherever `canDisableNumeral` says no, which matters now the row is
+ * pressable: a locked chord that opened an empty explanation would be the
+ * silent refusal this replaced, with an extra tap in front of it.
+ */
 export function numeralLockWarning(
   numeralId: string,
   settings: ProgressionSettings,
@@ -126,7 +132,13 @@ export function numeralLockWarning(
   const holding = usableCadences(settings).filter((cadence) =>
     cadenceNumerals(cadence).includes(numeralId),
   )
-  if (holding.length === 0) return null
+
+  // Nothing is holding it and it still cannot go, so it is the last chord
+  // standing. Reachable while the exercise is already stuck — no cadence is
+  // usable, so none of them is named as the reason.
+  if (holding.length === 0) {
+    return `${label(numeralId)} is the only chord left. A progression has to be made of something, so the last one cannot be switched off.`
+  }
 
   return `${label(numeralId)} is the last chord holding the ${listNames(
     holding.map((cadence) => CADENCE_NAMES[cadence].toLowerCase()),

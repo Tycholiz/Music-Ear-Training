@@ -184,26 +184,57 @@ describe('choosing chords', () => {
 })
 
 describe('chords a cadence depends on', () => {
+  /** The Chords screen, with only the authentic cadence on, so V and I are held. */
+  async function openChords() {
+    const { user } = openMenu()
+    await openScreen(user, 'Chords')
+    return user
+  }
+
   it('locks the chords the last remaining cadence needs', async () => {
     // An authentic cadence is V then I. Switching either off would leave a
     // progression with no way to end, so neither can go.
-    const { user } = openMenu()
-    await openScreen(user, 'Chords')
+    await openChords()
 
-    expect(row('V')).toBeDisabled()
-    expect(row('I')).toBeDisabled()
+    expect(row('V')).toHaveAttribute('aria-disabled', 'true')
+    expect(row('I')).toHaveAttribute('aria-disabled', 'true')
   })
 
-  it('says which chord is locked and why', async () => {
-    const { user } = openMenu()
-    await openScreen(user, 'Chords')
+  it('refuses the press rather than accepting it', async () => {
+    // The attribute is how it is announced; this is the rule itself, and it
+    // would still have to hold if the row stopped saying so.
+    const user = await openChords()
+    await user.click(row('V'))
+
+    expect(progressionSettingsStore.read().numerals).toContain('V')
+  })
+
+  it('stays pressable, so the refusal can say something', async () => {
+    // Disabled would make the row unreachable — no focus, no press, and a
+    // control that declines silently is indistinguishable from a broken one.
+    await openChords()
+
+    expect(row('V')).toBeEnabled()
+  })
+
+  it('says which chord was pressed and what is holding it', async () => {
+    const user = await openChords()
+    await user.click(row('V'))
 
     expect(screen.getByText(/last chord holding the authentic/i)).toBeVisible()
+    // About the chord that was pressed, not whichever locked one came first.
+    expect(screen.getByText(/^V is the last chord/)).toBeVisible()
   })
 
-  it('locks III and vi when the secondary cadence is the only one left', async () => {
-    // The rule is general rather than written per cadence, so a new cadence
-    // has to pick it up without anything being taught about it.
+  it('explains the chord that was pressed, not the other locked one', async () => {
+    const user = await openChords()
+    await user.click(row('I'))
+
+    expect(screen.getByText(/^I is the last chord/)).toBeVisible()
+    expect(screen.queryByText(/^V is the last chord/)).toBeNull()
+  })
+
+  it('names the cadence the secondary lock is holding, without being taught it', async () => {
     progressionSettingsStore.write(
       settingsWith({
         numerals: ['I', 'IV', 'V', 'vi', 'III'],
@@ -213,11 +244,63 @@ describe('chords a cadence depends on', () => {
     const { user } = openMenu()
     await openScreen(user, 'Chords')
 
-    expect(row('III')).toBeDisabled()
-    expect(row('vi')).toBeDisabled()
+    expect(row('III')).toHaveAttribute('aria-disabled', 'true')
+    expect(row('vi')).toHaveAttribute('aria-disabled', 'true')
     // Nothing else is holding it up, so the diatonic chords are free.
-    expect(row('V')).toBeEnabled()
+    expect(row('V')).not.toHaveAttribute('aria-disabled')
+
+    await user.click(row('III'))
     expect(screen.getByText(/last chord holding the secondary/i)).toBeVisible()
+  })
+
+  it('offers the way out, since enabling a cadence is what frees the chord', async () => {
+    const user = await openChords()
+    await user.click(row('V'))
+    await user.click(screen.getByRole('button', { name: /^Cadences/ }))
+
+    expect(row('Plagal')).toBeVisible()
+  })
+
+  it('leaves the chords behind it, not the explanation it has made untrue', async () => {
+    const user = await openChords()
+    await user.click(row('V'))
+    await user.click(screen.getByRole('button', { name: /^Cadences/ }))
+    await user.click(screen.getByRole('button', { name: 'Back' }))
+
+    // The chord list, rather than a note still claiming V is held. The first
+    // heading is the sheet's own title; the rest are the chord sections.
+    expect(screen.getAllByRole('heading')[0].textContent).toBe('Chords')
+    expect(row('V')).toBeVisible()
+    expect(screen.queryByText(/is the last chord holding/)).toBeNull()
+  })
+
+  it('changes nothing when it is dismissed', async () => {
+    const user = await openChords()
+    const before = progressionSettingsStore.read()
+
+    await user.click(row('V'))
+    await user.click(screen.getByRole('button', { name: 'Back' }))
+
+    expect(progressionSettingsStore.read()).toEqual(before)
+    expect(row('V')).toHaveAttribute('aria-disabled', 'true')
+  })
+
+  it('leaves a chord no cadence needs alone', async () => {
+    // The other half of the rule: an unlocked row toggles as it always did,
+    // rather than explaining itself at every press.
+    progressionSettingsStore.write(
+      settingsWith({ numerals: ['I', 'IV', 'V', 'vi'] }),
+    )
+    const { user } = openMenu()
+    await openScreen(user, 'Chords')
+
+    expect(row('vi')).not.toHaveAttribute('aria-disabled')
+    await user.click(row('vi'))
+
+    await waitFor(() =>
+      expect(progressionSettingsStore.read().numerals).not.toContain('vi'),
+    )
+    expect(screen.queryByText(/is the last chord holding/)).toBeNull()
   })
 
   it('frees a chord once another cadence can carry the progression', async () => {
@@ -229,9 +312,9 @@ describe('chords a cadence depends on', () => {
     const { user } = openMenu()
     await openScreen(user, 'Chords')
 
-    expect(row('V')).toBeEnabled()
+    expect(row('V')).not.toHaveAttribute('aria-disabled')
     // I is in both cadences, so it is still the last thing holding them up.
-    expect(row('I')).toBeDisabled()
+    expect(row('I')).toHaveAttribute('aria-disabled', 'true')
   })
 
   it('never lets the chords be emptied', async () => {
@@ -242,8 +325,10 @@ describe('chords a cadence depends on', () => {
     await openScreen(user, 'Chords')
 
     for (const label of ['I', 'V']) {
-      expect(row(label)).toBeDisabled()
+      await user.click(row(label))
+      await user.click(screen.getByRole('button', { name: 'Back' }))
     }
+    expect(progressionSettingsStore.read().numerals).toEqual(['I', 'V'])
   })
 })
 

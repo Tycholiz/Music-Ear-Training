@@ -40,4 +40,79 @@ describe('CheckRow', () => {
     await user.click(screen.getByRole('checkbox'))
     expect(onChange).not.toHaveBeenCalled()
   })
+
+  describe('locked', () => {
+    it('refuses the change but reports the press', async () => {
+      const onChange = vi.fn()
+      const onLockedPress = vi.fn()
+      const user = userEvent.setup()
+      render(
+        <CheckRow
+          label="V"
+          checked
+          locked
+          onChange={onChange}
+          onLockedPress={onLockedPress}
+        />,
+      )
+
+      await user.click(screen.getByRole('checkbox'))
+      expect(onChange).not.toHaveBeenCalled()
+      expect(onLockedPress).toHaveBeenCalledOnce()
+    })
+
+    it('stays reachable, unlike disabled', async () => {
+      // `disabled` takes the row out of the tab order and swallows the click,
+      // which is the whole reason locking cannot be built on it: the press has
+      // to land somewhere to be answered.
+      const user = userEvent.setup()
+      const onLockedPress = vi.fn()
+      render(
+        <CheckRow
+          label="V"
+          checked
+          locked
+          onChange={vi.fn()}
+          onLockedPress={onLockedPress}
+        />,
+      )
+
+      const row = screen.getByRole('checkbox')
+      expect(row).toBeEnabled()
+      expect(row).toHaveAttribute('aria-disabled', 'true')
+
+      await user.tab()
+      expect(row).toHaveFocus()
+      await user.keyboard(' ')
+      expect(onLockedPress).toHaveBeenCalledOnce()
+    })
+
+    it('still reads as checked, because it is', () => {
+      render(<CheckRow label="V" checked locked onChange={vi.fn()} />)
+      expect(screen.getByRole('checkbox')).toBeChecked()
+    })
+
+    it('wins over disabled, which would make it unreachable', async () => {
+      const onLockedPress = vi.fn()
+      const user = userEvent.setup()
+      render(
+        <CheckRow
+          label="V"
+          checked
+          locked
+          disabled
+          onChange={vi.fn()}
+          onLockedPress={onLockedPress}
+        />,
+      )
+
+      await user.click(screen.getByRole('checkbox'))
+      expect(onLockedPress).toHaveBeenCalledOnce()
+    })
+
+    it('says nothing about being disabled when it is not locked', () => {
+      render(<CheckRow label="V" checked onChange={vi.fn()} />)
+      expect(screen.getByRole('checkbox')).not.toHaveAttribute('aria-disabled')
+    })
+  })
 })
