@@ -96,3 +96,16 @@ export {
   voiceProgression,
   voicingsFor,
 } from './progressionVoicing'
+export {
+  CADENCE_DESCRIPTIONS,
+  CADENCE_NAMES,
+  PROGRESSION_INVERSIONS,
+  PROGRESSION_LENGTHS,
+  cadenceMissing,
+  cadenceWarning,
+  canDisableNumeral,
+  isProgressionStuck,
+  numeralLockWarning,
+  progressionRangeWarning,
+  progressionStuckReason,
+} from './progressionValidation'

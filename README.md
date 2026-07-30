@@ -21,26 +21,18 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1040 tests across 42 files.** All of `npm run lint`, `npm run build`,
+**1064 tests across 43 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
-Complete and merged: interval, chord, chord root, and melody exercises; the PWA
-(offline precaching, install offer, update prompt); iOS audio handling.
+**All five exercises are complete**, each with its own generation, grading,
+persisted settings, Customize modal and score. Also done: the PWA (offline
+precaching, install offer, update prompt) and iOS audio handling.
 
-Chord Progression Recognition is the exercise in progress. Everything but its
-Customize modal is on `main`, so the exercise is playable but its settings can
-only be changed in code:
+Nothing is in progress. `#72`–`#76` built Chord Progression Recognition, the
+most recent exercise, in the usual order: theory core → generation → voicing →
+screen → Customize.
 
-| Piece                                 | Issue | State                     |
-| ------------------------------------- | ----- | ------------------------- |
-| Roman numeral theory core             | #72   | merged                    |
-| Progression generation and cadences   | #73   | merged                    |
-| Progression voicing and voice leading | #74   | merged                    |
-| Exercise screen                       | #75   | merged                    |
-| Settings and Customize modal          | #76   | **not started — next up** |
-
-Until #76 lands, `ProgressionSettingsMenu` carries only Reset Score, so the
-header's menu button is not a dead end but does not yet customise anything.
+See **Ideas not yet built** at the end for what is deliberately left undone.
 
 ## Workflow
 
