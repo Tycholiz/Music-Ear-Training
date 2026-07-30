@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1064 tests across 43 files.** All of `npm run lint`, `npm run build`,
+**1083 tests across 43 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -180,9 +180,18 @@ strangeness rather than from the thing being taught.
   built to arrive at it — the approach is part of the cadence, and a `V` reached
   from nowhere does not sound like an arrival.
 
-**Cadencing is not ending on `I`.** Four cadence types land on `I`, `I`, `V` and
-`vi`, so every progression resolves while the ending stays unpredictable.
-Measured: `I` 49%, `vi` 27%, `V` 24%.
+**Cadencing is not ending on `I`.** Five cadence types land on `I`, `I`, `V`,
+`vi` and `vi`, so every progression resolves while the ending stays
+unpredictable. Measured: `I` 41%, `vi` 40%, `V` 19%.
+
+The fifth is `III`→`vi` — the dominant _of_ `vi` resolving to it, which is an
+authentic cadence heard in the relative minor. It is the only cadence whose
+approach chord is out of the key, and adding it forced a change to the
+successor table: `III` had been reachable only from `I`, which was fine while
+it was an ordinary chord in a walk and became a fault the moment it was an
+approach chord, since every such progression then ended `I III vi` and a
+three-chord one had exactly one possible answer. `IV` and `vi` now lead to it
+too. **A chord that is a cadence's approach needs more than one way in.**
 
 Progression generation does **exact reachability**, computing backwards which
 chords can occupy each position while still leaving the cadence reachable. The

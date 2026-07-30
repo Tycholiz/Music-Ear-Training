@@ -201,6 +201,25 @@ describe('chords a cadence depends on', () => {
     expect(screen.getByText(/last chord holding the authentic/i)).toBeVisible()
   })
 
+  it('locks III and vi when the secondary cadence is the only one left', async () => {
+    // The rule is general rather than written per cadence, so a new cadence
+    // has to pick it up without anything being taught about it.
+    progressionSettingsStore.write(
+      settingsWith({
+        numerals: ['I', 'IV', 'V', 'vi', 'III'],
+        cadences: ['secondary'],
+      }),
+    )
+    const { user } = openMenu()
+    await openScreen(user, 'Chords')
+
+    expect(row('III')).toBeDisabled()
+    expect(row('vi')).toBeDisabled()
+    // Nothing else is holding it up, so the diatonic chords are free.
+    expect(row('V')).toBeEnabled()
+    expect(screen.getByText(/last chord holding the secondary/i)).toBeVisible()
+  })
+
   it('frees a chord once another cadence can carry the progression', async () => {
     // With a plagal cadence available too, IV and I can end a progression, so
     // V stops being load-bearing.
@@ -229,7 +248,7 @@ describe('chords a cadence depends on', () => {
 })
 
 describe('choosing cadences', () => {
-  it('offers all four, described by what they sound like', async () => {
+  it('offers all five, described by what they sound like', async () => {
     const { user } = openMenu()
     await openScreen(user, 'Cadences')
 
@@ -237,6 +256,34 @@ describe('choosing cadences', () => {
     expect(screen.getByText(/amen/)).toBeVisible()
     expect(screen.getByText(/Asks a question/)).toBeVisible()
     expect(screen.getByText(/gives vi instead/)).toBeVisible()
+    expect(screen.getByText(/relative minor/)).toBeVisible()
+  })
+
+  it('names both chords the secondary cadence needs', async () => {
+    // The only cadence needing two chords that are both off by default, and
+    // so the only one whose warning has to read as a list.
+    const { user } = openMenu()
+    await openScreen(user, 'Cadences')
+
+    expect(row('Secondary')).toBeDisabled()
+    expect(
+      screen.getByText(/Needs III and vi, which are switched off/),
+    ).toBeVisible()
+  })
+
+  it('becomes available once III and vi are enabled', async () => {
+    progressionSettingsStore.write(
+      settingsWith({ numerals: ['I', 'IV', 'V', 'vi', 'III'] }),
+    )
+    const { user } = openMenu()
+    await openScreen(user, 'Cadences')
+
+    expect(row('Secondary')).toBeEnabled()
+    await user.click(row('Secondary'))
+
+    await waitFor(() =>
+      expect(progressionSettingsStore.read().cadences).toContain('secondary'),
+    )
   })
 
   it('takes more than one, so the ending stays unpredictable', async () => {
