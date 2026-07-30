@@ -22,6 +22,18 @@ export interface ScheduledNote {
   startMs: number
   durationMs: number
   /**
+   * Let the sample decay on its own instead of being faded out at
+   * `durationMs`.
+   *
+   * A struck piano note takes several seconds to die away. Cutting it at a
+   * scheduled length is right when something else is about to happen — the next
+   * note, the next question — and wrong for a note played on its own to be
+   * listened to, where the fade is heard as the sound being taken away.
+   * `durationMs` still says roughly how long it lasts, for anything timing off
+   * the schedule.
+   */
+  ringOut?: boolean
+  /**
    * Multiplier on the engine's standard note gain. Defaults to 1.
    *
    * Everything that plays a question wants every note at the same volume, so
@@ -94,6 +106,26 @@ export function scheduleDurationMs(
   return phraseEndMs(groups, timing)
 }
 
+/** Roughly how long a struck note stays audible. */
+export const RING_OUT_MS = 6000
+
+/**
+ * A chord struck once and left to ring.
+ *
+ * For a reference the user asks to hear rather than a question being posed:
+ * nothing follows it, so nothing needs it to stop.
+ */
+export function struck(notes: readonly number[]): ScheduledNote[] {
+  return notes.map((midi) => ({
+    midi,
+    startMs: 0,
+    // Long enough to cover a piano note's decay, for anything measuring the
+    // schedule. The sound itself ends when the sample does.
+    durationMs: RING_OUT_MS,
+    ringOut: true,
+  }))
+}
+
 /**
  * How long a schedule runs for, measured from the notes themselves.
  *
@@ -128,10 +160,17 @@ export interface MelodyTiming {
  * meant to hear as a phrase — strung out that far they stop being a melody and
  * become a list. `noteMs` is a little longer than `onsetMs` so consecutive
  * notes just overlap, joining rather than clicking apart.
+ *
+ * `noteMs` has to clear `onsetMs` by more than the engine's release fade, or
+ * the melody comes out choppy: at 520ms a note began fading 180ms before its
+ * end, which is 340ms in, while the next note did not arrive until 460ms. Every
+ * note swelled and died before its successor began, so the line pulsed instead
+ * of joining up. Held past the next onset, the handover happens at full volume,
+ * which is what legato is.
  */
 export const MELODY_TIMING: MelodyTiming = {
   onsetMs: 460,
-  noteMs: 520,
+  noteMs: 760,
   releaseMs: 1100,
 }
 

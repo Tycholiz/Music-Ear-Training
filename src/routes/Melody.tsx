@@ -185,6 +185,12 @@ export default function Melody() {
     // it. Choosing a degree by name and never hearing it makes this a guessing
     // game with a keypad; hearing it turns a wrong answer into information —
     // that was a 6, and the melody was not that.
+    //
+    // Played rather than struck, deliberately unlike the Tonic and Chord
+    // references beside it. Those ring out because they are asked for once and
+    // meant to be lingered over; a guess happens once per key press in a quick
+    // sequence, and left ringing for seconds it piles up under whatever is
+    // pressed next. `TIMING`'s ordinary release is the length that suits it.
     void piano.play([[guessPitch(round.question, index, degree)]])
 
     setEntered((current) =>
@@ -284,13 +290,13 @@ export default function Melody() {
             <ReferenceButton
               label="Tonic"
               description="Play the tonic"
-              onClick={() => void piano.play([[round.question.tonic]])}
+              onClick={() => void piano.strike([round.question.tonic])}
             />
             {round.question.backing.length > 0 && (
               <ReferenceButton
                 label="Chord"
                 description="Play the backing chord"
-                onClick={() => void piano.play([[...round.question.backing]])}
+                onClick={() => void piano.strike(round.question.backing)}
               />
             )}
           </div>

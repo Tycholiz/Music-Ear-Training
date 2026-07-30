@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import { RELEASE_MS } from './piano'
 import {
   MELODY_TIMING,
+  RING_OUT_MS,
   TIMING,
   buildMelodySchedule,
   buildSchedule,
@@ -9,6 +11,7 @@ import {
   sequence,
   sequenceThenSimultaneous,
   simultaneous,
+  struck,
   type MelodyTiming,
   type Timing,
 } from './schedule'
@@ -295,6 +298,68 @@ describe('buildMelodySchedule', () => {
     for (const note of melodyOf(notes)) {
       expect(note.gain).toBeUndefined()
     }
+  })
+})
+
+describe('legato', () => {
+  it('holds each note at full volume until the next one has begun', () => {
+    // The choppiness: at 520ms a note started fading 180ms before its end,
+    // 340ms in, while the next did not arrive until 460ms. Every note swelled
+    // and died before its successor, so the line pulsed instead of joining up.
+    // The handover has to happen while both are still at full volume.
+    const notes = melodyOf(
+      buildMelodySchedule({ melody: [60, 62, 64, 65, 67] }),
+    )
+
+    for (const [i, note] of notes.slice(0, -1).entries()) {
+      const fadeBeginsAt = note.startMs + note.durationMs - RELEASE_MS
+      expect(fadeBeginsAt, `note ${i}`).toBeGreaterThan(notes[i + 1].startMs)
+    }
+  })
+
+  it('leaves the same headroom at any melody length', () => {
+    for (const length of [3, 5, 8]) {
+      const melody = Array.from({ length }, (_, i) => 60 + i)
+      const notes = melodyOf(buildMelodySchedule({ melody }))
+      for (const [i, note] of notes.slice(0, -1).entries()) {
+        expect(
+          note.startMs + note.durationMs - RELEASE_MS,
+          `length ${length}, note ${i}`,
+        ).toBeGreaterThan(notes[i + 1].startMs)
+      }
+    }
+  })
+
+  it('does not hold so long that the melody piles into a chord', () => {
+    // Legato is not the pedal. Two notes may overlap; five must not.
+    const notes = melodyOf(
+      buildMelodySchedule({ melody: [60, 62, 64, 65, 67, 69, 71, 72] }),
+    )
+    const overlap = notes[0].durationMs / MELODY_TIMING.onsetMs
+    expect(overlap).toBeLessThan(3)
+  })
+})
+
+describe('struck', () => {
+  it('sounds every note at once', () => {
+    expect(struck([48, 52, 55]).map((n) => n.startMs)).toEqual([0, 0, 0])
+  })
+
+  it('asks to ring rather than be faded', () => {
+    for (const note of struck([48, 52, 55])) {
+      expect(note.ringOut).toBe(true)
+    }
+  })
+
+  it('reports a length long enough to cover a piano note decaying', () => {
+    for (const note of struck([48])) {
+      expect(note.durationMs).toBe(RING_OUT_MS)
+      expect(note.durationMs).toBeGreaterThan(TIMING.chordReleaseMs)
+    }
+  })
+
+  it('plays nothing for nothing', () => {
+    expect(struck([])).toEqual([])
   })
 })
 

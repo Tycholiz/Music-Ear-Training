@@ -24,6 +24,17 @@ interface FakeSource {
   connected: boolean
 }
 
+interface FakeLimiter {
+  threshold: { value: number }
+  knee: { value: number }
+  ratio: { value: number }
+  attack: { value: number }
+  release: { value: number }
+  context: BaseAudioContext
+  connectedTo: unknown
+  connect: (target: unknown) => void
+}
+
 interface FakeGain {
   gain: {
     value: number
@@ -32,6 +43,11 @@ interface FakeGain {
     cancelScheduledValues: ReturnType<typeof vi.fn>
   }
   connect: ReturnType<typeof vi.fn>
+}
+
+/** What a voice's gain node was wired into. */
+function connectedTargets(gain: FakeGain): unknown[] {
+  return gain.connect.mock.calls.map((call) => call[0])
 }
 
 /** Includes `interrupted`, which WebKit has and the specification does not. */
@@ -47,6 +63,7 @@ class FakeAudioContext {
   decodeCount = 0
   sources: FakeSource[] = []
   gains: FakeGain[] = []
+  limiters: FakeLimiter[] = []
 
   /** Set to leave the context stuck, the way iOS sometimes does. */
   unrevivable = false
@@ -91,6 +108,23 @@ class FakeAudioContext {
     })
     this.sources.push(source)
     return source as unknown as AudioBufferSourceNode
+  }
+
+  createDynamicsCompressor() {
+    const limiter: FakeLimiter = {
+      threshold: { value: 0 },
+      knee: { value: 0 },
+      ratio: { value: 0 },
+      attack: { value: 0 },
+      release: { value: 0 },
+      context: this as unknown as BaseAudioContext,
+      connectedTo: null,
+      connect: (target: unknown) => {
+        limiter.connectedTo = target
+      },
+    }
+    this.limiters.push(limiter)
+    return limiter as unknown as DynamicsCompressorNode
   }
 
   createGain() {
@@ -423,10 +457,16 @@ describe('play', () => {
     expect(harness.ctx.sources[0].stoppedAt).toBeCloseTo(0.2)
   })
 
-  it('connects every voice through to the destination', async () => {
+  it('connects every voice through the limiter to the destination', async () => {
     await harness.piano.play(simultaneous([60, 64]))
     expect(harness.ctx.sources.every((s) => s.connected)).toBe(true)
     expect(harness.ctx.gains).toHaveLength(2)
+
+    const [limiter] = harness.ctx.limiters
+    expect(limiter.connectedTo).toBe(harness.ctx.destination)
+    for (const gain of harness.ctx.gains) {
+      expect(connectedTargets(gain)).toContain(limiter)
+    }
   })
 
   it('cancels the previous playback rather than stacking voices', async () => {
@@ -535,6 +575,105 @@ describe('playSchedule', () => {
     // Two voices at two volumes: the melody at full, the backing under it.
     expect(levels.some((level) => level === NOTE_GAIN)).toBe(true)
     expect(levels.some((level) => level > 0 && level < NOTE_GAIN)).toBe(true)
+  })
+})
+
+describe('strike', () => {
+  let harness: ReturnType<typeof setup>
+
+  beforeEach(async () => {
+    harness = setup()
+    await harness.piano.load()
+  })
+
+  it('sounds every note together', async () => {
+    await harness.piano.strike([48, 52, 55])
+    expect(harness.ctx.sources.map((s) => s.startedAt)).toEqual([0, 0, 0])
+  })
+
+  it('never stops the note, so the sample decays on its own', async () => {
+    // A fade at a scheduled length is heard as the sound being taken away,
+    // which is the wrong thing for a reference the user asked to hear.
+    await harness.piano.strike([48, 52, 55])
+    for (const source of harness.ctx.sources) {
+      expect(source.stoppedAt).toBeNull()
+    }
+  })
+
+  it('does not fade a note it is not going to stop', async () => {
+    await harness.piano.strike([48])
+
+    const [gain] = harness.ctx.gains
+    expect(gain.gain.setValueAtTime).toHaveBeenCalledExactlyOnceWith(
+      NOTE_GAIN,
+      0,
+    )
+    expect(gain.gain.linearRampToValueAtTime).not.toHaveBeenCalled()
+  })
+
+  it('still cuts a ringing note off when playback is cancelled', async () => {
+    // Ringing out is not the same as being unstoppable: the next question has
+    // to be able to silence it.
+    await harness.piano.strike([48, 52, 55])
+    harness.ctx.currentTime = 1
+
+    harness.piano.stop()
+    for (const source of harness.ctx.sources) {
+      expect(source.stoppedAt).toBeCloseTo(1.04)
+    }
+  })
+
+  it('is silenced by the next thing played', async () => {
+    await harness.piano.strike([48, 52, 55])
+    harness.ctx.currentTime = 1
+    await harness.piano.play(simultaneous([60]))
+
+    const [first] = harness.ctx.sources
+    expect(first.stoppedAt).toBeCloseTo(1.04)
+  })
+})
+
+describe('the limiter', () => {
+  let harness: ReturnType<typeof setup>
+
+  beforeEach(async () => {
+    harness = setup()
+    await harness.piano.load()
+  })
+
+  it('sits above a single note, so nothing that was safe is touched', async () => {
+    await harness.piano.play(simultaneous([60]))
+
+    const [limiter] = harness.ctx.limiters
+    const thresholdGain = 10 ** (limiter.threshold.value / 20)
+    expect(thresholdGain).toBeGreaterThan(NOTE_GAIN)
+  })
+
+  it('limits rather than compresses, and catches attacks quickly', async () => {
+    await harness.piano.play(simultaneous([60]))
+
+    const [limiter] = harness.ctx.limiters
+    expect(limiter.ratio.value).toBeGreaterThanOrEqual(8)
+    expect(limiter.attack.value).toBeLessThanOrEqual(0.01)
+  })
+
+  it('is built once and shared by every voice', async () => {
+    await harness.piano.play(simultaneous([60, 64, 67]))
+    await harness.piano.play(sequence([60, 64]))
+
+    expect(harness.ctx.limiters).toHaveLength(1)
+  })
+
+  it('is rebuilt with a replaced context, not carried over from a dead one', async () => {
+    // Nodes belong to the context that made them.
+    await harness.piano.play(simultaneous([60]))
+    harness.ctx.state = 'interrupted'
+    harness.ctx.unrevivable = true
+    await harness.piano.play(simultaneous([60]))
+
+    const replacement = harness.contexts[1]
+    expect(replacement.limiters).toHaveLength(1)
+    expect(replacement.limiters[0].connectedTo).toBe(replacement.destination)
   })
 })
 

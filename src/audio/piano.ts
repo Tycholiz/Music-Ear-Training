@@ -10,6 +10,7 @@ import {
 import {
   TIMING,
   buildSchedule,
+  struck,
   type NoteGroup,
   type ScheduledNote,
   type Timing,
@@ -27,8 +28,14 @@ import { configureAudioSession } from './audioSession'
 
 export type LoadStatus = 'idle' | 'loading' | 'ready' | 'error'
 
-/** Fade applied at the end of every note so it never cuts off with a click. */
-const RELEASE_MS = 180
+/**
+ * Fade applied at the end of every note so it never cuts off with a click.
+ *
+ * Exported because it constrains note timing: a note whose length does not
+ * clear its onset gap by at least this much begins fading before the next note
+ * arrives, and a run of them is heard as choppy rather than joined up.
+ */
+export const RELEASE_MS = 180
 
 /** Fade used when playback is cancelled part-way through. */
 const CANCEL_MS = 40
@@ -40,6 +47,33 @@ const CANCEL_MS = 40
  * quieter voice is asking for a fraction of this, not of full scale.
  */
 export const NOTE_GAIN = 0.8
+
+/**
+ * A limiter across everything the engine plays, to stop chords clipping.
+ *
+ * Voices sum. One note peaks below full scale, but three or four of them
+ * sounding together — a block chord, or an arpeggio accumulating under the
+ * pedal — add up past it and the result clips: a faint crackle on the attack,
+ * intermittent because it depends on whether the partials happen to line up.
+ *
+ * Scaling each note down by how many are sounding was the obvious alternative
+ * and does not work here. Under the sustain-pedal behaviour the count changes
+ * throughout a phrase, an arpeggio ends as dense as the block chord it spells,
+ * and a melody note struck over its backing would be quietened by the backing
+ * rather than by anything about itself.
+ *
+ * So the sum is caught where it happens instead. The threshold sits above a
+ * single note's own peak, so nothing that was never going to clip is touched;
+ * only stacked voices are pulled back, gently enough that a chord is quieter
+ * than the sum of its parts rather than audibly squashed.
+ */
+const LIMITER = {
+  thresholdDb: -1,
+  kneeDb: 3,
+  ratio: 12,
+  attackSeconds: 0.003,
+  releaseSeconds: 0.2,
+} as const
 
 interface Voice {
   source: AudioBufferSourceNode
@@ -56,6 +90,8 @@ export interface PianoOptions {
 
 export class Piano {
   private ctx: AudioContext | null = null
+  /** The limiter every voice is routed through. Belongs to `ctx`. */
+  private master: DynamicsCompressorNode | null = null
   private readonly buffers = new Map<number, AudioBuffer>()
   private voices: Voice[] = []
   private loading: Promise<void> | null = null
@@ -129,9 +165,11 @@ export class Piano {
     if (await resumed(this.ctx)) return
 
     const dead = this.ctx
-    // Voices belong to the context that made them; none of them will ever
-    // sound, and stopping them later would be reaching into a corpse.
+    // Voices and the limiter belong to the context that made them; none of
+    // them will ever sound, and stopping them later would be reaching into a
+    // corpse.
     this.voices = []
+    this.master = null
     this.ctx = this.createContext()
     void dead?.close().catch(() => {})
 
@@ -210,7 +248,13 @@ export class Piano {
   private startVoice(
     ctx: AudioContext,
     startedAt: number,
-    { midi, startMs, durationMs, gain: gainScale = 1 }: ScheduledNote,
+    {
+      midi,
+      startMs,
+      durationMs,
+      gain: gainScale = 1,
+      ringOut = false,
+    }: ScheduledNote,
   ) {
     const sampleMidi = nearestSample(midi)
     const buffer = this.buffers.get(sampleMidi)
@@ -224,24 +268,61 @@ export class Piano {
     source.buffer = buffer
     source.playbackRate.value = playbackRate(midi, sampleMidi)
 
-    // Hold at full gain, then fade over the last RELEASE_MS so the note
-    // decays instead of being chopped off.
     const level = NOTE_GAIN * gainScale
     const gain = ctx.createGain()
     gain.gain.setValueAtTime(level, startAt)
-    gain.gain.setValueAtTime(level, releaseAt)
-    gain.gain.linearRampToValueAtTime(0, endAt)
+
+    // Hold at full gain, then fade over the last RELEASE_MS so the note decays
+    // instead of being chopped off — unless it was asked to ring, in which case
+    // the sample's own decay is the envelope and any fade we add is heard as
+    // the sound being taken away.
+    if (!ringOut) {
+      gain.gain.setValueAtTime(level, releaseAt)
+      gain.gain.linearRampToValueAtTime(0, endAt)
+    }
 
     source.connect(gain)
-    gain.connect(ctx.destination)
+    gain.connect(this.masterFor(ctx))
     source.start(startAt)
-    source.stop(endAt)
+    if (!ringOut) source.stop(endAt)
 
     const voice: Voice = { source, gain }
     this.voices.push(voice)
     source.onended = () => {
       this.voices = this.voices.filter((v) => v !== voice)
     }
+  }
+
+  /**
+   * The limiter for this context, built on first use.
+   *
+   * Rebuilt with the context rather than reused across one, since nodes belong
+   * to the context that made them.
+   */
+  private masterFor(ctx: AudioContext): AudioNode {
+    if (this.master && this.master.context === ctx) return this.master
+
+    const limiter = ctx.createDynamicsCompressor()
+    limiter.threshold.value = LIMITER.thresholdDb
+    limiter.knee.value = LIMITER.kneeDb
+    limiter.ratio.value = LIMITER.ratio
+    limiter.attack.value = LIMITER.attackSeconds
+    limiter.release.value = LIMITER.releaseSeconds
+    limiter.connect(ctx.destination)
+
+    this.master = limiter
+    return limiter
+  }
+
+  /**
+   * Strike notes together and let them ring.
+   *
+   * For a reference the user asked to hear — the tonic, the chord a melody sits
+   * over — where nothing follows and so nothing needs it to stop. `play` is for
+   * questions, which end because something else is about to begin.
+   */
+  async strike(notes: readonly number[]): Promise<void> {
+    await this.playSchedule(struck(notes))
   }
 
   /** Silence everything currently sounding or scheduled. */
