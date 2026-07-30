@@ -134,6 +134,37 @@ export function numeralRoot(
  * question about voicing a progression, not about what the numeral means, and
  * the two want to be changeable independently.
  */
+/**
+ * How a progression comes to rest.
+ *
+ * A cadence is music theory rather than a preference, so it lives here with the
+ * numerals it is made of. Which ones an exercise offers is a setting; what each
+ * one *is* is not.
+ */
+export const CADENCES = ['authentic', 'plagal', 'half', 'deceptive'] as const
+
+export type Cadence = (typeof CADENCES)[number]
+
+/**
+ * The numerals each cadence ends with, in order.
+ *
+ * Note that they do not all land on `I`. An authentic and a plagal cadence
+ * close; a half cadence arrives on the dominant and stays open; a deceptive one
+ * promises `I` and gives `vi` instead. Which is what lets a progression always
+ * resolve without its last chord being predictable.
+ */
+const CADENCE_ENDINGS: Record<Cadence, readonly string[]> = {
+  authentic: ['V', 'I'],
+  plagal: ['IV', 'I'],
+  half: ['V'],
+  deceptive: ['V', 'vi'],
+}
+
+/** The chords a cadence is made of, and so the ones it needs enabled. */
+export function cadenceNumerals(cadence: Cadence): readonly string[] {
+  return CADENCE_ENDINGS[cadence]
+}
+
 export function numeralNotes(
   numeral: RomanNumeral,
   tonic: number,

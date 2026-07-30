@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  cadenceNumerals,
   canGenerateProgression,
   checkProgression,
   generateProgressionQuestion,
@@ -9,11 +8,10 @@ import {
   type ProgressionQuestion,
 } from './progressionQuestion'
 import {
-  CADENCES,
   DEFAULT_PROGRESSION_SETTINGS,
   type ProgressionSettings,
 } from '../settings'
-import { NUMERALS } from '../theory'
+import { CADENCES, NUMERALS, cadenceNumerals } from '../theory'
 
 function settingsWith(
   overrides: Partial<ProgressionSettings> = {},

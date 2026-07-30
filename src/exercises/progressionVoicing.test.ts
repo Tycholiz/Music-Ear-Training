@@ -10,11 +10,11 @@ import {
   type ProgressionQuestion,
 } from './progressionQuestion'
 import {
-  CADENCES,
   DEFAULT_PROGRESSION_SETTINGS,
   type ProgressionSettings,
 } from '../settings'
 import {
+  CADENCES,
   NUMERALS,
   chordNotes,
   numeralById,

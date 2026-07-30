@@ -161,6 +161,28 @@ function best(options: number[][], score: (notes: number[]) => number) {
 }
 
 /**
+ * One chord on its own, with nothing to lead from or to.
+ *
+ * Placed near the middle of the range, the same way a progression's opening
+ * chord is. Used for anything sounded outside a progression — the key
+ * reference, and the chord under a button the user has just pressed — where
+ * there is no neighbour to move least from and consistency matters more:
+ * pressing `V` twice should sound the same both times.
+ */
+export function voiceChordAlone(
+  numeralId: string,
+  tonic: number,
+  settings: ProgressionSettings,
+): number[] {
+  const numeral = numeralById(numeralId)
+  const options = voicingsFor(numeral, tonic, settings)
+  if (options.length === 0) {
+    return chordNotes(numeralRoot(numeral, tonic), numeralChord(numeral), 0)
+  }
+  return best(options, (notes) => Math.abs(meanPitch(notes) - centre(settings)))
+}
+
+/**
  * The tonic chord, for the Key button.
  *
  * Voiced on its own rather than taken from the progression, since the user may
@@ -172,10 +194,5 @@ export function keyChord(
   question: ProgressionQuestion,
   settings: ProgressionSettings,
 ): number[] {
-  const tonicNumeral = numeralById('I')
-  const options = voicingsFor(tonicNumeral, question.tonic, settings)
-  if (options.length === 0) {
-    return chordNotes(question.tonic, numeralChord(tonicNumeral), 0)
-  }
-  return best(options, (notes) => Math.abs(meanPitch(notes) - centre(settings)))
+  return voiceChordAlone('I', question.tonic, settings)
 }

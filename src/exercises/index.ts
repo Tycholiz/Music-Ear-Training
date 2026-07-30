@@ -78,7 +78,6 @@ export {
   melodyStuckReason,
 } from './melodyValidation'
 export {
-  cadenceNumerals,
   canGenerateProgression,
   checkProgression,
   generateProgressionQuestion,
@@ -89,4 +88,10 @@ export type {
   ProgressionQuestion,
   ProgressionResult,
 } from './progressionQuestion'
-export { keyChord, voiceMovement, voiceProgression } from './progressionVoicing'
+export {
+  keyChord,
+  voiceChordAlone,
+  voiceMovement,
+  voiceProgression,
+  voicingsFor,
+} from './progressionVoicing'

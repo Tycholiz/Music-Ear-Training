@@ -34,6 +34,13 @@ const EXERCISES = [
     // following one another.
     icon: <MelodyIcon />,
   },
+  {
+    to: '/progressions',
+    label: 'Chord Progression Recognition',
+    // Three chords side by side: the other exercises ask about one sound, this
+    // one about how several of them follow each other.
+    icon: <ProgressionIcon />,
+  },
 ]
 
 export default function Home() {
@@ -55,6 +62,47 @@ export default function Home() {
 
       <InstallCard />
     </main>
+  )
+}
+
+/** Three stacks side by side: chords following one another. */
+function ProgressionIcon() {
+  const stacks = [6, 14, 22]
+
+  return (
+    <span
+      aria-hidden
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent"
+    >
+      <svg viewBox="0 0 28 28" className="h-5 w-5">
+        {[8, 13, 18].map((y) => (
+          <line
+            key={y}
+            x1={2}
+            x2={26}
+            y1={y}
+            y2={y}
+            stroke="white"
+            strokeWidth={1}
+            opacity={0.55}
+          />
+        ))}
+        {stacks.map((cx, i) =>
+          // Each stack a third higher than the last, so they read as changing.
+          [18 - i * 2.5, 13 - i * 2.5, 8 - i * 2.5].map((cy) => (
+            <ellipse
+              key={`${cx}-${cy}`}
+              cx={cx}
+              cy={cy}
+              rx={2.6}
+              ry={1.9}
+              fill="white"
+              transform={`rotate(-20 ${cx} ${cy})`}
+            />
+          )),
+        )}
+      </svg>
+    </span>
   )
 }
 

@@ -1,6 +1,12 @@
 import { LOWEST_NOTE, HIGHEST_NOTE } from '../audio'
-import { numeralById, type RomanNumeral } from '../theory'
-import { CADENCES, type Cadence, type ProgressionSettings } from '../settings'
+import {
+  CADENCES,
+  cadenceNumerals,
+  numeralById,
+  type Cadence,
+  type RomanNumeral,
+} from '../theory'
+import type { ProgressionSettings } from '../settings'
 import type { Random } from './intervalQuestion'
 
 /**
@@ -42,15 +48,6 @@ import type { Random } from './intervalQuestion'
  * chord held longer, so a progression containing them asks the user a question
  * the sound cannot answer. They are excluded rather than left to be unfair.
  */
-
-/** The numerals a cadence ends with, in order. */
-const CADENCE_ENDINGS: Record<Cadence, readonly string[]> = {
-  authentic: ['V', 'I'],
-  plagal: ['IV', 'I'],
-  // A half cadence is an arrival on the dominant; what precedes it is open.
-  half: ['V'],
-  deceptive: ['V', 'vi'],
-}
 
 /**
  * Where each chord conventionally goes next.
@@ -125,13 +122,8 @@ export function usableCadences(settings: ProgressionSettings): Cadence[] {
   return CADENCES.filter(
     (cadence) =>
       settings.cadences.includes(cadence) &&
-      CADENCE_ENDINGS[cadence].every((id) => enabled.has(id)),
+      cadenceNumerals(cadence).every((id) => enabled.has(id)),
   )
-}
-
-/** The chords a cadence needs, for explaining why it is unavailable. */
-export function cadenceNumerals(cadence: Cadence): readonly string[] {
-  return CADENCE_ENDINGS[cadence]
 }
 
 /**
@@ -146,7 +138,7 @@ export function cadenceNumerals(cadence: Cadence): readonly string[] {
 function reachableCadences(settings: ProgressionSettings): Cadence[] {
   const enabled = uniqueNumerals(settings)
   return usableCadences(settings).filter((cadence) => {
-    const runUp = settings.length - CADENCE_ENDINGS[cadence].length
+    const runUp = settings.length - cadenceNumerals(cadence).length
     if (runUp < 0) return false
     if (runUp === 0) return true
     return viablePositions(cadence, enabled, runUp)[0].length > 0
@@ -181,7 +173,7 @@ function viablePositions(
   enabled: readonly string[],
   runUp: number,
 ): string[][] {
-  const target = CADENCE_ENDINGS[cadence][0]
+  const target = cadenceNumerals(cadence)[0]
   const positions: string[][] = new Array(runUp)
 
   positions[runUp - 1] = enabled.filter((id) => canLeadTo(id, target))
@@ -235,7 +227,7 @@ function walkTo(
   length: number,
   random: Random,
 ): string[] {
-  const ending = CADENCE_ENDINGS[cadence]
+  const ending = cadenceNumerals(cadence)
   const runUp = length - ending.length
   if (runUp === 0) return [...ending]
 
