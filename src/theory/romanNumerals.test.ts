@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   NUMERALS,
+  NUMERAL_SECTIONS,
   numeralById,
+  numeralsInCategory,
   numeralChord,
   numeralNotes,
   numeralRoot,
@@ -161,6 +163,70 @@ describe('the difficulty ladder', () => {
     const before = NUMERALS.map((n) => n.id)
     expect(numeralsByDifficulty()).toHaveLength(NUMERALS.length)
     expect(NUMERALS.map((n) => n.id)).toEqual(before)
+  })
+})
+
+describe('the sections', () => {
+  it('covers every numeral exactly once between them', () => {
+    // A numeral in no section would vanish from the Customize screen without
+    // anything failing, which is the kind of gap a grouping invites.
+    const grouped = NUMERAL_SECTIONS.flatMap((section) =>
+      numeralsInCategory(section.category).map((numeral) => numeral.id),
+    )
+
+    expect(grouped).toHaveLength(NUMERALS.length)
+    expect(new Set(grouped)).toEqual(new Set(NUMERALS.map((n) => n.id)))
+  })
+
+  it('offers the secondary dominants directly after the diatonic chords', () => {
+    // Not ladder order, and the point of the section list: III is the
+    // out-of-key chord heard most, and difficulty order buries it below ♭VI.
+    expect(NUMERAL_SECTIONS.map((section) => section.category)).toEqual([
+      'diatonic',
+      'secondary-dominant',
+      'borrowed',
+      'chromatic',
+    ])
+  })
+
+  it('leads the secondary dominants with III', () => {
+    expect(
+      numeralsInCategory('secondary-dominant').map((n) => n.label),
+    ).toEqual(['III', 'II', 'VI'])
+  })
+
+  it('puts III ahead of every borrowed chord', () => {
+    const order = NUMERAL_SECTIONS.flatMap((section) =>
+      numeralsInCategory(section.category).map((numeral) => numeral.id),
+    )
+    const borrowed = numeralsInCategory('borrowed').map((numeral) =>
+      order.indexOf(numeral.id),
+    )
+
+    expect(Math.max(...borrowed)).toBeGreaterThan(order.indexOf('III'))
+    expect(Math.min(...borrowed)).toBeGreaterThan(order.indexOf('III'))
+  })
+
+  it('holds the seven chords of the key, and only those, as diatonic', () => {
+    // II and III are majors on diatonic degrees, so a category assigned from
+    // the root alone would wrongly take them in.
+    const diatonic = numeralsInCategory('diatonic').map((n) => n.label)
+    expect(new Set(diatonic)).toEqual(
+      new Set(['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°']),
+    )
+  })
+
+  it('keeps the ladder order inside a section', () => {
+    for (const section of NUMERAL_SECTIONS) {
+      const levels = numeralsInCategory(section.category).map((n) => n.level)
+      expect(levels, section.title).toEqual([...levels].sort((a, b) => a - b))
+    }
+  })
+
+  it('gives every section a title', () => {
+    for (const section of NUMERAL_SECTIONS) {
+      expect(section.title.length, section.category).toBeGreaterThan(0)
+    }
   })
 })
 

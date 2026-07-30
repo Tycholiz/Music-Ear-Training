@@ -11,7 +11,13 @@ import {
   usePersisted,
   type ProgressionSettings,
 } from '../settings'
-import { CADENCES, midiToName, numeralsByDifficulty } from '../theory'
+import {
+  CADENCES,
+  NUMERAL_SECTIONS,
+  midiToName,
+  numeralsByDifficulty,
+  numeralsInCategory,
+} from '../theory'
 import type { Cadence } from '../theory'
 import {
   CADENCE_DESCRIPTIONS,
@@ -123,12 +129,20 @@ function cadenceSummary(settings: ProgressionSettings): string {
 }
 
 /**
- * The chord vocabulary, easiest first.
+ * The chord vocabulary, grouped by where each chord comes from.
  *
- * Ladder order rather than alphabetical, because the order is the guidance: `I`
- * `IV` `V` first, since most music is made of them and a progression drawn only
- * from those three has nowhere else it could have gone. Then the chords that add
- * colour, then the ones heard as pointing somewhere.
+ * Fifteen check rows in one column is a list to be scrolled rather than a
+ * vocabulary to be chosen from, and it hides the thing a musician picking
+ * chords wants first: whether a chord is in the key or borrowed from
+ * somewhere. So the sections are the answer to that question, in the order
+ * `NUMERAL_SECTIONS` gives — which puts the secondary dominants second, above
+ * the borrowed chords they outrank in usefulness if not in difficulty.
+ *
+ * Ladder order survives inside each section, because it is guidance and it
+ * still reads as guidance across five rows. What is gone is the claim that the
+ * whole screen is ordered by difficulty, which the grouping makes untrue: the
+ * old single footer said "Listed easiest first" and the section descriptions
+ * take over from it.
  *
  * A chord an enabled cadence depends on is locked rather than dropping the
  * cadence when it goes. The note underneath says which chord and why — a
@@ -154,21 +168,23 @@ function NumeralsScreen() {
 
   return (
     <div className="flex flex-col gap-6 p-4">
-      <ListCard footer="Listed easiest first. I, IV and V are what most music is made of; the chords further down add colour, or are heard as pointing somewhere.">
-        {numeralsByDifficulty().map((numeral) => {
-          const checked = chosen.has(numeral.id)
+      {NUMERAL_SECTIONS.map((section) => (
+        <ListCard key={section.category} title={section.title}>
+          {numeralsInCategory(section.category).map((numeral) => {
+            const checked = chosen.has(numeral.id)
 
-          return (
-            <CheckRow
-              key={numeral.id}
-              label={numeral.label}
-              checked={checked}
-              disabled={checked && !canDisableNumeral(numeral.id, settings)}
-              onChange={(next) => toggle(numeral.id, next)}
-            />
-          )
-        })}
-      </ListCard>
+            return (
+              <CheckRow
+                key={numeral.id}
+                label={numeral.label}
+                checked={checked}
+                disabled={checked && !canDisableNumeral(numeral.id, settings)}
+                onChange={(next) => toggle(numeral.id, next)}
+              />
+            )
+          })}
+        </ListCard>
+      ))}
 
       {locked && (
         <p className="px-4 text-center text-sm text-content-muted">{locked}</p>
