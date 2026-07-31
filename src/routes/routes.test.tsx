@@ -45,7 +45,7 @@ describe('routing', () => {
       screen.getByRole('link', { name: /interval ear training/i }),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('link', { name: /chord ear training/i }),
+      screen.getByRole('link', { name: /chord identification/i }),
     ).toBeInTheDocument()
   })
 
@@ -90,7 +90,7 @@ describe('routing', () => {
 
     await user.click(screen.getByRole('button', { name: 'Back' }))
     expect(
-      screen.getByRole('link', { name: /chord ear training/i }),
+      screen.getByRole('link', { name: /chord identification/i }),
     ).toBeInTheDocument()
   })
 })

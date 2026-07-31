@@ -18,7 +18,7 @@ describe('Home', () => {
       screen.getByRole('link', { name: 'Interval Ear Training' }),
     ).toBeVisible()
     expect(
-      screen.getByRole('link', { name: 'Chord Ear Training' }),
+      screen.getByRole('link', { name: 'Chord Identification' }),
     ).toBeVisible()
     expect(
       screen.getByRole('link', { name: 'Chord Root Recognition' }),
@@ -35,7 +35,7 @@ describe('Home', () => {
       screen.getByRole('link', { name: 'Interval Ear Training' }),
     ).toHaveAttribute('href', '/intervals')
     expect(
-      screen.getByRole('link', { name: 'Chord Ear Training' }),
+      screen.getByRole('link', { name: 'Chord Identification' }),
     ).toHaveAttribute('href', '/chords')
     expect(
       screen.getByRole('link', { name: 'Chord Root Recognition' }),

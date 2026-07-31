@@ -16,7 +16,7 @@ const EXERCISES = [
   },
   {
     to: '/chords',
-    label: 'Chord Ear Training',
+    label: 'Chord Identification',
     icon: <StaffIcon noteheads={3} />,
   },
   {

@@ -18,8 +18,7 @@ export default defineConfig({
       manifest: {
         name: 'Music Ear Training',
         short_name: 'Ear Training',
-        description:
-          'Interval and chord ear training for musicians. Works offline.',
+        description: 'Ear training exercises for musicians. Works offline.',
         start_url: '/',
         scope: '/',
         display: 'standalone',

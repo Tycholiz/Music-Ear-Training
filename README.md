@@ -11,7 +11,7 @@ periodically and is meant to be readable cold, without the commit history.
 | Exercise                          | Route           | The question                                                |
 | --------------------------------- | --------------- | ----------------------------------------------------------- |
 | **Interval Ear Training**         | `/intervals`    | Two notes play — name the interval                          |
-| **Chord Ear Training**            | `/chords`       | A chord plays — name the quality                            |
+| **Chord Identification**          | `/chords`       | A chord plays — name the quality                            |
 | **Chord Root Recognition**        | `/chord-root`   | A chord plays — find its root (self-graded)                 |
 | **Melody Dictation**              | `/melody`       | A melody plays over a tonic chord — enter its scale degrees |
 | **Chord Progression Recognition** | `/progressions` | A progression plays — name the chords in roman numerals     |
