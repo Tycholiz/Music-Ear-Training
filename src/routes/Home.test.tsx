@@ -15,7 +15,7 @@ describe('Home', () => {
   it('lists every exercise', () => {
     renderHome()
     expect(
-      screen.getByRole('link', { name: 'Interval Ear Training' }),
+      screen.getByRole('link', { name: 'Interval Identification' }),
     ).toBeVisible()
     expect(
       screen.getByRole('link', { name: 'Chord Identification' }),
@@ -32,7 +32,7 @@ describe('Home', () => {
   it('points each row at its exercise route', () => {
     renderHome()
     expect(
-      screen.getByRole('link', { name: 'Interval Ear Training' }),
+      screen.getByRole('link', { name: 'Interval Identification' }),
     ).toHaveAttribute('href', '/intervals')
     expect(
       screen.getByRole('link', { name: 'Chord Identification' }),
@@ -56,9 +56,9 @@ describe('Home', () => {
 
   it('keeps the decorative icons out of the accessible name', () => {
     renderHome()
-    // Would read as "Interval Ear Training" plus icon noise if the svg leaked.
+    // Would read as "Interval Identification" plus icon noise if the svg leaked.
     expect(
-      screen.getByRole('link', { name: 'Interval Ear Training' }),
-    ).toHaveAccessibleName('Interval Ear Training')
+      screen.getByRole('link', { name: 'Interval Identification' }),
+    ).toHaveAccessibleName('Interval Identification')
   })
 })

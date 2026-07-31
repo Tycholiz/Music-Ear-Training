@@ -42,7 +42,7 @@ describe('routing', () => {
   it('renders the exercise list at /', () => {
     renderAt('/')
     expect(
-      screen.getByRole('link', { name: /interval ear training/i }),
+      screen.getByRole('link', { name: /interval identification/i }),
     ).toBeInTheDocument()
     expect(
       screen.getByRole('link', { name: /chord identification/i }),
@@ -84,7 +84,7 @@ describe('routing', () => {
     renderAt('/')
 
     await user.click(
-      screen.getByRole('link', { name: /interval ear training/i }),
+      screen.getByRole('link', { name: /interval identification/i }),
     )
     expect(screen.getByLabelText('Score')).toBeVisible()
 

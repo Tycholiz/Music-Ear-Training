@@ -11,7 +11,7 @@ import { InstallCard } from '../pwa'
 const EXERCISES = [
   {
     to: '/intervals',
-    label: 'Interval Ear Training',
+    label: 'Interval Identification',
     icon: <StaffIcon noteheads={2} />,
   },
   {
