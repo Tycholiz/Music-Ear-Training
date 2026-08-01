@@ -64,6 +64,7 @@ export {
   checkMelody,
   generateMelodyQuestion,
   guessPitch,
+  tonicChordFor,
   phraseForMelodyQuestion,
   selectedScales,
 } from './melodyQuestion'

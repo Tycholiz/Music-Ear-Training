@@ -649,7 +649,7 @@ describe('revealing the answer', () => {
 })
 
 describe('the chord reference', () => {
-  it('plays the backing chord on its own', async () => {
+  it('plays the tonic chord on its own', async () => {
     // It sounds once, under the opening note, and has decayed to almost
     // nothing by the fifth degree. Getting it back is the difference between
     // placing a degree against the harmony and against a memory of it.
@@ -659,7 +659,7 @@ describe('the chord reference', () => {
     vi.mocked(piano.strike).mockClear()
 
     await user.click(
-      screen.getByRole('button', { name: 'Play the backing chord' }),
+      screen.getByRole('button', { name: 'Play the tonic chord' }),
     )
     expect(piano.strike).toHaveBeenCalledExactlyOnceWith([48, 52, 55])
   })
@@ -671,7 +671,7 @@ describe('the chord reference', () => {
     vi.mocked(piano.strike).mockClear()
 
     await user.click(
-      screen.getByRole('button', { name: 'Play the backing chord' }),
+      screen.getByRole('button', { name: 'Play the tonic chord' }),
     )
     const notes = vi.mocked(piano.strike).mock.calls[0][0]
     expect(notes).toEqual([48, 52, 55])
@@ -685,9 +685,36 @@ describe('the chord reference', () => {
     vi.mocked(piano.strike).mockClear()
 
     await user.click(
-      screen.getByRole('button', { name: 'Play the backing chord' }),
+      screen.getByRole('button', { name: 'Play the tonic chord' }),
     )
     expect(piano.strike).toHaveBeenCalledExactlyOnceWith([48, 52, 55])
+  })
+
+  it('still plays the whole chord under a drone backing', async () => {
+    // The bug this replaced: a drone backing is the tonic alone, and a button
+    // wired to what was sounding played one note under a label saying Chord —
+    // doing exactly what the Tonic button beside it already did.
+    //
+    // The reference is a thing the user asks for rather than a repeat of the
+    // playback, and under a drone it is the more useful of the two, since a
+    // drone withholds the quality of the key on purpose.
+    vi.mocked(exercises.generateMelodyQuestion).mockReturnValue({
+      ...MELODY,
+      backing: [48],
+    })
+
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    vi.mocked(piano.strike).mockClear()
+
+    await user.click(
+      screen.getByRole('button', { name: 'Play the tonic chord' }),
+    )
+
+    expect(piano.strike).toHaveBeenCalledExactlyOnceWith([48, 52, 55])
+    // And is no longer the same button as the one next to it.
+    expect(piano.strike).not.toHaveBeenCalledWith([48])
   })
 
   it('does not offer a chord when the backing is switched off', async () => {
@@ -703,7 +730,7 @@ describe('the chord reference', () => {
     await start(user)
 
     expect(
-      screen.queryByRole('button', { name: 'Play the backing chord' }),
+      screen.queryByRole('button', { name: 'Play the tonic chord' }),
     ).toBeNull()
     // The tonic is still there; it does not depend on the backing.
     expect(screen.getByRole('button', { name: 'Play the tonic' })).toBeVisible()
@@ -715,7 +742,7 @@ describe('the chord reference', () => {
     await start(user)
 
     await user.click(
-      screen.getByRole('button', { name: 'Play the backing chord' }),
+      screen.getByRole('button', { name: 'Play the tonic chord' }),
     )
     expect(screen.getByLabelText('Score')).toHaveTextContent('0/0')
   })
@@ -820,5 +847,121 @@ describe('keyboard focus', () => {
 
     expect(piano.playSchedule).toHaveBeenCalledOnce()
     expect(answer()).toBe('····')
+  })
+})
+
+describe('hearing one note at a time', () => {
+  /**
+   * A melody that visits the tonic at two octaves, chosen so the test can fail.
+   *
+   * The usual fixture sings degree 5 twice at the same pitch, so a slot playing
+   * its neighbour would pass — and every note would also pass for an
+   * implementation that computed the pitch from the degree instead of reading
+   * it off the melody. Here `1` is sung at 60 and again at 72, which is the
+   * exact shape that broke melody feedback twice before (see the README, "Sound
+   * feedback follows the position, not the note").
+   */
+  const TWO_OCTAVES: MelodyQuestion = {
+    degrees: [0, 7, 0, 9],
+    notes: [60, 67, 72, 69],
+    backing: [48, 52, 55],
+    tonic: 60,
+    scaleId: 'major-pentatonic',
+  }
+
+  const slot = (position: number) =>
+    screen.getByRole('button', { name: `Play note ${position}` })
+
+  function withTwoOctaves() {
+    vi.mocked(exercises.generateMelodyQuestion).mockReturnValue(TWO_OCTAVES)
+  }
+
+  it('plays the note at the slot that was tapped, at the octave it was sung', async () => {
+    withTwoOctaves()
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    for (const [position, note] of [
+      [1, 60],
+      [2, 67],
+      [3, 72],
+      [4, 69],
+    ]) {
+      vi.mocked(piano.play).mockClear()
+      await user.click(slot(position))
+      expect(piano.play, `note ${position}`).toHaveBeenCalledExactlyOnceWith([
+        [note],
+      ])
+    }
+  })
+
+  it('sings the same degree at the octave each position used', async () => {
+    // Slots 1 and 3 are both degree 1. A pitch computed from the degree would
+    // give the same note twice; the melody sang them an octave apart.
+    withTwoOctaves()
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    vi.mocked(piano.play).mockClear()
+    await user.click(slot(1))
+    await user.click(slot(3))
+
+    expect(vi.mocked(piano.play).mock.calls).toEqual([[[[60]]], [[[72]]]])
+  })
+
+  it('plays a position that has not been answered yet', async () => {
+    // The point of it: a scaffold for working up to hearing the melody whole,
+    // so it cannot wait until the user has got there.
+    withTwoOctaves()
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    expect(answer()).toBe('····')
+    vi.mocked(piano.play).mockClear()
+    await user.click(slot(4))
+
+    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[69]])
+  })
+
+  it('never scores, never advances, and never counts as a guess', async () => {
+    withTwoOctaves()
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    for (const position of [1, 2, 3, 4]) {
+      await user.click(slot(position))
+    }
+
+    expect(screen.getByLabelText('Score')).toHaveTextContent('0/0')
+    expect(answer()).toBe('····')
+    // Still the first question, and still waiting on the pad.
+    expect(screen.getByRole('button', { name: '1' })).toBeEnabled()
+  })
+
+  it('still plays once the melody has been revealed', async () => {
+    withTwoOctaves()
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    await user.click(screen.getByRole('button', { name: 'Reveal' }))
+
+    vi.mocked(piano.play).mockClear()
+    await user.click(slot(3))
+
+    expect(piano.play).toHaveBeenCalledExactlyOnceWith([[72]])
+  })
+
+  it('gives every slot a name, and no more slots than notes', async () => {
+    withTwoOctaves()
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    for (const position of [1, 2, 3, 4]) expect(slot(position)).toBeEnabled()
+    expect(screen.queryByRole('button', { name: 'Play note 5' })).toBeNull()
   })
 })
