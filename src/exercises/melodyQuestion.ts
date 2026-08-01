@@ -208,6 +208,25 @@ export function backingNotes(
   return degrees.map((degree) => base + degree)
 }
 
+/**
+ * The tonic chord of a question's key, whatever its backing is set to.
+ *
+ * Not `question.backing`, which is what happens to be *sounding* underneath.
+ * Under a drone that is the tonic alone, so a Chord reference wired to it
+ * played a single note and duplicated the Tonic button beside it.
+ *
+ * A reference is a thing the user asks for rather than a repeat of the
+ * playback, and under a drone it is the more useful of the two: a drone
+ * withholds the quality of the key on purpose, so without this there is no way
+ * to check it. That does soften what the drone is for — the third has to be
+ * heard rather than read off the harmony — but it is the same bargain Reveal
+ * makes in every exercise. Available, costs you the information, and nobody
+ * has to press it.
+ */
+export function tonicChordFor(question: MelodyQuestion): number[] {
+  return backingNotes(scaleById(question.scaleId), question.tonic, 'chord')
+}
+
 export function generateMelodyQuestion(
   settings: MelodySettings,
   random: Random = Math.random,

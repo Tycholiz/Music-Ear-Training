@@ -21,6 +21,7 @@ import {
   checkMelody,
   generateMelodyQuestion,
   guessPitch,
+  tonicChordFor,
   phraseForMelodyQuestion,
   selectedScales,
   type MelodyQuestion,
@@ -112,6 +113,26 @@ export default function Melody() {
     void piano.playSchedule(
       buildMelodySchedule(phraseForMelodyQuestion(question)),
     )
+  }, [])
+
+  /**
+   * Play one note of the melody on its own.
+   *
+   * The step between hearing notes and hearing notes *in a melody*: a user who
+   * has the first two and loses the third can pick that one out instead of
+   * replaying the whole phrase and trying to catch it going past.
+   *
+   * Taken from `question.notes`, which is the melody as it actually sounds, so
+   * the octave comes from the position being asked about. This exercise has
+   * been bitten three times by sounding a degree at the wrong octave — see the
+   * README's "Sound feedback follows the position, not the note" — and a
+   * melody visiting the tonic at both octaves is exactly where that broke.
+   *
+   * `play` rather than `strike`: slots get tapped in quick succession, and
+   * struck notes ring for seconds and pile up under each other.
+   */
+  const playNoteAt = useCallback((question: MelodyQuestion, index: number) => {
+    void piano.play([[question.notes[index]]])
   }, [])
 
   const nextQuestion = useCallback(() => {
@@ -295,8 +316,8 @@ export default function Melody() {
             {round.question.backing.length > 0 && (
               <ReferenceButton
                 label="Chord"
-                description="Play the backing chord"
-                onClick={() => void piano.strike(round.question.backing)}
+                description="Play the tonic chord"
+                onClick={() => void piano.strike(tonicChordFor(round.question))}
               />
             )}
           </div>
@@ -308,6 +329,7 @@ export default function Melody() {
               length={round.question.degrees.length}
               wrongAt={phase === 'wrong' ? entered.length - 1 : null}
               revealed={phase === 'revealed' ? round.question.degrees : null}
+              onPlay={(index) => playNoteAt(round.question, index)}
             />
             {phase === 'wrong' ? (
               <p className="text-sm text-content-muted">
@@ -395,6 +417,7 @@ function Entry({
   length,
   wrongAt,
   revealed,
+  onPlay,
 }: {
   entered: readonly Degree[]
   length: number
@@ -402,6 +425,7 @@ function Entry({
   wrongAt: number | null
   /** The melody itself, once the user has asked to be told it. */
   revealed: readonly Degree[] | null
+  onPlay: (index: number) => void
 }) {
   return (
     <div
@@ -414,9 +438,15 @@ function Entry({
         const degree = own ?? given
 
         return (
-          <span
+          <button
             key={i}
-            className={`flex h-11 min-w-11 items-center justify-center rounded-lg px-2 ${
+            type="button"
+            onClick={() => onPlay(i)}
+            // `·` is not an accessible name, and neither is a bare degree
+            // label once the row is pressable: what the control does is play,
+            // and which one it is is the position rather than the label.
+            aria-label={`Play note ${i + 1}`}
+            className={`flex h-11 min-w-11 items-center justify-center rounded-lg px-2 active:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
               degree === undefined
                 ? 'bg-surface/40 text-content-muted'
                 : given !== undefined
@@ -427,7 +457,7 @@ function Entry({
             }`}
           >
             {degree === undefined ? '·' : degreeLabel(degree)}
-          </span>
+          </button>
         )
       })}
     </div>
