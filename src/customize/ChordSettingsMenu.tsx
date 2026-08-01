@@ -2,14 +2,16 @@ import { CheckRow, ListCard, ListRow, useModalNav } from '../components'
 import {
   usePersisted,
   type ChordSettings,
+  type ExerciseStats,
   type PersistedStore,
 } from '../settings'
 import { CHORDS, midiToName, type Chord } from '../theory'
-import { chordRangeWarning, isChordStuck } from '../exercises'
+import { chordRangeWarning, isChordStuck, type StatsView } from '../exercises'
 import { ChordsScreen } from './ChordsScreen'
 import { InversionsScreen } from './InversionsScreen'
 import { ChordPlayModeScreen } from './ChordPlayModeScreen'
 import { RangeScreen } from './RangeScreen'
+import { StatisticsScreen } from './StatisticsScreen'
 
 /**
  * Hamburger menu for any exercise built on chords, and the Customize screen it
@@ -22,10 +24,15 @@ import { RangeScreen } from './RangeScreen'
  */
 export function ChordSettingsMenu({
   store,
+  statsStore,
+  statsView,
   onResetScore,
   availableChords = CHORDS,
 }: {
   store: PersistedStore<ChordSettings>
+  statsStore: PersistedStore<ExerciseStats>
+  /** Chords and chord root record the same namespaces but read differently. */
+  statsView: StatsView
   onResetScore: () => void
   /** Narrower for the root exercise, which cannot use ambiguous chords. */
   availableChords?: readonly Chord[]
@@ -36,6 +43,22 @@ export function ChordSettingsMenu({
     <div className="p-4">
       <ListCard>
         <ListRow label="Reset Score" destructive onClick={onResetScore} />
+        <ListRow
+          label="Statistics"
+          chevron
+          onClick={() =>
+            push({
+              title: 'Statistics',
+              content: (
+                <StatisticsScreen
+                  store={statsStore}
+                  view={statsView}
+                  onReset={() => statsStore.reset()}
+                />
+              ),
+            })
+          }
+        />
         <ListRow
           label="Customize Exercise"
           chevron

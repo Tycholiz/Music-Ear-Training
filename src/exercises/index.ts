@@ -1,4 +1,17 @@
 export {
+  CHORD_STATS_VIEW,
+  INTERVAL_STATS_VIEW,
+  MELODY_STATS_VIEW,
+  MIN_ATTEMPTS_TO_REPORT,
+  PROGRESSION_STATS_VIEW,
+  ROOT_STATS_VIEW,
+  confusionsFor,
+  hasAnyStats,
+  mastery,
+  statsRows,
+} from './statsView'
+export type { Mastery, StatsRow, StatsSection, StatsView } from './statsView'
+export {
   MAX_WEIGHT_RATIO,
   chordKey,
   intervalKey,

@@ -1,10 +1,15 @@
 import { CheckRow, ListCard, ListRow, useModalNav } from '../components'
-import { intervalSettingsStore, usePersisted } from '../settings'
+import {
+  intervalSettingsStore,
+  intervalStatsStore,
+  usePersisted,
+} from '../settings'
 import { intervalName } from '../theory'
-import { isStuck, rangeWarning } from '../exercises'
+import { INTERVAL_STATS_VIEW, isStuck, rangeWarning } from '../exercises'
 import { IntervalsScreen } from './IntervalsScreen'
 import { PlayModeScreen } from './PlayModeScreen'
 import { RangeScreen } from './RangeScreen'
+import { StatisticsScreen } from './StatisticsScreen'
 import { midiToName } from '../theory'
 
 function IntervalRangeScreen() {
@@ -31,6 +36,22 @@ export function IntervalMenu({ onResetScore }: { onResetScore: () => void }) {
     <div className="p-4">
       <ListCard>
         <ListRow label="Reset Score" destructive onClick={onResetScore} />
+        <ListRow
+          label="Statistics"
+          chevron
+          onClick={() =>
+            push({
+              title: 'Statistics',
+              content: (
+                <StatisticsScreen
+                  store={intervalStatsStore}
+                  view={INTERVAL_STATS_VIEW}
+                  onReset={() => intervalStatsStore.reset()}
+                />
+              ),
+            })
+          }
+        />
         <ListRow
           label="Customize Exercise"
           chevron

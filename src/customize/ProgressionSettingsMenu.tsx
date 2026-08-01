@@ -8,6 +8,7 @@ import {
 } from '../components'
 import {
   progressionSettingsStore,
+  progressionStatsStore,
   usePersisted,
   type ProgressionSettings,
 } from '../settings'
@@ -20,6 +21,7 @@ import {
 } from '../theory'
 import type { Cadence } from '../theory'
 import {
+  PROGRESSION_STATS_VIEW,
   CADENCE_DESCRIPTIONS,
   CADENCE_NAMES,
   INVERSION_NAMES,
@@ -32,6 +34,7 @@ import {
   usableCadences,
 } from '../exercises'
 import { RangeScreen } from './RangeScreen'
+import { StatisticsScreen } from './StatisticsScreen'
 
 /**
  * Hamburger menu for the chord progression exercise, and the Customize screen
@@ -54,6 +57,22 @@ export function ProgressionSettingsMenu({
     <div className="p-4">
       <ListCard>
         <ListRow label="Reset Score" destructive onClick={onResetScore} />
+        <ListRow
+          label="Statistics"
+          chevron
+          onClick={() =>
+            push({
+              title: 'Statistics',
+              content: (
+                <StatisticsScreen
+                  store={progressionStatsStore}
+                  view={PROGRESSION_STATS_VIEW}
+                  onReset={() => progressionStatsStore.reset()}
+                />
+              ),
+            })
+          }
+        />
         <ListRow
           label="Customize Exercise"
           chevron

@@ -6,10 +6,11 @@ import {
   RadioRow,
   useModalNav,
 } from '../components'
-import { selectedScales } from '../exercises'
+import { MELODY_STATS_VIEW, selectedScales } from '../exercises'
 import {
   MELODY_BACKINGS,
   melodySettingsStore,
+  melodyStatsStore,
   usePersisted,
   type MelodySettings,
 } from '../settings'
@@ -29,6 +30,7 @@ import {
   melodyStuckReason,
 } from '../exercises'
 import { RangeScreen } from './RangeScreen'
+import { StatisticsScreen } from './StatisticsScreen'
 
 /**
  * Hamburger menu for the melody exercise, and the Customize screen it pushes.
@@ -49,6 +51,22 @@ export function MelodySettingsMenu({
     <div className="p-4">
       <ListCard>
         <ListRow label="Reset Score" destructive onClick={onResetScore} />
+        <ListRow
+          label="Statistics"
+          chevron
+          onClick={() =>
+            push({
+              title: 'Statistics',
+              content: (
+                <StatisticsScreen
+                  store={melodyStatsStore}
+                  view={MELODY_STATS_VIEW}
+                  onReset={() => melodyStatsStore.reset()}
+                />
+              ),
+            })
+          }
+        />
         <ListRow
           label="Customize Exercise"
           chevron

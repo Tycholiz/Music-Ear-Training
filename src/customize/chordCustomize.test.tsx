@@ -5,9 +5,11 @@ import { ModalSheet } from '../components'
 import {
   DEFAULT_CHORD_SETTINGS,
   chordSettingsStore,
+  chordStatsStore,
   type ChordSettings,
 } from '../settings'
 import { CHORDS } from '../theory'
+import { CHORD_STATS_VIEW } from '../exercises'
 import { ChordSettingsMenu } from './ChordSettingsMenu'
 
 function openMenu(onResetScore = vi.fn()) {
@@ -16,6 +18,8 @@ function openMenu(onResetScore = vi.fn()) {
     <ModalSheet open onClose={vi.fn()} title="Menu">
       <ChordSettingsMenu
         store={chordSettingsStore}
+        statsStore={chordStatsStore}
+        statsView={CHORD_STATS_VIEW}
         onResetScore={onResetScore}
       />
     </ModalSheet>,

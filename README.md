@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1195 tests across 45 files.** All of `npm run lint`, `npm run build`,
+**1224 tests across 47 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -171,6 +171,36 @@ Nothing in `stats.ts` reports an accuracy. Two out of three is not 67%, and the
 consumers need different policies about it: a screen should decline to print a
 number, a weighting function must still return something for an item with no
 data. So the store records and the callers decide what it means.
+
+### Statistics: what am I actually bad at
+
+The record above is shown per exercise, reached from its menu. Not a scoreboard
+— the header already carries the score — so it answers _which_ things go wrong
+and what they are being mistaken for.
+
+**Confusions are the only diagnostic thing on it.** "Diminished 38%" tells a
+user to practise more, which they knew; "heard as Minor Triad ×11" tells them
+what to listen for. So a confusion sits on the row it belongs to rather than in
+a list of its own. Chord root shows none and should not, being self-graded.
+
+`exercises/statsView.ts` holds what each exercise's namespaces _mean_ — the
+store is dumb about music, so turning `chord:major-7th` back into "Major 7th"
+lives with the exercises and the screen stays one component. Two tiers: the
+**answer** (the thing the user names, bucketed, the only one carrying
+confusions) and **breakdowns** (the conditions a question was asked under —
+inversion, play mode, cadence, position). Chord root leads with inversion
+because that is its whole difficulty; progressions break down by position
+because losing chord four of five is working memory rather than harmony.
+
+Two rules worth keeping:
+
+- **No percentage below five attempts.** Two out of three is not 67%, and a
+  statistics screen that says so is worse than none because the user acts on
+  it. The row says how many more are needed instead.
+- **The buckets use the same smoothed accuracy adaptive difficulty weights
+  by.** "Needs work" is exactly what the exercise has been asking more often;
+  two definitions of struggling would have the app contradicting itself in
+  front of the user.
 
 ### Adaptive difficulty: same pool, different frequency
 
