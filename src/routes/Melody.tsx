@@ -13,6 +13,9 @@ import { combinedDegrees, degreeLabel, type Degree } from '../theory'
 import {
   melodyScoreStore,
   melodySettingsStore,
+  itemId,
+  melodyStatsStore,
+  recordInStore,
   recordGuess,
   usePersisted,
 } from '../settings'
@@ -237,6 +240,27 @@ export default function Melody() {
 
     const outcome = checkMelody(entered, round.question)
     const latest = entered.length - 1
+
+    // Statistics take the first run at a melody and nothing after it, so this
+    // is read before `scoreOnce` flips it. A retry is the user working from
+    // knowledge of where they went wrong, which is the point of retrying and
+    // is not evidence about whether they can hear a ♭6.
+    //
+    // Recorded per degree rather than per melody. "You got 60% of melodies"
+    // is a fact about melodies; "you miss the 7th" is a fact about your ears,
+    // and only one of them tells you what to practise.
+    const measuring = !graded.current
+    const wasRight = outcome.positions[latest]
+    if (measuring) {
+      recordInStore(melodyStatsStore, [
+        {
+          item: itemId('degree', round.question.degrees[latest]),
+          correct: wasRight,
+          answered: String(entered[latest]),
+        },
+        { item: itemId('scale', round.question.scaleId), correct: wasRight },
+      ])
+    }
 
     if (!outcome.positions[latest]) {
       scoreOnce(false)

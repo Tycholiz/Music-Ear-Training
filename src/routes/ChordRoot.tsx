@@ -10,7 +10,10 @@ import { ChordSettingsMenu } from '../customize'
 import { piano } from '../audio'
 import { UNAMBIGUOUS_ROOT_CHORDS, chordById } from '../theory'
 import {
+  itemId,
+  recordInStore,
   recordGuess,
+  rootStatsStore,
   rootScoreStore,
   rootSettingsStore,
   usePersisted,
@@ -135,6 +138,20 @@ export default function ChordRoot() {
     gradedRef.current = true
     setGraded(true)
     setScore(recordGuess(score, correct))
+
+    // No `answered` here, and there cannot be one: this exercise is
+    // self-graded, so what exists is the user's report that they had the note
+    // or did not. There is no wrong answer to name, and inventing one — the
+    // bass note, say — would put a confusion in the record that nobody made.
+    //
+    // Inversion is recorded because it is the whole difficulty of this
+    // exercise. Finding the root of a root-position chord and finding it
+    // under a 2nd inversion are barely the same task, and one accuracy figure
+    // across both says nothing useful about either.
+    recordInStore(rootStatsStore, [
+      { item: itemId('chord', round.question.chordId), correct },
+      { item: itemId('inversion', round.question.inversion), correct },
+    ])
     advanceTimer.current = setTimeout(nextQuestion, AUTO_ADVANCE_MS)
   }
 

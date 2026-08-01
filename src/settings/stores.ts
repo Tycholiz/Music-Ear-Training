@@ -38,6 +38,7 @@ import {
   sanitizeInteger,
   sanitizeSelection,
 } from './store'
+import { RECENT_WINDOW, type ExerciseStats, type ItemStats } from './stats'
 
 /**
  * The concrete persisted stores. Components go through these rather than
@@ -297,3 +298,97 @@ export const progressionScoreStore = createStore<Score>({
   defaults: EMPTY_SCORE,
   sanitize: sanitizeScore,
 })
+
+/**
+ * Per-item statistics, one store per exercise.
+ *
+ * Separate stores rather than one keyed by exercise, matching the settings and
+ * scores either side of it: an exercise's record is its own, and a corrupt
+ * blob should cost that exercise its history rather than every exercise's.
+ *
+ * Separate from the score stores too, and not folded into them, because they
+ * are reset independently — `Reset Score` clears a scoreboard, and a lifetime
+ * learning record is not a scoreboard.
+ */
+function sanitizeStats(raw: unknown, defaults: ExerciseStats): ExerciseStats {
+  if (!isRecord(raw)) return defaults
+
+  const clean: ExerciseStats = {}
+  for (const [id, value] of Object.entries(raw)) {
+    // An id with no namespace cannot be grouped or shown, and would surface on
+    // the statistics screen as an item that does not exist.
+    if (!id.includes(':')) continue
+
+    const item = sanitizeItemStats(value)
+    if (item) clean[id] = item
+  }
+  return clean
+}
+
+/** One item, or null when there is nothing salvageable in it. */
+function sanitizeItemStats(raw: unknown): ItemStats | null {
+  if (!isRecord(raw)) return null
+
+  const attempts = sanitizeInteger(raw.attempts, {
+    min: 0,
+    max: Number.MAX_SAFE_INTEGER,
+    fallback: 0,
+  })
+  // An item nothing has been recorded against carries no information, and
+  // keeping it would have the statistics screen listing chords never played.
+  if (attempts === 0) return null
+
+  const correct = sanitizeInteger(raw.correct, {
+    min: 0,
+    max: attempts,
+    fallback: 0,
+  })
+
+  const recent = Array.isArray(raw.recent)
+    ? raw.recent.filter((v): v is boolean => typeof v === 'boolean')
+    : []
+
+  return {
+    attempts,
+    correct,
+    // Trimmed as well as filtered: a hand-edited blob with a hundred outcomes
+    // in it would otherwise weight adaptive difficulty far past the window
+    // every other item is measured over.
+    recent: recent.slice(-RECENT_WINDOW),
+    lastSeen: sanitizeInteger(raw.lastSeen, {
+      min: 0,
+      max: Number.MAX_SAFE_INTEGER,
+      fallback: 0,
+    }),
+    ...sanitizeConfusions(raw.confusions),
+  }
+}
+
+function sanitizeConfusions(raw: unknown): {
+  confusions?: Record<string, number>
+} {
+  if (!isRecord(raw)) return {}
+
+  const clean: Record<string, number> = {}
+  for (const [answered, count] of Object.entries(raw)) {
+    if (typeof count === 'number' && Number.isInteger(count) && count > 0) {
+      clean[answered] = count
+    }
+  }
+  return Object.keys(clean).length > 0 ? { confusions: clean } : {}
+}
+
+function statsStore(key: string) {
+  return createStore<ExerciseStats>({
+    key,
+    version: 1,
+    defaults: {},
+    sanitize: sanitizeStats,
+  })
+}
+
+export const intervalStatsStore = statsStore('met.stats.intervals')
+export const chordStatsStore = statsStore('met.stats.chords')
+export const rootStatsStore = statsStore('met.stats.chordRoot')
+export const melodyStatsStore = statsStore('met.stats.melody')
+export const progressionStatsStore = statsStore('met.stats.progressions')

@@ -9,6 +9,7 @@ import {
   DEFAULT_CHORD_SETTINGS,
   chordScoreStore,
   chordSettingsStore,
+  chordStatsStore,
 } from '../settings'
 import * as exercises from '../exercises'
 import type { ChordQuestion } from '../exercises'
@@ -47,6 +48,7 @@ beforeEach(() => {
   localStorage.clear()
   chordSettingsStore.reset()
   chordScoreStore.reset()
+  chordStatsStore.reset()
   vi.spyOn(piano, 'play').mockResolvedValue(undefined)
   vi.spyOn(piano, 'stop').mockImplementation(() => {})
   vi.spyOn(exercises, 'generateChordQuestion').mockReturnValue(C_MAJOR)
@@ -526,5 +528,85 @@ describe('revealing the answer', () => {
       { timeout: 4000 },
     )
     expect(screen.getByLabelText('Score')).toHaveTextContent('0/1')
+  })
+})
+
+describe('what goes into the statistics', () => {
+  const press = async (
+    user: ReturnType<typeof userEvent.setup>,
+    name: string,
+  ) => user.click(screen.getByRole('button', { name }))
+
+  it('records the chord, the inversion and the play mode', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await press(user, 'Major Triad')
+
+    const stats = chordStatsStore.read()
+    expect(stats['chord:major']).toMatchObject({ attempts: 1, correct: 1 })
+    expect(stats['inversion:0']).toMatchObject({ attempts: 1, correct: 1 })
+    expect(stats['mode:block']).toMatchObject({ attempts: 1, correct: 1 })
+  })
+
+  it('records what was pressed instead, so a confusion can be named', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await press(user, 'Minor Triad')
+
+    expect(chordStatsStore.read()['chord:major']).toMatchObject({
+      attempts: 1,
+      correct: 0,
+      confusions: { minor: 1 },
+    })
+  })
+
+  it('records a reveal as a miss, so giving up is not invisible', async () => {
+    // Where the Reveal button and the statistics meet. Without this, a chord
+    // the user reveals every single time records nothing at all and reads as
+    // untouched rather than as the hardest thing on the screen.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await user.click(screen.getByRole('button', { name: 'Reveal' }))
+
+    expect(chordStatsStore.read()['chord:major']).toMatchObject({
+      attempts: 1,
+      correct: 0,
+    })
+    // They did not confuse it with anything — they had nothing.
+    expect(chordStatsStore.read()['chord:major']).not.toHaveProperty(
+      'confusions',
+    )
+  })
+
+  it('does not count a reveal twice when the grid was already pressed', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await press(user, 'Minor Triad')
+    await user.click(screen.getByRole('button', { name: 'Reveal' }))
+
+    expect(chordStatsStore.read()['chord:major'].attempts).toBe(1)
+  })
+
+  it('takes the first press only, unlike the score', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await press(user, 'Minor Triad')
+    await press(user, 'Major Triad')
+
+    expect(screen.getByLabelText('Score')).toHaveTextContent('1/2')
+    expect(chordStatsStore.read()['chord:major']).toMatchObject({
+      attempts: 1,
+      correct: 0,
+    })
   })
 })

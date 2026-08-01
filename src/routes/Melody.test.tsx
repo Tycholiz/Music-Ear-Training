@@ -15,6 +15,7 @@ import { piano } from '../audio'
 import {
   DEFAULT_MELODY_SETTINGS,
   melodyScoreStore,
+  melodyStatsStore,
   melodySettingsStore,
 } from '../settings'
 import * as exercises from '../exercises'
@@ -63,6 +64,7 @@ beforeEach(() => {
   localStorage.clear()
   melodySettingsStore.reset()
   melodyScoreStore.reset()
+  melodyStatsStore.reset()
   vi.spyOn(piano, 'play').mockResolvedValue(undefined)
   vi.spyOn(piano, 'playSchedule').mockResolvedValue(undefined)
   vi.spyOn(piano, 'strike').mockResolvedValue(undefined)
@@ -940,6 +942,9 @@ describe('hearing one note at a time', () => {
     expect(answer()).toBe('····')
     // Still the first question, and still waiting on the pad.
     expect(screen.getByRole('button', { name: '1' })).toBeEnabled()
+    // And nothing about the user's ears was learned from it, since hearing a
+    // note is not attempting one.
+    expect(melodyStatsStore.read()).toEqual({})
   })
 
   it('still plays once the melody has been revealed', async () => {
@@ -963,5 +968,56 @@ describe('hearing one note at a time', () => {
 
     for (const position of [1, 2, 3, 4]) expect(slot(position)).toBeEnabled()
     expect(screen.queryByRole('button', { name: 'Play note 5' })).toBeNull()
+  })
+})
+
+describe('what goes into the statistics', () => {
+  it('records each degree as it is entered, and the scale', async () => {
+    // Per degree rather than per melody. "You got 60% of melodies" is a fact
+    // about melodies; "you miss the 6th" is a fact about your ears, and only
+    // one of them says what to practise.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await tap(user, '1', '5')
+
+    const stats = melodyStatsStore.read()
+    expect(stats['degree:0']).toMatchObject({ attempts: 1, correct: 1 })
+    expect(stats['degree:7']).toMatchObject({ attempts: 1, correct: 1 })
+    expect(stats['scale:major-pentatonic'].attempts).toBe(2)
+  })
+
+  it('records what was pressed instead, so a confusion can be named', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    // The melody opens on 1; pressing 5 is a miss with an answer attached.
+    await tap(user, '5')
+
+    expect(melodyStatsStore.read()['degree:0']).toMatchObject({
+      attempts: 1,
+      correct: 0,
+      confusions: { '7': 1 },
+    })
+  })
+
+  it('takes the first run at a melody and nothing after it', async () => {
+    // A retry is the user working from knowledge of where they went wrong,
+    // which is the point of retrying and is not fresh evidence about whether
+    // they can hear a 5.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await tap(user, '5')
+    await waitFor(() => expect(answer()).toBe('····'), { timeout: 3000 })
+    await tap(user, '1', '5', '6', '5')
+
+    expect(melodyStatsStore.read()['degree:0']).toMatchObject({
+      attempts: 1,
+      correct: 0,
+    })
   })
 })

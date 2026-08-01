@@ -8,6 +8,7 @@ import {
   DEFAULT_CHORD_SETTINGS,
   chordScoreStore,
   rootScoreStore,
+  rootStatsStore,
   rootSettingsStore,
 } from '../settings'
 import * as exercises from '../exercises'
@@ -43,6 +44,7 @@ beforeEach(() => {
   localStorage.clear()
   rootSettingsStore.reset()
   rootScoreStore.reset()
+  rootStatsStore.reset()
   chordScoreStore.reset()
   vi.spyOn(piano, 'play').mockResolvedValue(undefined)
   vi.spyOn(piano, 'stop').mockImplementation(() => {})
@@ -327,5 +329,62 @@ describe('keyboard focus', () => {
 
     expect(piano.play).toHaveBeenCalledExactlyOnceWith([[64, 67, 72]])
     expect(screen.queryByRole('button', { name: 'Correct' })).toBeNull()
+  })
+})
+
+describe('what goes into the statistics', () => {
+  it('records the chord and the inversion the user graded themselves on', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await startAndReveal(user)
+
+    await user.click(screen.getByRole('button', { name: 'Correct' }))
+
+    const stats = rootStatsStore.read()
+    expect(stats['chord:major']).toMatchObject({ attempts: 1, correct: 1 })
+    // The whole difficulty of this exercise. Finding the root of a
+    // root-position chord and finding it under a 1st inversion are barely the
+    // same task, and one figure across both says nothing about either.
+    expect(stats['inversion:1']).toMatchObject({ attempts: 1, correct: 1 })
+  })
+
+  it('records a miss the user reported', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await startAndReveal(user)
+
+    await user.click(screen.getByRole('button', { name: 'Wrong' }))
+
+    expect(rootStatsStore.read()['chord:major']).toMatchObject({
+      attempts: 1,
+      correct: 0,
+    })
+  })
+
+  it('names no confusion, because a self-graded exercise has no answer to name', async () => {
+    // The user reports whether they had the note in mind. There is no wrong
+    // answer here, and inventing one — the bass note, say — would put a
+    // confusion in the record that nobody actually made.
+    const user = userEvent.setup()
+    renderExercise()
+    await startAndReveal(user)
+
+    await user.click(screen.getByRole('button', { name: 'Wrong' }))
+
+    expect(rootStatsStore.read()['chord:major']).not.toHaveProperty(
+      'confusions',
+    )
+  })
+
+  it('records once however many times the grade is tapped', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await startAndReveal(user)
+
+    const correct = screen.getByRole('button', { name: 'Correct' })
+    await user.click(correct)
+    await user.click(correct)
+
+    expect(rootStatsStore.read()['chord:major'].attempts).toBe(1)
   })
 })

@@ -12,6 +12,9 @@ import { piano, scheduleDurationMs } from '../audio'
 import {
   chordScoreStore,
   chordSettingsStore,
+  chordStatsStore,
+  itemId,
+  recordInStore,
   recordGuess,
   usePersisted,
 } from '../settings'
@@ -50,6 +53,9 @@ export default function Chords() {
   const [settings] = usePersisted(chordSettingsStore)
   const [score, setScore, resetScore] = usePersisted(chordScoreStore)
 
+  /** Whether this question has gone into the statistics — see Intervals.tsx. */
+  const measured = useRef(false)
+
   const [round, setRound] = useState<Round | null>(null)
   const [wrong, setWrong] = useState<string[]>([])
   const [solvedId, setSolvedId] = useState<string | null>(null)
@@ -64,6 +70,7 @@ export default function Chords() {
     setWrong([])
     setSolvedId(null)
     setRevealedId(null)
+    measured.current = false
     setRound((current) => ({
       number: (current?.number ?? 0) + 1,
       question: generateChordQuestion(settings),
@@ -80,6 +87,7 @@ export default function Chords() {
     setWrong([])
     setSolvedId(null)
     setRevealedId(null)
+    measured.current = false
   }, [settings])
 
   // Park focus on Replay for every new question, so a keyboard user can
@@ -118,6 +126,19 @@ export default function Chords() {
     const correct = isChordCorrect(round.question, chordId)
     setScore(recordGuess(score, correct))
 
+    if (!measured.current) {
+      measured.current = true
+      recordInStore(chordStatsStore, [
+        {
+          item: itemId('chord', round.question.chordId),
+          correct,
+          answered: chordId,
+        },
+        { item: itemId('inversion', round.question.inversion), correct },
+        { item: itemId('mode', round.question.playMode), correct },
+      ])
+    }
+
     if (!correct) {
       setWrong((current) => [...current, chordId])
       return
@@ -153,6 +174,30 @@ export default function Chords() {
     void piano.play(groupsForChordQuestion(round.question, settings.chords))
     setRevealedId(round.question.chordId)
     setScore(recordGuess(score, false))
+
+    // Giving up is evidence too, and the guard means it only counts when the
+    // grid was never pressed. Without this a chord the user reveals every time
+    // would record nothing at all and read as untouched rather than as the
+    // hardest thing on the screen — which is exactly backwards.
+    //
+    // No `answered`: they did not confuse this chord with another, they had
+    // nothing. Same reasoning as the self-graded root exercise.
+    // Giving up is evidence too, and the guard means it only counts when the
+    // grid was never pressed. Without this a chord the user reveals every time
+    // would record nothing at all and read as untouched rather than as the
+    // hardest thing on the screen — which is exactly backwards.
+    //
+    // No `answered`: they did not confuse this chord with another, they had
+    // nothing. Same reasoning as the self-graded root exercise.
+    if (!measured.current) {
+      measured.current = true
+      recordInStore(chordStatsStore, [
+        { item: itemId('chord', round.question.chordId), correct: false },
+        { item: itemId('inversion', round.question.inversion), correct: false },
+        { item: itemId('mode', round.question.playMode), correct: false },
+      ])
+    }
+
     advanceTimer.current = setTimeout(nextQuestion, REVEAL_ADVANCE_MS)
   }
 

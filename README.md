@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1118 tests across 43 files.** All of `npm run lint`, `npm run build`,
+**1174 tests across 44 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -133,6 +133,44 @@ Stores also enforce cross-field legality that the UI enforces separately:
 melody's featured degrees are filtered to the chosen scale, and progressions'
 cadences are filtered to the enabled chords. Between the UI and the store there
 is no way in for an illegal combination.
+
+### Statistics: which items go wrong, not how many
+
+`Score` says the user is 71% and cannot say which chords the 29% were.
+`settings/stats.ts` keeps the missing detail, one store per exercise, keyed by
+a **namespaced id the exercise chooses** — `chord:major-7th`, `interval:6`,
+`numeral:V`, `cadence:authentic`, `inversion:1`. The store knows nothing about
+music; which dimensions matter differs per exercise (inversion is the whole
+difficulty of chord root and irrelevant to intervals), and the namespace is
+what lets a reader group them again.
+
+Each item keeps **lifetime totals and a rolling window of recent outcomes**,
+because they answer different questions — "you have done this 340 times" is
+not "you are getting it right lately", and one decayed counter is an honest
+answer to neither. Plus `lastSeen`, recorded from the start because weighted
+selection can starve an item and nothing else would notice, and `confusions`:
+what was answered _instead_. That last one is the only diagnostic field here.
+"Diminished 41%" says practise more; "you hear diminished as minor" says what
+to listen for. Chord root has none, being self-graded — there is no wrong
+answer to name, and inventing one would record a mistake nobody made.
+
+Two rules that cost real debugging:
+
+- **Statistics take the first attempt only, even where the score does not.**
+  Intervals and chords score every press — three misses then a hit is 1/4,
+  right for a scoreboard. Later presses are process of elimination, and
+  counting them makes an item look easier the longer someone struggled.
+- **Record through `recordInStore`, never `setStats(recordAttempts(stats, …))`.**
+  A render-time snapshot loses writes when two presses land in one React batch,
+  and on the melody screen — which judges in an effect — a write that changes
+  `stats` re-runs the effect that wrote it. Reading the store at write time
+  fixes both, and keeps `stats` out of the dependency array rather than needing
+  a guard to break the cycle.
+
+Nothing in `stats.ts` reports an accuracy. Two out of three is not 67%, and the
+consumers need different policies about it: a screen should decline to print a
+number, a weighting function must still return something for an item with no
+data. So the store records and the callers decide what it means.
 
 ### Audio: the engine knows nothing about music
 

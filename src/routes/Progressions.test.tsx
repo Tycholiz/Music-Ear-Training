@@ -16,6 +16,7 @@ import {
   DEFAULT_PROGRESSION_SETTINGS,
   progressionScoreStore,
   progressionSettingsStore,
+  progressionStatsStore,
 } from '../settings'
 import * as exercises from '../exercises'
 import type { ProgressionQuestion } from '../exercises'
@@ -74,6 +75,7 @@ beforeEach(() => {
   localStorage.clear()
   progressionSettingsStore.reset()
   progressionScoreStore.reset()
+  progressionStatsStore.reset()
   vi.spyOn(piano, 'play').mockResolvedValue(undefined)
   vi.spyOn(piano, 'playSchedule').mockResolvedValue(undefined)
   vi.spyOn(piano, 'strike').mockResolvedValue(undefined)
@@ -728,5 +730,64 @@ describe('keyboard focus', () => {
     await start(user)
 
     expect(screen.getByRole('button', { name: 'Play again' })).toHaveFocus()
+  })
+})
+
+describe('what goes into the statistics', () => {
+  it('records the numeral, the cadence and the position of each press', async () => {
+    // Three separate facts because they fail for different reasons: harmony,
+    // how progressions end, and working memory.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    await tap(user, 'I')
+
+    const stats = progressionStatsStore.read()
+    expect(stats['numeral:I'].correct).toBe(1)
+    expect(stats['cadence:authentic'].correct).toBe(1)
+    expect(stats['position:0'].correct).toBe(1)
+  })
+
+  it('records what was pressed instead, so a confusion can be named', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    // The first chord is I; pressing V is a miss with an answer attached.
+    await tap(user, 'V')
+
+    expect(progressionStatsStore.read()['numeral:I']).toMatchObject({
+      attempts: 1,
+      correct: 0,
+      confusions: { V: 1 },
+    })
+  })
+
+  it('takes the first run at a progression and nothing after it', async () => {
+    // A retry is the user working from knowledge of where they went wrong,
+    // which is the point of retrying and is not fresh evidence about whether
+    // they can hear a IV.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await tap(user, 'V')
+    await untilRetryable()
+    await tap(user, 'I', 'IV', 'V', 'I')
+
+    // One attempt at the opening chord, the wrong one, despite two presses.
+    expect(progressionStatsStore.read()['numeral:I'].attempts).toBe(1)
+    expect(progressionStatsStore.read()['numeral:I'].correct).toBe(0)
+  })
+
+  it('keeps counting across questions rather than starting over', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    await tap(user, 'I', 'IV', 'V', 'I')
+
+    await waitFor(
+      () => expect(progressionStatsStore.read()['numeral:I'].attempts).toBe(2),
+      { timeout: 3000 },
+    )
   })
 })
