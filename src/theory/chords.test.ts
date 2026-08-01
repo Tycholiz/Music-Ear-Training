@@ -70,6 +70,7 @@ describe('CHORDS', () => {
     ['add9', [0, 4, 7, 14]],
     ['minor-add9', [0, 3, 7, 14]],
     ['six-nine', [0, 4, 7, 9, 14]],
+    ['minor-six-nine', [0, 3, 7, 9, 14]],
     ['dominant-9th', [0, 4, 7, 10, 14]],
     ['major-9th', [0, 4, 7, 11, 14]],
     ['minor-9th', [0, 3, 7, 10, 14]],
@@ -87,8 +88,17 @@ describe('CHORDS', () => {
     expect([...chordById(id).offsets]).toEqual(offsets)
   })
 
-  it('covers all 34 chords from the spec', () => {
-    expect(CHORDS).toHaveLength(34)
+  it('covers all 35 chords from the spec', () => {
+    expect(CHORDS).toHaveLength(35)
+  })
+
+  it('leaves Minor 6/9 with a root that can be heard', () => {
+    // Checked rather than assumed: five-note chords are where the table's
+    // shared-notes problem lives, and C6 against Am7 in first inversion is the
+    // example this file already documents. Minor 6/9 shares its notes with
+    // nothing in the table at any transposition, so the root exercise can use
+    // it.
+    expect(UNAMBIGUOUS_ROOT_CHORD_IDS).toContain('minor-six-nine')
   })
 
   it('omits the 3rd from the Dominant 11th and the 11th from the 13ths', () => {

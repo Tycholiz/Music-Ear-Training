@@ -412,3 +412,119 @@ describe('keyboard focus', () => {
     expect(screen.getByLabelText('Score')).toHaveTextContent('0/0')
   })
 })
+
+describe('revealing the answer', () => {
+  const reveal = (user: ReturnType<typeof userEvent.setup>) =>
+    user.click(screen.getByRole('button', { name: 'Reveal' }))
+
+  it('is offered from the start, not only after a wrong guess', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    expect(screen.getByRole('button', { name: 'Reveal' })).toBeEnabled()
+  })
+
+  it('names the chord and sounds it', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    vi.mocked(piano.play).mockClear()
+
+    await reveal(user)
+
+    expect(piano.play).toHaveBeenCalledWith([[60, 64, 67]])
+  })
+
+  it('marks the answer as given rather than found', async () => {
+    // Green would tell the user they got something they asked to be handed.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await reveal(user)
+
+    // `active:bg-surface-raised` is in the idle style too, so match the
+    // standalone class rather than the substring.
+    const answer = screen.getByRole('button', { name: 'Major Triad' })
+    expect(answer).toHaveClass('bg-surface-raised')
+    expect(answer).not.toHaveClass('bg-correct')
+  })
+
+  /**
+   * This exercise scores every press — three wrong guesses then a hit is 1/4 —
+   * so a reveal is one more attempt that failed, not one per chord left. The
+   * ambiguity is real in an exercise where a single question can already be
+   * 0/3, so it is pinned down here rather than left to the reader.
+   */
+  it('charges one miss, whatever has already been guessed', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await reveal(user)
+
+    expect(screen.getByLabelText('Score')).toHaveTextContent('0/1')
+  })
+
+  it('charges one more miss on top of the guesses already made', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await user.click(screen.getByRole('button', { name: 'Minor Triad' }))
+    await user.click(screen.getByRole('button', { name: 'Diminished Triad' }))
+    await reveal(user)
+
+    expect(screen.getByLabelText('Score')).toHaveTextContent('0/3')
+  })
+
+  it('cannot be charged twice for one question', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await reveal(user)
+    expect(screen.getByRole('button', { name: 'Reveal' })).toBeDisabled()
+    expect(screen.getByLabelText('Score')).toHaveTextContent('0/1')
+  })
+
+  it('stops the grid scoring once the answer has been given', async () => {
+    // Pressing the chord it just named must not turn a lost question into a
+    // won one.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await reveal(user)
+    await user.click(screen.getByRole('button', { name: 'Major Triad' }))
+
+    expect(screen.getByLabelText('Score')).toHaveTextContent('0/1')
+  })
+
+  it('is not offered once the question has been solved', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await user.click(screen.getByRole('button', { name: 'Major Triad' }))
+
+    expect(screen.getByRole('button', { name: 'Reveal' })).toBeDisabled()
+  })
+
+  it('moves on to a new question by itself', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    await reveal(user)
+    expect(screen.getByRole('button', { name: 'Reveal' })).toBeDisabled()
+
+    // Live again, which only a fresh question makes it.
+    await waitFor(
+      () =>
+        expect(screen.getByRole('button', { name: 'Reveal' })).toBeEnabled(),
+      { timeout: 4000 },
+    )
+    expect(screen.getByLabelText('Score')).toHaveTextContent('0/1')
+  })
+})

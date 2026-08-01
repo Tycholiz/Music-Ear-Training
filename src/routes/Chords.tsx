@@ -28,6 +28,15 @@ import {
 /** Minimum pause on the green button before the next question starts. */
 const AUTO_ADVANCE_MS = 800
 
+/**
+ * Pause on a revealed chord before the next question starts.
+ *
+ * Longer than the solved pause: the user is hearing the answer for the first
+ * time knowing what it is, which is the only part of a lost question that
+ * teaches anything.
+ */
+const REVEAL_ADVANCE_MS = 2000
+
 /** Silence left after a confirming chord finishes, before the next question. */
 const ADVANCE_GAP_MS = 250
 
@@ -44,6 +53,7 @@ export default function Chords() {
   const [round, setRound] = useState<Round | null>(null)
   const [wrong, setWrong] = useState<string[]>([])
   const [solvedId, setSolvedId] = useState<string | null>(null)
+  const [revealedId, setRevealedId] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const replayRef = useRef<HTMLButtonElement>(null)
@@ -53,6 +63,7 @@ export default function Chords() {
   const nextQuestion = useCallback(() => {
     setWrong([])
     setSolvedId(null)
+    setRevealedId(null)
     setRound((current) => ({
       number: (current?.number ?? 0) + 1,
       question: generateChordQuestion(settings),
@@ -68,6 +79,7 @@ export default function Chords() {
     setRound(null)
     setWrong([])
     setSolvedId(null)
+    setRevealedId(null)
   }, [settings])
 
   // Park focus on Replay for every new question, so a keyboard user can
@@ -96,8 +108,9 @@ export default function Chords() {
     if (groups) void piano.play(groups)
 
     // Pressing an answer that has already been given — or any answer once the
-    // question is solved — replays its sound without scoring again.
-    if (solvedId || wrong.includes(chordId)) return
+    // question is over, whether solved or revealed — replays its sound without
+    // scoring again.
+    if (solvedId || revealedId || wrong.includes(chordId)) return
 
     // A question where several enabled chords share the same notes plays a
     // root reference tone first (see groupsForChordQuestion), so exactly one
@@ -116,6 +129,31 @@ export default function Chords() {
       ? Math.max(AUTO_ADVANCE_MS, scheduleDurationMs(groups) + ADVANCE_GAP_MS)
       : AUTO_ADVANCE_MS
     advanceTimer.current = setTimeout(nextQuestion, settle)
+  }
+
+  /**
+   * Give up on this chord and be told what it was.
+   *
+   * Every other retrying exercise has this, and for the reason the README
+   * gives: without it a stuck user works through the grid until something
+   * turns green, which is elimination rather than listening.
+   *
+   * **It charges one miss, not one per remaining chord.** This exercise scores
+   * every press — three wrong guesses then a hit is 1/4 — so a reveal is
+   * simply one more attempt that failed. A user who reveals after two wrong
+   * guesses ends the question at 0/3. Being told the answer is not identifying
+   * it, and it costs exactly what one more wrong press would have.
+   *
+   * The chord is marked `revealed` rather than `correct`. Green would tell the
+   * user they got something they asked to be handed.
+   */
+  const reveal = () => {
+    if (!round || solvedId || revealedId) return
+
+    void piano.play(groupsForChordQuestion(round.question, settings.chords))
+    setRevealedId(round.question.chordId)
+    setScore(recordGuess(score, false))
+    advanceTimer.current = setTimeout(nextQuestion, REVEAL_ADVANCE_MS)
   }
 
   return (
@@ -141,9 +179,24 @@ export default function Chords() {
           </div>
           <SilentSwitchHint />
           <AnswerGrid
-            cells={buildChordCells(settings.chords, wrong, solvedId)}
+            cells={buildChordCells(
+              settings.chords,
+              wrong,
+              solvedId,
+              revealedId,
+            )}
             onAnswer={handleAnswer}
           />
+          <div className="flex shrink-0 justify-center pb-2">
+            <button
+              type="button"
+              onClick={reveal}
+              disabled={solvedId !== null || revealedId !== null}
+              className="rounded-full px-6 py-2 text-sm text-content-muted active:bg-surface disabled:opacity-30"
+            >
+              Reveal
+            </button>
+          </div>
         </>
       ) : (
         <StartPanel playable={playable} onStart={nextQuestion} />
