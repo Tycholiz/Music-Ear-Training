@@ -5,7 +5,12 @@ import {
   simultaneous,
   type NoteGroup,
 } from '../audio'
-import type { IntervalPlayMode, IntervalSettings } from '../settings'
+import type {
+  ExerciseStats,
+  IntervalPlayMode,
+  IntervalSettings,
+} from '../settings'
+import { intervalKey, pickAdaptive } from './adaptive'
 
 /**
  * Interval question generation and answer checking.
@@ -116,6 +121,13 @@ function pick<T>(options: readonly T[], random: Random): T {
 export function generateIntervalQuestion(
   settings: IntervalSettings,
   random: Random = Math.random,
+  /**
+   * The user's record, for weighting the answer toward what is going worst.
+   *
+   * Optional and ignored when `settings.adaptive` is off, so every existing
+   * caller and test keeps the uniform behaviour it was written against.
+   */
+  stats?: ExerciseStats,
 ): IntervalQuestion {
   const modes = usablePlayModes(settings)
   if (modes.length === 0) {
@@ -126,7 +138,16 @@ export function generateIntervalQuestion(
 
   const playMode = pick(modes, random)
   const descending = isDescending(playMode)
-  const answer = pick(candidateAnswers(playMode, settings), random)
+  // Weighted on the interval, which is the thing the user names. The play
+  // mode and the reference note stay uniform: they are how the question is
+  // presented rather than what it asks, and weighting a compound of several
+  // dimensions at once needs its own thought rather than falling out of this.
+  const answer = pickAdaptive(
+    candidateAnswers(playMode, settings),
+    intervalKey,
+    settings.adaptive ? stats : undefined,
+    random,
+  )
   const gap = gapForAnswer(answer, descending)
 
   // Choose the reference note from the positions where the gap still fits.

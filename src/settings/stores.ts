@@ -101,6 +101,7 @@ export const intervalSettingsStore = createStore<IntervalSettings>({
         defaults.playModes,
       ),
       range: sanitizeRange(raw.range, defaults.range),
+      adaptive: sanitizeAdaptive(raw.adaptive, defaults.adaptive),
     }
   },
 })
@@ -121,8 +122,21 @@ function chordSettingsSanitizer(allowedChords: readonly string[]) {
         defaults.playModes,
       ),
       range: sanitizeRange(raw.range, defaults.range),
+      adaptive: sanitizeAdaptive(raw.adaptive, defaults.adaptive),
     }
   }
+}
+
+/**
+ * A blob written before adaptive selection existed has no such key.
+ *
+ * `undefined` reaching the generator is neither on nor off at the point that
+ * decides how to weight a pick, so anything that is not a real boolean falls
+ * back to the default — which for existing users means it switches on, the
+ * same as for everyone else.
+ */
+function sanitizeAdaptive(raw: unknown, fallback: boolean): boolean {
+  return typeof raw === 'boolean' ? raw : fallback
 }
 
 export const chordSettingsStore = createStore<ChordSettings>({

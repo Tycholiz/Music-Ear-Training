@@ -88,6 +88,7 @@ describe('persistence', () => {
       intervals: [3, 7],
       playModes: ['descending'],
       range: { low: 40, high: 80 },
+      adaptive: false,
     })
 
     // Same key, fresh read path.
@@ -95,6 +96,7 @@ describe('persistence', () => {
       intervals: [3, 7],
       playModes: ['descending'],
       range: { low: 40, high: 80 },
+      adaptive: false,
     })
   })
 

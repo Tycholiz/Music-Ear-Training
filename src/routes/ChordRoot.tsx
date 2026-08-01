@@ -73,7 +73,11 @@ export default function ChordRoot() {
     gradedRef.current = false
     setRound((current) => ({
       number: (current?.number ?? 0) + 1,
-      question: generateRootQuestion(settings),
+      question: generateRootQuestion(
+        settings,
+        undefined,
+        rootStatsStore.read(),
+      ),
     }))
   }, [settings])
 

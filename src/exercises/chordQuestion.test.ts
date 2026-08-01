@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { CHORDS, chordById, maxInversion, nameToMidi } from '../theory'
-import { DEFAULT_CHORD_SETTINGS, type ChordSettings } from '../settings'
+import {
+  DEFAULT_CHORD_SETTINGS,
+  recordAttempts,
+  type ChordSettings,
+  type ExerciseStats,
+} from '../settings'
 import { HIGHEST_NOTE, LOWEST_NOTE } from '../audio'
 import {
   ALL_CHORD_IDS,
@@ -584,5 +589,86 @@ describe('isChordCorrect', () => {
 
   it('rejects a genuinely different chord', () => {
     expect(isChordCorrect(question, 'major')).toBe(false)
+  })
+})
+
+describe('adaptive selection', () => {
+  /** How often each chord comes up over many questions. */
+  function share(settings: ChordSettings, stats: ExerciseStats | undefined) {
+    const runs = 3000
+    const counts: Record<string, number> = {}
+    for (let i = 0; i < runs; i++) {
+      const id = generateChordQuestion(settings, Math.random, stats).chordId
+      counts[id] = (counts[id] ?? 0) + 1
+    }
+    return Object.fromEntries(
+      Object.entries(counts).map(([id, n]) => [id, n / runs]),
+    )
+  }
+
+  const settings: ChordSettings = {
+    ...DEFAULT_CHORD_SETTINGS,
+    chords: ['major', 'minor', 'diminished'],
+    adaptive: true,
+  }
+
+  /** A record where `diminished` is going badly and the others are solid. */
+  const struggling = recordAttempts(
+    {},
+    [
+      ...Array.from({ length: 20 }, () => ({
+        item: 'chord:diminished',
+        correct: false,
+      })),
+      ...Array.from({ length: 20 }, () => ({
+        item: 'chord:major',
+        correct: true,
+      })),
+      ...Array.from({ length: 20 }, () => ({
+        item: 'chord:minor',
+        correct: true,
+      })),
+    ],
+    1,
+  )
+
+  it('asks more often about the chord going worst', () => {
+    // Upper bound as well as lower: a generator that returned diminished every
+    // time would pass "comes up more often" and be unusable.
+    const observed = share(settings, struggling)
+
+    expect(observed.diminished).toBeGreaterThan(0.5)
+    expect(observed.diminished).toBeLessThan(0.75)
+    expect(observed.major).toBeGreaterThan(0.1)
+    expect(observed.minor).toBeGreaterThan(0.1)
+  })
+
+  it('stays uniform when the setting is off', () => {
+    const observed = share({ ...settings, adaptive: false }, struggling)
+
+    for (const id of ['major', 'minor', 'diminished']) {
+      expect(observed[id], id).toBeGreaterThan(0.28)
+      expect(observed[id], id).toBeLessThan(0.39)
+    }
+  })
+
+  it('stays uniform before anything has been recorded', () => {
+    const observed = share(settings, {})
+
+    for (const id of ['major', 'minor', 'diminished']) {
+      expect(observed[id], id).toBeGreaterThan(0.28)
+      expect(observed[id], id).toBeLessThan(0.39)
+    }
+  })
+
+  it("never generates a chord outside the user's selection", () => {
+    // The line this must not cross. Weighting reorders frequency; it does not
+    // widen the pool, which is what the settings screen promises.
+    const observed = share(settings, struggling)
+    expect(Object.keys(observed).sort()).toEqual([
+      'diminished',
+      'major',
+      'minor',
+    ])
   })
 })

@@ -1,4 +1,4 @@
-import { ListCard, ListRow, useModalNav } from '../components'
+import { CheckRow, ListCard, ListRow, useModalNav } from '../components'
 import { intervalSettingsStore, usePersisted } from '../settings'
 import { intervalName } from '../theory'
 import { isStuck, rangeWarning } from '../exercises'
@@ -72,6 +72,16 @@ function CustomizeScreen() {
           chevron
           onClick={() =>
             push({ title: 'Range', content: <IntervalRangeScreen /> })
+          }
+        />
+      </ListCard>
+
+      <ListCard footer="Questions favour the intervals going worst, within the ones you have selected. It never turns an interval on or off — that stays yours.">
+        <CheckRow
+          label="Focus on weak spots"
+          checked={settings.adaptive}
+          onChange={(adaptive) =>
+            intervalSettingsStore.write({ ...settings, adaptive })
           }
         />
       </ListCard>

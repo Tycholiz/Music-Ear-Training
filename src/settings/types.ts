@@ -31,6 +31,15 @@ export interface IntervalSettings {
   intervals: number[]
   playModes: IntervalPlayMode[]
   range: NoteRange
+  /**
+   * Ask more often about the things going worst.
+   *
+   * Reorders how frequently items inside this selection come up; it never
+   * changes the selection, which is the user's. On by default, because someone
+   * who never finds this setting is better served by having it than not — and
+   * a uniform pool spends most of a session revising what is already known.
+   */
+  adaptive: boolean
 }
 
 export interface ChordSettings {
@@ -40,6 +49,15 @@ export interface ChordSettings {
   inversions: number[]
   playModes: ChordPlayMode[]
   range: NoteRange
+  /**
+   * Ask more often about the things going worst.
+   *
+   * Reorders how frequently items inside this selection come up; it never
+   * changes the selection, which is the user's. On by default, because someone
+   * who never finds this setting is better served by having it than not — and
+   * a uniform pool spends most of a session revising what is already known.
+   */
+  adaptive: boolean
 }
 
 /** What sounds under a melody, in descending order of help (#57). */
@@ -144,6 +162,7 @@ export const DEFAULT_INTERVAL_SETTINGS: IntervalSettings = {
   intervals: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
   playModes: ['ascending', 'harmonic'],
   range: DEFAULT_RANGE,
+  adaptive: true,
 }
 
 /** The eight chords a beginner should start with. */
@@ -161,6 +180,7 @@ export const DEFAULT_CHORD_SETTINGS: ChordSettings = {
   inversions: [0],
   playModes: ['block'],
   range: DEFAULT_RANGE,
+  adaptive: true,
 }
 
 /**
