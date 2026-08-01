@@ -77,7 +77,11 @@ export default function Intervals() {
     measured.current = false
     setRound((current) => ({
       number: (current?.number ?? 0) + 1,
-      question: generateIntervalQuestion(settings),
+      question: generateIntervalQuestion(
+        settings,
+        undefined,
+        intervalStatsStore.read(),
+      ),
     }))
   }, [settings])
 

@@ -15,7 +15,8 @@ import {
   pitchClass,
   type Chord,
 } from '../theory'
-import type { ChordPlayMode, ChordSettings } from '../settings'
+import type { ChordPlayMode, ChordSettings, ExerciseStats } from '../settings'
+import { chordKey, pickAdaptive } from './adaptive'
 import type { Random } from './intervalQuestion'
 
 /**
@@ -94,6 +95,15 @@ function pick<T>(options: readonly T[], random: Random): T {
 export function generateChordQuestion(
   settings: ChordSettings,
   random: Random = Math.random,
+  /**
+   * The user's record, for weighting the chord toward what is going worst.
+   *
+   * Optional and ignored when `settings.adaptive` is off. Chord root reaches
+   * this through `generateRootQuestion` and so gets the same treatment, from
+   * its own store — the two exercises keep separate records because being able
+   * to find a root is a different skill from naming the quality.
+   */
+  stats?: ExerciseStats,
 ): ChordQuestion {
   const candidates = chordCandidates(settings)
   if (candidates.length === 0 || settings.playModes.length === 0) {
@@ -102,7 +112,19 @@ export function generateChordQuestion(
     )
   }
 
-  const { chord, inversion } = pick(candidates, random)
+  // Weighted on the chord, which is what the user names. Inversion rides along
+  // with whichever candidate is drawn rather than being weighted itself: the
+  // candidates are (chord, inversion) pairs, and weighting both dimensions at
+  // once would need a joint record this does not keep.
+  //
+  // Worth revisiting for chord root, where inversion *is* the difficulty and a
+  // chord-only weighting is the weaker half of the story.
+  const { chord, inversion } = pickAdaptive(
+    candidates,
+    (candidate) => chordKey(candidate.chord.id),
+    settings.adaptive ? stats : undefined,
+    random,
+  )
   const playMode = pick(settings.playModes, random)
 
   // Place the chord so every voice lands inside the range. After an inversion

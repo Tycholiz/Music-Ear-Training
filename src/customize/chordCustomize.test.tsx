@@ -358,3 +358,31 @@ describe('navigation', () => {
     )
   })
 })
+
+describe('focusing on weak spots', () => {
+  it('is on by default, since a user who never finds it is better served by it', async () => {
+    const { user } = openMenu()
+    await user.click(screen.getByRole('button', { name: /Customize Exercise/ }))
+
+    expect(
+      screen.getByRole('checkbox', { name: /Focus on weak spots/ }),
+    ).toBeChecked()
+  })
+
+  it('can be switched off', async () => {
+    const { user } = openMenu()
+    await user.click(screen.getByRole('button', { name: /Customize Exercise/ }))
+    await user.click(
+      screen.getByRole('checkbox', { name: /Focus on weak spots/ }),
+    )
+
+    await waitFor(() => expect(chordSettingsStore.read().adaptive).toBe(false))
+  })
+
+  it('says it never changes the selection, which is the promise it has to keep', async () => {
+    const { user } = openMenu()
+    await user.click(screen.getByRole('button', { name: /Customize Exercise/ }))
+
+    expect(screen.getByText(/never turns a chord on or off/i)).toBeVisible()
+  })
+})

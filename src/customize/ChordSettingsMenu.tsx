@@ -1,4 +1,4 @@
-import { ListCard, ListRow, useModalNav } from '../components'
+import { CheckRow, ListCard, ListRow, useModalNav } from '../components'
 import {
   usePersisted,
   type ChordSettings,
@@ -114,6 +114,14 @@ function CustomizeScreen({
               content: <ChordPlayModeScreen store={store} />,
             })
           }
+        />
+      </ListCard>
+
+      <ListCard footer="Questions favour the chords going worst, within the ones you have selected. It never turns a chord on or off — that stays yours.">
+        <CheckRow
+          label="Focus on weak spots"
+          checked={settings.adaptive}
+          onChange={(adaptive) => store.write({ ...settings, adaptive })}
         />
       </ListCard>
 

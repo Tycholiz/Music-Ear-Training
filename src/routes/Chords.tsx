@@ -73,7 +73,11 @@ export default function Chords() {
     measured.current = false
     setRound((current) => ({
       number: (current?.number ?? 0) + 1,
-      question: generateChordQuestion(settings),
+      question: generateChordQuestion(
+        settings,
+        undefined,
+        chordStatsStore.read(),
+      ),
     }))
   }, [settings])
 

@@ -1,4 +1,12 @@
 export {
+  MAX_WEIGHT_RATIO,
+  chordKey,
+  intervalKey,
+  itemWeight,
+  pickAdaptive,
+  smoothedAccuracy,
+} from './adaptive'
+export {
   MAX_DESCENDING_ANSWER,
   answerFor,
   canGenerate,

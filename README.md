@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1174 tests across 44 files.** All of `npm run lint`, `npm run build`,
+**1195 tests across 45 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -171,6 +171,39 @@ Nothing in `stats.ts` reports an accuracy. Two out of three is not 67%, and the
 consumers need different policies about it: a screen should decline to print a
 number, a weighting function must still return something for an item with no
 data. So the store records and the callers decide what it means.
+
+### Adaptive difficulty: same pool, different frequency
+
+`exercises/adaptive.ts` weights question selection toward whatever is going
+worst, reading the recent window from the statistics above. It **never changes
+which items are in the pool** — that is the user's, set on a screen they can
+see, and a chord they switched off appearing anyway would make the settings a
+lie. Widening the pool automatically is a separate idea and deliberately not
+this one.
+
+Three things it has to get right, and each has a test that fails without it:
+
+- **Smoothed, not raw.** One hit is not mastery. Accuracy is shrunk toward an
+  even prior (Beta(1,1)), so a single correct answer reads as 2/3 rather than
+  certain, and an item with no record at all sits mid-weight — it needs
+  _exposure_, and either extreme would be a guess about a user who has not been
+  asked yet.
+- **Capped at 4:1.** Someone bad at exactly one chord should not meet it eight
+  times in ten. That is tedious rather than effective and is the standard way
+  naive spaced repetition becomes unbearable.
+- **Floored above zero.** An item that stops being asked stops generating
+  evidence about itself, so a lucky streak would freeze it out permanently.
+
+Only the **sampled** exercises are weighted: intervals, chords, and chord root
+through `generateChordQuestion`. Melody and progressions are constraint-walked
+toward a cadence or a shape, and forcing a weak chord into a progression can
+make the cadence unreachable — breaking exact reachability to bias a
+distribution is a bad trade. They stay uniform until that gets its own design.
+
+Weighting is on the **answer** — the interval, the chord — not on inversion or
+play mode. Those are how a question is presented rather than what it asks, and
+weighting several dimensions at once needs a joint record the stats do not
+keep. Worth revisiting for chord root, where inversion _is_ the difficulty.
 
 ### Audio: the engine knows nothing about music
 

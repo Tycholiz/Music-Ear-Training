@@ -1,6 +1,6 @@
 import { sequence, simultaneous, type NoteGroup } from '../audio'
 import { pitchClass } from '../theory'
-import type { ChordSettings } from '../settings'
+import type { ChordSettings, ExerciseStats } from '../settings'
 import {
   chordRootPitch,
   generateChordQuestion,
@@ -25,8 +25,9 @@ export type RootQuestion = ChordQuestion
 export function generateRootQuestion(
   settings: ChordSettings,
   random?: Random,
+  stats?: ExerciseStats,
 ): RootQuestion {
-  return generateChordQuestion(settings, random)
+  return generateChordQuestion(settings, random, stats)
 }
 
 /**
