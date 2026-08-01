@@ -26,11 +26,27 @@ export type {
   ProgressionSettings,
   Score,
 } from './types'
+export {
+  EMPTY_ITEM_STATS,
+  RECENT_WINDOW,
+  itemId,
+  itemNamespace,
+  itemsInNamespace,
+  recordAttempt,
+  recordAttempts,
+  recordInStore,
+} from './stats'
+export type { Attempt, ExerciseStats, ItemStats } from './stats'
 export { createStore } from './store'
 export type { PersistedStore } from './store'
 export {
   chordScoreStore,
   chordSettingsStore,
+  chordStatsStore,
+  intervalStatsStore,
+  melodyStatsStore,
+  progressionStatsStore,
+  rootStatsStore,
   intervalScoreStore,
   intervalSettingsStore,
   melodyScoreStore,

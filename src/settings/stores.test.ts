@@ -7,6 +7,8 @@ import {
   intervalSettingsStore,
   melodySettingsStore,
   progressionSettingsStore,
+  chordStatsStore,
+  intervalStatsStore,
 } from './stores'
 import {
   DEFAULT_CHORD_SETTINGS,
@@ -16,6 +18,7 @@ import {
   EMPTY_SCORE,
   recordGuess,
 } from './types'
+import { RECENT_WINDOW, recordInStore } from './stats'
 
 beforeEach(() => {
   localStorage.clear()
@@ -25,6 +28,8 @@ beforeEach(() => {
   intervalScoreStore.reset()
   chordScoreStore.reset()
   progressionSettingsStore.reset()
+  chordStatsStore.reset()
+  intervalStatsStore.reset()
 })
 
 /** Write a raw value past the typed API, the way a corrupt blob would look. */
@@ -195,6 +200,138 @@ describe('sanitising progression settings', () => {
   it('refuses a non-boolean rather than passing it through as truthy', () => {
     poison(key, { ...DEFAULT_PROGRESSION_SETTINGS, upTo: 'yes' })
     expect(progressionSettingsStore.read().upTo).toBe(false)
+  })
+})
+
+describe('sanitising statistics', () => {
+  const key = 'met.stats.chords'
+
+  it('keeps a well-formed record', () => {
+    poison(key, {
+      'chord:major': {
+        attempts: 4,
+        correct: 3,
+        recent: [true, false, true, true],
+        lastSeen: 1700,
+        confusions: { minor: 1 },
+      },
+    })
+
+    expect(chordStatsStore.read()['chord:major']).toEqual({
+      attempts: 4,
+      correct: 3,
+      recent: [true, false, true, true],
+      lastSeen: 1700,
+      confusions: { minor: 1 },
+    })
+  })
+
+  it('drops an id with no namespace', () => {
+    // Ungrouped, so nothing could show it, and it would surface on the
+    // statistics screen as an item that does not exist.
+    poison(key, {
+      major: { attempts: 3, correct: 1, recent: [], lastSeen: 0 },
+      'chord:major': { attempts: 3, correct: 1, recent: [], lastSeen: 0 },
+    })
+
+    expect(Object.keys(chordStatsStore.read())).toEqual(['chord:major'])
+  })
+
+  it('drops an item nothing has been recorded against', () => {
+    poison(key, {
+      'chord:major': { attempts: 0, correct: 0, recent: [], lastSeen: 0 },
+    })
+
+    expect(chordStatsStore.read()).toEqual({})
+  })
+
+  it('never reports more correct than attempts', () => {
+    poison(key, {
+      'chord:major': { attempts: 2, correct: 99, recent: [], lastSeen: 0 },
+    })
+
+    expect(chordStatsStore.read()['chord:major'].correct).toBe(2)
+  })
+
+  it('trims a recent window longer than the one everything else is measured over', () => {
+    // A hand-edited blob would otherwise weight adaptive difficulty against a
+    // far longer history than every other item gets.
+    poison(key, {
+      'chord:major': {
+        attempts: 100,
+        correct: 100,
+        recent: Array.from({ length: 100 }, () => true),
+        lastSeen: 0,
+      },
+    })
+
+    expect(chordStatsStore.read()['chord:major'].recent).toHaveLength(
+      RECENT_WINDOW,
+    )
+  })
+
+  it('drops non-boolean outcomes rather than treating them as truthy', () => {
+    poison(key, {
+      'chord:major': {
+        attempts: 3,
+        correct: 1,
+        recent: [true, 'yes', null, false],
+        lastSeen: 0,
+      },
+    })
+
+    expect(chordStatsStore.read()['chord:major'].recent).toEqual([true, false])
+  })
+
+  it('drops confusion counts that are not positive integers', () => {
+    poison(key, {
+      'chord:major': {
+        attempts: 3,
+        correct: 1,
+        recent: [],
+        lastSeen: 0,
+        confusions: { minor: 2, sus4: 0, aug: -1, dim: 'lots' },
+      },
+    })
+
+    expect(chordStatsStore.read()['chord:major'].confusions).toEqual({
+      minor: 2,
+    })
+  })
+
+  it('leaves confusions absent rather than empty when none survive', () => {
+    poison(key, {
+      'chord:major': {
+        attempts: 3,
+        correct: 1,
+        recent: [],
+        lastSeen: 0,
+        confusions: { minor: 0 },
+      },
+    })
+
+    expect(chordStatsStore.read()['chord:major']).not.toHaveProperty(
+      'confusions',
+    )
+  })
+
+  it('repairs one bad item without discarding the good ones', () => {
+    poison(key, {
+      'chord:major': { attempts: 5, correct: 4, recent: [true], lastSeen: 1 },
+      'chord:minor': 'not an object',
+    })
+
+    expect(Object.keys(chordStatsStore.read())).toEqual(['chord:major'])
+  })
+
+  it('falls back entirely when the blob is the wrong shape', () => {
+    poison(key, 'not an object')
+    expect(chordStatsStore.read()).toEqual({})
+  })
+
+  it('keeps each exercise history separate', () => {
+    recordInStore(chordStatsStore, [{ item: 'chord:major', correct: true }])
+    expect(intervalStatsStore.read()).toEqual({})
   })
 })
 

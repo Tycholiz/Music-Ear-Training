@@ -14,6 +14,9 @@ import { numeralById, numeralsByDifficulty } from '../theory'
 import {
   progressionScoreStore,
   progressionSettingsStore,
+  itemId,
+  progressionStatsStore,
+  recordInStore,
   recordGuess,
   usePersisted,
 } from '../settings'
@@ -206,6 +209,28 @@ export default function Progressions() {
     // a keypad; hearing it turns a wrong answer into information — that was the
     // subdominant, and the progression was not.
     void piano.play([voiceGuess(round.question, index, numeralId, settings)])
+
+    const wasRight = numeralId === round.question.numerals[index]
+
+    // First run only, read before `scoreOnce` flips the ref — a retry is the
+    // user working from knowledge of where they went wrong.
+    //
+    // Three separate facts, because they fail for different reasons and want
+    // different fixes. Missing `V` is harmony. Missing the cadence is a
+    // question about how progressions end. Missing chord four of five while
+    // getting one to three is working memory, and no amount of chord drilling
+    // addresses it.
+    if (!graded.current) {
+      recordInStore(progressionStatsStore, [
+        {
+          item: itemId('numeral', round.question.numerals[index]),
+          correct: wasRight,
+          answered: numeralId,
+        },
+        { item: itemId('cadence', round.question.cadence), correct: wasRight },
+        { item: itemId('position', index), correct: wasRight },
+      ])
+    }
 
     if (numeralId !== round.question.numerals[index]) {
       lightUp(numeralId, false)

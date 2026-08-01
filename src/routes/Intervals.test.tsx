@@ -7,6 +7,7 @@ import { buildCells } from '../exercises'
 import { piano } from '../audio'
 import {
   intervalScoreStore,
+  intervalStatsStore,
   intervalSettingsStore,
   DEFAULT_INTERVAL_SETTINGS,
 } from '../settings'
@@ -36,6 +37,7 @@ beforeEach(() => {
   localStorage.clear()
   intervalSettingsStore.reset()
   intervalScoreStore.reset()
+  intervalStatsStore.reset()
   vi.spyOn(piano, 'play').mockResolvedValue(undefined)
   vi.spyOn(piano, 'stop').mockImplementation(() => {})
   vi.spyOn(exercises, 'generateIntervalQuestion').mockReturnValue(P5)
@@ -334,5 +336,60 @@ describe('keyboard focus', () => {
 
     expect(piano.play).toHaveBeenCalledExactlyOnceWith([[60], [67]])
     expect(screen.getByLabelText('Score')).toHaveTextContent('0/0')
+  })
+})
+
+describe('what goes into the statistics', () => {
+  const press = async (
+    user: ReturnType<typeof userEvent.setup>,
+    name: string,
+  ) => user.click(screen.getByRole('button', { name }))
+
+  it('records the interval and the play mode of a correct first press', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await press(user, 'Perfect 5th')
+
+    const stats = intervalStatsStore.read()
+    expect(stats['interval:7']).toMatchObject({ attempts: 1, correct: 1 })
+    expect(stats['mode:ascending']).toMatchObject({ attempts: 1, correct: 1 })
+  })
+
+  it('records what was pressed instead, so a confusion can be named', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await press(user, 'Perfect 4th')
+
+    expect(intervalStatsStore.read()['interval:7']).toMatchObject({
+      attempts: 1,
+      correct: 0,
+      confusions: { '5': 1 },
+    })
+  })
+
+  /**
+   * The score counts every press — three misses then a hit is 1/4, which is
+   * right for a scoreboard. Statistics want a different fact: whether the user
+   * knew it, which only the first press can answer. Counting the later ones
+   * would make every interval look easier the longer someone struggled.
+   */
+  it('takes the first press only, unlike the score', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await press(user, 'Perfect 4th')
+    await press(user, 'Major 3rd')
+    await press(user, 'Perfect 5th')
+
+    expect(screen.getByLabelText('Score')).toHaveTextContent('1/3')
+    expect(intervalStatsStore.read()['interval:7']).toMatchObject({
+      attempts: 1,
+      correct: 0,
+    })
   })
 })

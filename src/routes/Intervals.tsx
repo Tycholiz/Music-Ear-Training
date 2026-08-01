@@ -12,6 +12,9 @@ import { piano, scheduleDurationMs } from '../audio'
 import {
   intervalScoreStore,
   intervalSettingsStore,
+  intervalStatsStore,
+  itemId,
+  recordInStore,
   recordGuess,
   usePersisted,
 } from '../settings'
@@ -41,6 +44,21 @@ export default function Intervals() {
   const [settings] = usePersisted(intervalSettingsStore)
   const [score, setScore, resetScore] = usePersisted(intervalScoreStore)
 
+  /**
+   * Whether this question has already gone into the statistics.
+   *
+   * The *score* counts every press — three misses then a hit is 1/4, and that
+   * is the right thing for a scoreboard. Statistics want a different fact:
+   * whether the user knew it, which only the first press can answer. Later
+   * presses on the same question are process of elimination, and counting them
+   * would make every interval look easier the longer someone struggled with it.
+   *
+   * A ref rather than deriving it from `wrong` and `solved`, for the reason
+   * the melody and progression screens keep one: two presses inside a single
+   * React batch both read the state their render was built with.
+   */
+  const measured = useRef(false)
+
   // Each question is wrapped with a round number so that "a new question
   // arrived" never depends on object identity — two consecutive questions can
   // legitimately be structurally identical.
@@ -56,6 +74,7 @@ export default function Intervals() {
   const nextQuestion = useCallback(() => {
     setWrong([])
     setSolved(false)
+    measured.current = false
     setRound((current) => ({
       number: (current?.number ?? 0) + 1,
       question: generateIntervalQuestion(settings),
@@ -74,6 +93,7 @@ export default function Intervals() {
     setRound(null)
     setWrong([])
     setSolved(false)
+    measured.current = false
   }, [settings])
 
   // Park focus on Replay for every new question, so a keyboard user can
@@ -107,6 +127,21 @@ export default function Intervals() {
 
     const correct = isCorrect(round.question, semitones)
     setScore(recordGuess(score, correct))
+
+    if (!measured.current) {
+      measured.current = true
+      recordInStore(intervalStatsStore, [
+        {
+          item: itemId('interval', round.question.answer),
+          correct,
+          answered: String(semitones),
+        },
+        // The same interval descending is a different skill from ascending,
+        // and harmonic is a third. Recorded separately so the breakdown can
+        // say which.
+        { item: itemId('mode', round.question.playMode), correct },
+      ])
+    }
 
     if (!correct) {
       setWrong((current) => [...current, semitones])
