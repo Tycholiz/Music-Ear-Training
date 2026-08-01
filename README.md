@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1107 tests across 43 files.** All of `npm run lint`, `npm run build`,
+**1118 tests across 43 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -260,6 +260,14 @@ needs to read it without waiting for a re-render.
 Reveal exists on every exercise that retries, and counts as a miss. Without it a
 stuck user retries the same unsolved question forever. `scoreOnce` makes it come
 out right in both directions with no extra bookkeeping.
+
+**Chord Identification is the exception, because it scores every press.** Three
+wrong guesses then a hit is 1/4 there, so its Reveal charges one more failed
+attempt rather than one per remaining chord — reveal after two wrong guesses
+ends the question at 0/3. "Counts as a miss" is ambiguous in an exercise where a
+single question can already be 0/3, so it is pinned down by test rather than
+left to be inferred. A revealed answer is styled `revealed`, not `correct`:
+green would tell the user they got something they asked to be handed.
 
 ## Gotchas
 

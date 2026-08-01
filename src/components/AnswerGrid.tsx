@@ -7,7 +7,7 @@
  * fits on one screen without scrolling.
  */
 
-export type AnswerState = 'idle' | 'wrong' | 'correct'
+export type AnswerState = 'idle' | 'wrong' | 'correct' | 'revealed'
 
 export interface Answer {
   id: string
@@ -22,6 +22,10 @@ const STATE_STYLES: Record<AnswerState, string> = {
   idle: 'bg-surface active:bg-surface-raised',
   wrong: 'bg-incorrect text-white',
   correct: 'bg-correct text-black',
+  // Given rather than found, so deliberately not the green a right answer
+  // gets. Colouring a revealed answer as correct would tell the user they got
+  // something they asked to be told.
+  revealed: 'bg-surface-raised text-content',
 }
 
 export function AnswerGrid({

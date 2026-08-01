@@ -152,6 +152,12 @@ export const CHORDS: readonly Chord[] = [
     category: 'Added-note',
     offsets: [0, 4, 7, 9, 14],
   },
+  {
+    id: 'minor-six-nine',
+    name: 'Minor 6/9',
+    category: 'Added-note',
+    offsets: [0, 3, 7, 9, 14],
+  },
 
   // Ninths
   {
@@ -348,8 +354,8 @@ export function hasAmbiguousRoot(chord: Chord): boolean {
 /**
  * Chords whose root can actually be identified from the sound alone.
  *
- * The root recognition exercise draws only from these. Twenty-one of the
- * thirty-four qualify, which is more than enough to practise on.
+ * The root recognition exercise draws only from these. Twenty-two of the
+ * thirty-five qualify, which is more than enough to practise on.
  */
 export const UNAMBIGUOUS_ROOT_CHORDS: readonly Chord[] = CHORDS.filter(
   (chord) => !hasAmbiguousRoot(chord),

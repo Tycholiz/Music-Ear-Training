@@ -10,6 +10,8 @@ export function buildChordCells(
   enabled: readonly string[],
   wrong: readonly string[],
   solvedId: string | null,
+  /** The answer, once the user has asked to be told it. */
+  revealedId: string | null = null,
 ): AnswerCell[] {
   const chosen = new Set(enabled)
 
@@ -22,7 +24,9 @@ export function buildChordCells(
         ? ('wrong' as const)
         : solvedId === chord.id
           ? ('correct' as const)
-          : ('idle' as const),
+          : revealedId === chord.id
+            ? ('revealed' as const)
+            : ('idle' as const),
     }
   })
 
