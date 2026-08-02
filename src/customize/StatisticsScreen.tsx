@@ -5,6 +5,7 @@ import {
   type PersistedStore,
 } from '../settings'
 import {
+  MIN_ATTEMPTS_TO_REPORT,
   confusionsFor,
   hasAnyStats,
   mastery,
@@ -35,8 +36,17 @@ import {
  * ## Nothing prints a percentage on thin evidence
  *
  * Two out of three is not 67%. A statistics screen that says so is worse than
- * no screen at all, because the user acts on it. Below the threshold a row says
- * how many more attempts it needs, which is both honest and a nudge.
+ * no screen at all, because the user acts on it. Below the threshold a row
+ * shows its attempt count against the goal instead — `2/5 attempts` — and the
+ * rule itself is spelled out once at the top of the screen, so no individual
+ * row has to carry the explanation alone.
+ *
+ * The first version showed a bare `{n} more to go` below the threshold and
+ * `{percent}% of {n}` above it. Both looked reasonable and both were
+ * unreadable in practice: "more to go" never says more of *what*, and `%
+ * of N` parses exactly like a fraction — "40% of 5" reads as "40% of the
+ * number 5" the way "40% of 5 dollars" would. The fix in both places is the
+ * same: say "attempts" out loud rather than trusting the reader to infer it.
  */
 export function StatisticsScreen({
   store,
@@ -62,6 +72,12 @@ export function StatisticsScreen({
 
   return (
     <div className="flex flex-col gap-6 p-4">
+      <p className="text-sm text-content-muted">
+        Accuracy shows once you have answered something at least{' '}
+        {MIN_ATTEMPTS_TO_REPORT} times — one or two attempts is not enough to
+        tell whether you actually know it.
+      </p>
+
       <AnswerSection stats={stats} section={view.answer} />
 
       {view.breakdowns.map((section) => (
@@ -166,11 +182,18 @@ function StatRow({ row, section }: { row: StatsRow; section: StatsSection }) {
   )
 }
 
+/**
+ * Neither state used to name its own unit. "2 more to go" didn't say two more
+ * of *what*, and "40% of 5" reads exactly like a fraction — `of` between a
+ * percentage and a number is how you'd write "40% of 5 dollars", not "40%,
+ * measured across 5 attempts". Both are fixed the same way: say "attempts"
+ * out loud rather than trusting the reader to infer it.
+ */
 function Accuracy({ row }: { row: StatsRow }) {
   if (row.accuracy === null) {
     return (
-      <span className="text-sm text-content-muted">
-        {row.moreNeeded} more to go
+      <span className="text-sm text-content-muted tabular-nums">
+        {row.item.attempts}/{row.item.attempts + row.moreNeeded} attempts
       </span>
     )
   }
@@ -178,7 +201,9 @@ function Accuracy({ row }: { row: StatsRow }) {
   return (
     <span className="tabular-nums">
       {Math.round(row.accuracy * 100)}%{' '}
-      <span className="text-sm text-content-muted">of {row.item.attempts}</span>
+      <span className="text-sm text-content-muted">
+        ({row.item.attempts} attempts)
+      </span>
     </span>
   )
 }

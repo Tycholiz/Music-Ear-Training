@@ -103,7 +103,9 @@ describe('what am I bad at', () => {
     ).toBeVisible()
   })
 
-  it('shows an accuracy with the count it rests on', async () => {
+  it('shows an accuracy with the attempt count named as attempts', async () => {
+    // "40% of 5" used to read like a fraction — 40% *of the number* 5 — with
+    // nothing to say it meant five attempts. The word has to appear.
     const user = openMenu()
     await openStatistics(user)
 
@@ -111,20 +113,29 @@ describe('what am I bad at', () => {
     const row = screen.getByText('Augmented Triad').closest('div')
     expect(row).not.toBeNull()
     expect(within(row!).getByText(/70%/)).toBeVisible()
-    expect(within(row!).getByText(/of 20/)).toBeVisible()
+    expect(within(row!).getByText(/\(20 attempts\)/)).toBeVisible()
   })
 })
 
 describe('thin evidence', () => {
-  it('refuses to print a percentage, and says how much more is needed', async () => {
+  it('refuses to print a percentage, and names attempts rather than a bare count', async () => {
     // Two out of three is not 67%. A statistics screen that says so is worse
-    // than none, because the user acts on it.
+    // than none, because the user acts on it. "2 more to go" used to say
+    // nothing about what there were two more *of*.
     recordInStore(chordStatsStore, times('chord:major', true, 2))
     const user = openMenu()
     await openStatistics(user)
 
-    expect(screen.getByText(/3 more to go/)).toBeVisible()
+    expect(screen.getByText(/2\/5 attempts/)).toBeVisible()
     expect(screen.queryByText('100%')).toBeNull()
+  })
+
+  it('explains the rule once, rather than leaving every row to imply it', async () => {
+    recordInStore(chordStatsStore, times('chord:major', true, 2))
+    const user = openMenu()
+    await openStatistics(user)
+
+    expect(screen.getByText(/at least 5 times/)).toBeVisible()
   })
 })
 
