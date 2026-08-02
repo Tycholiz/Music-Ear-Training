@@ -999,7 +999,7 @@ describe('what goes into the statistics', () => {
     expect(melodyStatsStore.read()['degree:0']).toMatchObject({
       attempts: 1,
       correct: 0,
-      confusions: { '7': 1 },
+      recent: [{ correct: false, answered: '7' }],
     })
   })
 

@@ -25,10 +25,17 @@ import {
  *
  * ## Confusions are the only diagnostic thing here
  *
- * "Diminished 41%" tells a user to practise more, which they knew. "You hear
- * diminished as minor" tells them what to listen for. So a confusion sits
- * directly under the row it belongs to rather than in a section of its own,
- * where it would be a second list to cross-reference against the first.
+ * "Diminished 41%" tells a user to practise more, which they knew. "Often
+ * mistaken for Minor Triad" tells them what to listen for. So it sits directly
+ * under the row it belongs to rather than in a section of its own, where it
+ * would be a second list to cross-reference against the first.
+ *
+ * Named rather than counted, and at most two. A count invites arithmetic
+ * against a total that is not on screen, and the threshold in `confusionsFor`
+ * has already answered the only question a count would settle — whether this
+ * happens often enough to be worth saying. Two, because a row that grows to
+ * four clauses stops being readable at a glance, and the third commonest
+ * mistake is not what anyone came to find out.
  *
  * Chord root shows none and should not: it is self-graded, so there is no
  * wrong answer to name.
@@ -185,8 +192,7 @@ function StatRow({ row, section }: { row: StatsRow; section: StatsSection }) {
           <span className="block">{row.label}</span>
           {confusions.length > 0 && (
             <span className="block text-sm text-content-muted">
-              Heard as {confusions[0].label}
-              {confusions[0].count > 1 && ` (×${confusions[0].count})`}
+              Often mistaken for {confusions.join(' and ')}
             </span>
           )}
         </>

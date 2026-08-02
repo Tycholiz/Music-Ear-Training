@@ -758,7 +758,7 @@ describe('what goes into the statistics', () => {
     expect(progressionStatsStore.read()['numeral:I']).toMatchObject({
       attempts: 1,
       correct: 0,
-      confusions: { V: 1 },
+      recent: [{ correct: false, answered: 'V' }],
     })
   })
 

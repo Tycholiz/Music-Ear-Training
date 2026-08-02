@@ -27,7 +27,7 @@ describe('recordAttempt', () => {
     expect(stats['chord:major']).toEqual({
       attempts: 1,
       correct: 1,
-      recent: [true],
+      recent: [{ correct: true }],
       lastSeen: NOW,
     })
   })
@@ -88,14 +88,17 @@ describe('the recent window', () => {
     const { recent } = stats['chord:major']
     expect(recent).toHaveLength(RECENT_WINDOW)
     // The single false was first and is now gone.
-    expect(recent.every(Boolean)).toBe(true)
+    expect(recent.every((a) => a.correct)).toBe(true)
   })
 
   it('reads forwards in time, newest last', () => {
     let stats = recordAttempt({}, { item: 'chord:major', correct: false }, 1)
     stats = recordAttempt(stats, { item: 'chord:major', correct: true }, 2)
 
-    expect(stats['chord:major'].recent).toEqual([false, true])
+    expect(stats['chord:major'].recent).toEqual([
+      { correct: false },
+      { correct: true },
+    ])
   })
 
   it('keeps the lifetime count past the window', () => {
@@ -111,30 +114,42 @@ describe('the recent window', () => {
   })
 })
 
-describe('confusions', () => {
-  it('records what was answered instead', () => {
+describe('what was answered instead', () => {
+  it('rides along with the attempt that got it wrong', () => {
+    // On the attempt rather than in a lifetime tally, so a mistake expires
+    // with the window that holds it.
     const stats = recordAttempt(
       {},
       { item: 'chord:diminished', correct: false, answered: 'minor' },
       NOW,
     )
 
-    expect(stats['chord:diminished'].confusions).toEqual({ minor: 1 })
+    expect(stats['chord:diminished'].recent).toEqual([
+      { correct: false, answered: 'minor' },
+    ])
   })
 
-  it('counts the same mistake being made again', () => {
+  it('falls out of the window with the attempt it belongs to', () => {
+    // The whole point of moving it here. A mistake made twenty questions ago
+    // is not a fact about how the user hears this chord now.
     let stats = recordAttempt(
       {},
       { item: 'chord:diminished', correct: false, answered: 'minor' },
       NOW,
     )
-    stats = recordAttempt(
+    stats = recordAttempts(
       stats,
-      { item: 'chord:diminished', correct: false, answered: 'minor' },
+      Array.from({ length: RECENT_WINDOW }, () => ({
+        item: 'chord:diminished',
+        correct: true,
+      })),
       NOW,
     )
 
-    expect(stats['chord:diminished'].confusions).toEqual({ minor: 2 })
+    expect(stats['chord:diminished'].recent).toHaveLength(RECENT_WINDOW)
+    expect(
+      stats['chord:diminished'].recent.some((a) => a.answered !== undefined),
+    ).toBe(false)
   })
 
   it('says nothing on a correct answer', () => {
@@ -146,7 +161,7 @@ describe('confusions', () => {
       NOW,
     )
 
-    expect(stats['chord:major'].confusions).toBeUndefined()
+    expect(stats['chord:major'].recent).toEqual([{ correct: true }])
   })
 
   it('stays absent for a self-graded exercise', () => {
@@ -155,7 +170,7 @@ describe('confusions', () => {
       { item: 'chord:major', correct: false },
       NOW,
     )
-    expect(stats['chord:major'].confusions).toBeUndefined()
+    expect(stats['chord:major'].recent).toEqual([{ correct: false }])
   })
 })
 

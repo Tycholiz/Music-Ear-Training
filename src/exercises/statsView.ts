@@ -214,7 +214,7 @@ export function statsRows(
   return Object.entries(itemsInNamespace(stats, section.namespace))
     .map(([id, item]) => {
       const seen = item.recent.length
-      const right = item.recent.filter(Boolean).length
+      const right = item.recent.filter((a) => a.correct).length
 
       return {
         id,
@@ -240,14 +240,51 @@ export function reportableRows(rows: readonly StatsRow[]): StatsRow[] {
   return rows.filter((row) => row.accuracy !== null)
 }
 
-/** The confusions for one row, worst first, already labelled. */
-export function confusionsFor(
-  row: StatsRow,
-  section: StatsSection,
-): { label: string; count: number }[] {
-  return Object.entries(row.item.confusions ?? {})
-    .map(([answered, count]) => ({ label: section.label(answered), count }))
-    .sort((a, b) => b.count - a.count)
+/**
+ * How often a mistake has to happen before it is worth naming.
+ *
+ * As a share of *attempts*, not of misses: mistaking a perfect 5th for an
+ * octave a fifth of the time is a habit worth knowing about, and the same
+ * mistake made once in twenty tries is noise. A share of misses would call
+ * that second one 100% of a single miss and say it just as loudly.
+ *
+ * Set between the two cases that decide it — a fifth of the time counts, a
+ * twentieth does not.
+ */
+export const CONFUSION_THRESHOLD = 0.15
+
+/** At most this many named per row, commonest first. */
+export const MAX_CONFUSIONS_SHOWN = 2
+
+/**
+ * What this item is habitually mistaken for, commonest first.
+ *
+ * Counted over the recent window, so a mistake stops being mentioned once it
+ * stops being made — the same span the accuracy and the bucket use. Answers
+ * below `CONFUSION_THRESHOLD` are left out entirely rather than listed with a
+ * small number beside them: a rare mistake named alongside a habitual one
+ * reads as though both were findings.
+ *
+ * No counts come back with them. "Mistaken for an octave 11 times" invites
+ * arithmetic against a total that is not on screen, and the threshold has
+ * already answered the only question a count would settle.
+ */
+export function confusionsFor(row: StatsRow, section: StatsSection): string[] {
+  const attempts = row.item.recent.length
+  if (attempts === 0) return []
+
+  const counts = new Map<string, number>()
+  for (const { answered } of row.item.recent) {
+    if (answered !== undefined) {
+      counts.set(answered, (counts.get(answered) ?? 0) + 1)
+    }
+  }
+
+  return [...counts.entries()]
+    .filter(([, count]) => count / attempts >= CONFUSION_THRESHOLD)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, MAX_CONFUSIONS_SHOWN)
+    .map(([answered]) => section.label(answered))
 }
 
 /** Whether anything at all has been recorded for this exercise. */

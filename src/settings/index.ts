@@ -36,7 +36,7 @@ export {
   recordAttempts,
   recordInStore,
 } from './stats'
-export type { Attempt, ExerciseStats, ItemStats } from './stats'
+export type { Attempt, ExerciseStats, ItemStats, RecentAttempt } from './stats'
 export { createStore } from './store'
 export type { PersistedStore } from './store'
 export {

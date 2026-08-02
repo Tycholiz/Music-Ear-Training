@@ -213,19 +213,54 @@ describe('sanitising statistics', () => {
       'chord:major': {
         attempts: 4,
         correct: 3,
-        recent: [true, false, true, true],
+        recent: [
+          { correct: true },
+          { correct: false, answered: 'minor' },
+          { correct: true },
+          { correct: true },
+        ],
         lastSeen: 1700,
-        confusions: { minor: 1 },
       },
     })
 
     expect(chordStatsStore.read()['chord:major']).toEqual({
       attempts: 4,
       correct: 3,
-      recent: [true, false, true, true],
+      recent: [
+        { correct: true },
+        { correct: false, answered: 'minor' },
+        { correct: true },
+        { correct: true },
+      ],
       lastSeen: 1700,
-      confusions: { minor: 1 },
     })
+  })
+
+  it('reads a record written before mistakes were windowed', () => {
+    // `recent` used to be a bare boolean[] with a separate lifetime
+    // `confusions` map. Those blobs are live in real browsers, so they keep
+    // their history rather than being thrown away on a version bump — the
+    // stale confusion map is what gets dropped, since keeping it would leave
+    // two records disagreeing about how old a mistake may be.
+    poison(key, {
+      'chord:major': {
+        attempts: 4,
+        correct: 3,
+        recent: [true, false, true, true],
+        lastSeen: 1700,
+        confusions: { minor: 1 },
+      },
+    })
+
+    const item = chordStatsStore.read()['chord:major']
+    expect(item.attempts).toBe(4)
+    expect(item.recent).toEqual([
+      { correct: true },
+      { correct: false },
+      { correct: true },
+      { correct: true },
+    ])
+    expect(item).not.toHaveProperty('confusions')
   })
 
   it('drops an id with no namespace', () => {
@@ -262,7 +297,7 @@ describe('sanitising statistics', () => {
       'chord:major': {
         attempts: 100,
         correct: 100,
-        recent: Array.from({ length: 100 }, () => true),
+        recent: Array.from({ length: 100 }, () => ({ correct: true })),
         lastSeen: 0,
       },
     })
@@ -272,49 +307,22 @@ describe('sanitising statistics', () => {
     )
   })
 
-  it('drops non-boolean outcomes rather than treating them as truthy', () => {
+  it('drops malformed outcomes rather than treating them as truthy', () => {
     poison(key, {
       'chord:major': {
         attempts: 3,
         correct: 1,
-        recent: [true, 'yes', null, false],
+        recent: [{ correct: true }, 'yes', null, { answered: 'minor' }, false],
         lastSeen: 0,
       },
     })
 
-    expect(chordStatsStore.read()['chord:major'].recent).toEqual([true, false])
-  })
-
-  it('drops confusion counts that are not positive integers', () => {
-    poison(key, {
-      'chord:major': {
-        attempts: 3,
-        correct: 1,
-        recent: [],
-        lastSeen: 0,
-        confusions: { minor: 2, sus4: 0, aug: -1, dim: 'lots' },
-      },
-    })
-
-    expect(chordStatsStore.read()['chord:major'].confusions).toEqual({
-      minor: 2,
-    })
-  })
-
-  it('leaves confusions absent rather than empty when none survive', () => {
-    poison(key, {
-      'chord:major': {
-        attempts: 3,
-        correct: 1,
-        recent: [],
-        lastSeen: 0,
-        confusions: { minor: 0 },
-      },
-    })
-
-    expect(chordStatsStore.read()['chord:major']).not.toHaveProperty(
-      'confusions',
-    )
+    // The bare `false` is the legacy shape and survives; the string, the null
+    // and the entry with no outcome do not.
+    expect(chordStatsStore.read()['chord:major'].recent).toEqual([
+      { correct: true },
+      { correct: false },
+    ])
   })
 
   it('repairs one bad item without discarding the good ones', () => {

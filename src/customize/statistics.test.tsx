@@ -66,6 +66,7 @@ describe('what am I bad at', () => {
     recordInStore(chordStatsStore, [
       ...times('chord:major', true, 20),
       ...times('chord:diminished', false, 12, 'minor'),
+      ...times('chord:diminished', true, 4),
       ...times('chord:augmented', true, 14),
       ...times('chord:augmented', false, 6),
     ])
@@ -91,7 +92,7 @@ describe('what am I bad at', () => {
     const user = openMenu()
     await openStatistics(user)
 
-    expect(screen.getByText(/Heard as Minor Triad/)).toBeVisible()
+    expect(screen.getByText(/Often mistaken for Minor Triad/)).toBeVisible()
   })
 
   it('shows the confusion on the row it belongs to, not in a list of its own', async () => {
@@ -99,7 +100,7 @@ describe('what am I bad at', () => {
     await openStatistics(user)
 
     expect(
-      cardUnder('Needs work').getByText(/Heard as Minor Triad/),
+      cardUnder('Needs work').getByText(/Often mistaken for Minor Triad/),
     ).toBeVisible()
   })
 
@@ -115,6 +116,38 @@ describe('what am I bad at', () => {
     expect(row).not.toBeNull()
     expect(within(row!).getByText(/70% accurate/)).toBeVisible()
     expect(within(row!).queryByText(/20 attempts/)).toBeNull()
+  })
+})
+
+describe('several ways to get one thing wrong', () => {
+  it('names both when a mistake splits two ways', async () => {
+    // A perfect 5th heard as an octave half the time and a major 3rd a fifth
+    // of the time: two habits, and only naming the commoner one hides half
+    // the diagnosis.
+    recordInStore(chordStatsStore, [
+      ...times('chord:major', false, 10, 'minor'),
+      ...times('chord:major', false, 4, 'augmented'),
+      ...times('chord:major', true, 6),
+    ])
+    const user = openMenu()
+    await openStatistics(user)
+
+    expect(
+      screen.getByText(/Often mistaken for Minor Triad and Augmented Triad/),
+    ).toBeVisible()
+  })
+
+  it('stays silent about a mistake that is not a habit', async () => {
+    recordInStore(chordStatsStore, [
+      ...times('chord:major', false, 8, 'minor'),
+      ...times('chord:major', false, 1, 'augmented'),
+      ...times('chord:major', true, 11),
+    ])
+    const user = openMenu()
+    await openStatistics(user)
+
+    expect(screen.getByText(/Often mistaken for Minor Triad$/)).toBeVisible()
+    expect(screen.queryByText(/Augmented/)).toBeNull()
   })
 })
 
@@ -196,7 +229,7 @@ describe('the breakdowns', () => {
     const user = openMenu(ROOT_STATS_VIEW, rootStatsStore)
     await openStatistics(user)
 
-    expect(screen.queryByText(/Heard as/)).toBeNull()
+    expect(screen.queryByText(/Often mistaken for/)).toBeNull()
   })
 })
 

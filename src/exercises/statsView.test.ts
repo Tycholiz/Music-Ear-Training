@@ -12,7 +12,12 @@ import {
   reportableRows,
   statsRows,
 } from './statsView'
-import { recordAttempts, type Attempt, type ExerciseStats } from '../settings'
+import {
+  RECENT_WINDOW,
+  recordAttempts,
+  type Attempt,
+  type ExerciseStats,
+} from '../settings'
 
 function record(...attempts: Attempt[]): ExerciseStats {
   return recordAttempts({}, attempts, 1)
@@ -197,23 +202,91 @@ describe('mastery buckets', () => {
 })
 
 describe('confusions', () => {
+  /** `wrong` misses answered as `as`, plus `right` correct attempts. */
+  function withMisses(as: string, wrong: number, right: number) {
+    return record(
+      ...repeat('chord:diminished', false, wrong).map((a) => ({
+        ...a,
+        answered: as,
+      })),
+      ...repeat('chord:diminished', true, right),
+    )
+  }
+
+  const namedFor = (stats: ExerciseStats) =>
+    confusionsFor(
+      statsRows(stats, CHORD_STATS_VIEW.answer)[0],
+      CHORD_STATS_VIEW.answer,
+    )
+
   it('names what was heard instead, commonest first', () => {
+    // The user's own example: right 30% of the time, heard as one thing half
+    // the time and as another a fifth of the time. Both are worth saying.
     const stats = record(
+      ...repeat('chord:diminished', false, 10).map((a) => ({
+        ...a,
+        answered: 'minor',
+      })),
+      ...repeat('chord:diminished', false, 4).map((a) => ({
+        ...a,
+        answered: 'augmented',
+      })),
+      ...repeat('chord:diminished', true, 6),
+    )
+
+    expect(namedFor(stats)).toEqual(['Minor Triad', 'Augmented Triad'])
+  })
+
+  it('leaves out a mistake too rare to be a habit', () => {
+    // One miss in twenty is noise. Naming it beside a habitual confusion
+    // would read as though both were findings.
+    const stats = record(
+      ...repeat('chord:diminished', false, 8).map((a) => ({
+        ...a,
+        answered: 'minor',
+      })),
       ...repeat('chord:diminished', false, 1).map((a) => ({
         ...a,
         answered: 'augmented',
       })),
-      ...repeat('chord:diminished', false, 4).map((a) => ({
+      ...repeat('chord:diminished', true, 11),
+    )
+
+    expect(namedFor(stats)).toEqual(['Minor Triad'])
+  })
+
+  it('names at most two, however many ways it goes wrong', () => {
+    const stats = record(
+      ...repeat('chord:diminished', false, 5).map((a) => ({
         ...a,
         answered: 'minor',
       })),
+      ...repeat('chord:diminished', false, 5).map((a) => ({
+        ...a,
+        answered: 'augmented',
+      })),
+      ...repeat('chord:diminished', false, 5).map((a) => ({
+        ...a,
+        answered: 'sus2',
+      })),
+      ...repeat('chord:diminished', true, 5),
     )
-    const [row] = statsRows(stats, CHORD_STATS_VIEW.answer)
 
-    expect(confusionsFor(row, CHORD_STATS_VIEW.answer)).toEqual([
-      { label: 'Minor Triad', count: 4 },
-      { label: 'Augmented Triad', count: 1 },
-    ])
+    expect(namedFor(stats)).toHaveLength(2)
+  })
+
+  it('forgets a mistake once it falls out of the window', () => {
+    // A confusion from months ago is not a fact about how the user hears this
+    // chord now. It expires with the attempt that carried it.
+    let stats = withMisses('minor', 10, 0)
+    expect(namedFor(stats)).toEqual(['Minor Triad'])
+
+    stats = recordAttempts(
+      stats,
+      repeat('chord:diminished', true, RECENT_WINDOW),
+      2,
+    )
+    expect(namedFor(stats)).toEqual([])
   })
 
   it('has none for a self-graded exercise', () => {
