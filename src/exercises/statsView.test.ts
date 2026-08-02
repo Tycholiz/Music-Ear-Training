@@ -131,17 +131,32 @@ describe('statsRows', () => {
     expect(reportableRows([row])).toEqual([])
   })
 
-  it('reports lifetime accuracy, not the recent window', () => {
-    // The window drives what gets drilled; the screen is answering "how have I
-    // done at this", which is the other question the record was kept for.
+  it('reports the recent window, not the lifetime record', () => {
+    // Someone who was bad at a chord months ago and has since fixed it would
+    // otherwise read a low percentage while sitting under "Solid" — the bucket
+    // and the number describing different stretches of time.
     const stats = record(
       ...repeat('chord:major', false, 30),
-      ...repeat('chord:major', true, 10),
+      ...repeat('chord:major', true, 20),
     )
     const [row] = statsRows(stats, CHORD_STATS_VIEW.answer)
 
-    expect(row.item.attempts).toBe(40)
-    expect(row.accuracy).toBeCloseTo(0.25)
+    expect(row.item.attempts).toBe(50)
+    // Lifetime is 40%; the last twenty were all correct.
+    expect(row.accuracy).toBe(1)
+  })
+
+  it('agrees in direction with the bucket it is shown under', () => {
+    // The two are computed differently — the bucket smooths — but they must
+    // never point opposite ways, which is what a lifetime figure allowed.
+    const stats = record(
+      ...repeat('chord:fixed', false, 30),
+      ...repeat('chord:fixed', true, 20),
+    )
+    const [row] = statsRows(stats, CHORD_STATS_VIEW.answer)
+
+    expect(mastery(row.item)).toBe('solid')
+    expect(row.accuracy).toBeGreaterThan(0.85)
   })
 
   it("keeps one namespace out of another one's section", () => {

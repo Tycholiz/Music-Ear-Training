@@ -158,12 +158,17 @@ export const PROGRESSION_STATS_VIEW: StatsView = {
 }
 
 /**
- * How many attempts before a percentage is worth printing.
+ * How many recent attempts before a percentage is worth printing.
  *
  * Two out of three is not 67%. A statistics screen that says so is worse than
  * one that says nothing, because the user acts on it — and this one sits next
  * to a feature that is already quietly using the same thin evidence, so the
  * temptation to show a number is real.
+ *
+ * Counted against the recent window rather than the lifetime total, so the
+ * threshold guards the same figure it is gating. They only differ for a record
+ * whose window is shorter than its history, which is what a hand-edited blob
+ * looks like.
  */
 export const MIN_ATTEMPTS_TO_REPORT = 5
 
@@ -193,21 +198,31 @@ export interface StatsRow {
   accuracy: number | null
 }
 
-/** One section's rows, worst first, before the reporting threshold is applied. */
+/**
+ * One section's rows, worst first, before the reporting threshold is applied.
+ *
+ * Accuracy is measured over the **recent window**, the same span the buckets
+ * and adaptive difficulty read. A lifetime figure answers a question nobody is
+ * asking — someone who was bad at a chord months ago and has since fixed it
+ * would read a low percentage while sitting under "Solid", because the two
+ * numbers were describing different stretches of time.
+ */
 export function statsRows(
   stats: ExerciseStats,
   section: StatsSection,
 ): StatsRow[] {
   return Object.entries(itemsInNamespace(stats, section.namespace))
-    .map(([id, item]) => ({
-      id,
-      label: section.label(id),
-      item,
-      accuracy:
-        item.attempts >= MIN_ATTEMPTS_TO_REPORT
-          ? item.correct / item.attempts
-          : null,
-    }))
+    .map(([id, item]) => {
+      const seen = item.recent.length
+      const right = item.recent.filter(Boolean).length
+
+      return {
+        id,
+        label: section.label(id),
+        item,
+        accuracy: seen >= MIN_ATTEMPTS_TO_REPORT ? right / seen : null,
+      }
+    })
     .sort((a, b) => smoothedAccuracy(a.item) - smoothedAccuracy(b.item))
 }
 
