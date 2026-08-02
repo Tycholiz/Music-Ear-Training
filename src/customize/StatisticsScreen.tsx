@@ -5,10 +5,10 @@ import {
   type PersistedStore,
 } from '../settings'
 import {
-  MIN_ATTEMPTS_TO_REPORT,
   confusionsFor,
   hasAnyStats,
   mastery,
+  reportableRows,
   statsRows,
   type Mastery,
   type StatsRow,
@@ -33,20 +33,24 @@ import {
  * Chord root shows none and should not: it is self-graded, so there is no
  * wrong answer to name.
  *
- * ## Nothing prints a percentage on thin evidence
+ * ## An item with too little evidence is not shown at all
  *
- * Two out of three is not 67%. A statistics screen that says so is worse than
- * no screen at all, because the user acts on it. Below the threshold a row
- * shows its attempt count against the goal instead — `2/5 attempts` — and the
- * rule itself is spelled out once at the top of the screen, so no individual
- * row has to carry the explanation alone.
+ * Two out of three is not 67%, so nothing is reported below
+ * `MIN_ATTEMPTS_TO_REPORT` attempts. The first version still *bucketed* those
+ * items, because `mastery` smooths and so always produces an answer — which
+ * meant a chord answered once correctly appeared under "Getting there" with no
+ * percentage beside it. That reads as a verdict, delivered on evidence the
+ * same screen was simultaneously refusing to summarise, and no wording fixes
+ * it: bucketing and reporting have to agree about what counts as enough.
  *
- * The first version showed a bare `{n} more to go` below the threshold and
- * `{percent}% of {n}` above it. Both looked reasonable and both were
- * unreadable in practice: "more to go" never says more of *what*, and `%
- * of N` parses exactly like a fraction — "40% of 5" reads as "40% of the
- * number 5" the way "40% of 5 dollars" would. The fix in both places is the
- * same: say "attempts" out loud rather than trusting the reader to infer it.
+ * So thin items are left off entirely and counted in one line underneath. The
+ * user does not need to know how many more attempts each one wants — only that
+ * some things have not been practised enough to say anything about yet.
+ *
+ * Two earlier attempts at the per-row version are worth not repeating. `{n}
+ * more to go` never said more of *what*, and reads as progress toward the next
+ * bucket rather than toward a number existing at all. `{percent}% of {n}`
+ * parses like a fraction — "40% of 5" is how you write "40% of 5 dollars".
  */
 export function StatisticsScreen({
   store,
@@ -72,12 +76,6 @@ export function StatisticsScreen({
 
   return (
     <div className="flex flex-col gap-6 p-4">
-      <p className="text-sm text-content-muted">
-        Accuracy shows once you have answered something at least{' '}
-        {MIN_ATTEMPTS_TO_REPORT} times — one or two attempts is not enough to
-        tell whether you actually know it.
-      </p>
-
       <AnswerSection stats={stats} section={view.answer} />
 
       {view.breakdowns.map((section) => (
@@ -120,8 +118,11 @@ function AnswerSection({
   stats: ExerciseStats
   section: StatsSection
 }) {
-  const rows = statsRows(stats, section)
-  if (rows.length === 0) return null
+  const all = statsRows(stats, section)
+  if (all.length === 0) return null
+
+  const rows = reportableRows(all)
+  const notEnough = all.length - rows.length
 
   return (
     <div className="flex flex-col gap-4">
@@ -137,6 +138,16 @@ function AnswerSection({
           </ListCard>
         )
       })}
+
+      {notEnough > 0 && (
+        <p className="px-4 text-sm text-content-muted">
+          {rows.length === 0
+            ? 'Nothing has been answered enough times yet. Keep practising and your statistics will appear here.'
+            : `${notEnough} other${notEnough === 1 ? '' : 's'} need${
+                notEnough === 1 ? 's' : ''
+              } more practice before statistics can show.`}
+        </p>
+      )}
     </div>
   )
 }
@@ -149,7 +160,10 @@ function BreakdownSection({
   stats: ExerciseStats
   section: StatsSection
 }) {
-  const rows = statsRows(stats, section)
+  // Same threshold as the buckets. A breakdown crosses it quickly — every
+  // question records against one — so an unreported condition is genuinely
+  // unpractised rather than merely new, and needs no line of its own.
+  const rows = reportableRows(statsRows(stats, section))
   if (rows.length === 0) return null
 
   return (
@@ -183,27 +197,19 @@ function StatRow({ row, section }: { row: StatsRow; section: StatsSection }) {
 }
 
 /**
- * Neither state used to name its own unit. "2 more to go" didn't say two more
- * of *what*, and "40% of 5" reads exactly like a fraction — `of` between a
- * percentage and a number is how you'd write "40% of 5 dollars", not "40%,
- * measured across 5 attempts". Both are fixed the same way: say "attempts"
- * out loud rather than trusting the reader to infer it.
+ * Only ever reached for a reportable row, so the null case cannot arrive here.
+ *
+ * "accurate" rather than a bare percentage or an attempt count beside it: the
+ * threshold already guarantees the figure is worth trusting, so repeating the
+ * sample size next to it adds a number the reader has to decide what to do
+ * with and answers a question they were not asking.
  */
 function Accuracy({ row }: { row: StatsRow }) {
-  if (row.accuracy === null) {
-    return (
-      <span className="text-sm text-content-muted tabular-nums">
-        {row.item.attempts}/{row.item.attempts + row.moreNeeded} attempts
-      </span>
-    )
-  }
+  if (row.accuracy === null) return null
 
   return (
     <span className="tabular-nums">
-      {Math.round(row.accuracy * 100)}%{' '}
-      <span className="text-sm text-content-muted">
-        ({row.item.attempts} attempts)
-      </span>
+      {Math.round(row.accuracy * 100)}% accurate
     </span>
   )
 }

@@ -8,6 +8,7 @@ export {
   confusionsFor,
   hasAnyStats,
   mastery,
+  reportableRows,
   statsRows,
 } from './statsView'
 export type { Mastery, StatsRow, StatsSection, StatsView } from './statsView'

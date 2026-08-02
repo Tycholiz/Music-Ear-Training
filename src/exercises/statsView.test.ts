@@ -9,6 +9,7 @@ import {
   confusionsFor,
   hasAnyStats,
   mastery,
+  reportableRows,
   statsRows,
 } from './statsView'
 import { recordAttempts, type Attempt, type ExerciseStats } from '../settings'
@@ -102,7 +103,7 @@ describe('statsRows', () => {
     const [row] = statsRows(stats, CHORD_STATS_VIEW.answer)
 
     expect(row.accuracy).toBeNull()
-    expect(row.moreNeeded).toBe(MIN_ATTEMPTS_TO_REPORT - 2)
+    expect(reportableRows([row])).toEqual([])
   })
 
   it('reports one as soon as the threshold is reached', () => {
@@ -112,10 +113,22 @@ describe('statsRows', () => {
     )
     const [row] = statsRows(stats, CHORD_STATS_VIEW.answer)
 
-    expect(row.moreNeeded).toBe(0)
+    expect(reportableRows([row])).toHaveLength(1)
     expect(row.accuracy).toBeCloseTo(
       (MIN_ATTEMPTS_TO_REPORT - 1) / MIN_ATTEMPTS_TO_REPORT,
     )
+  })
+
+  it('holds a thin item out of the buckets entirely, not just out of the numbers', () => {
+    // The bug behind the confusing screen: `mastery` smooths and so always
+    // produces an answer, so one correct attempt was bucketed as "Getting
+    // there" while its percentage abstained — a verdict on evidence the same
+    // screen was refusing to summarise.
+    const stats = record({ item: 'chord:major', correct: true })
+    const [row] = statsRows(stats, CHORD_STATS_VIEW.answer)
+
+    expect(mastery(row.item)).toBe('practising')
+    expect(reportableRows([row])).toEqual([])
   })
 
   it('reports lifetime accuracy, not the recent window', () => {

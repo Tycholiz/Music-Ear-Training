@@ -103,39 +103,71 @@ describe('what am I bad at', () => {
     ).toBeVisible()
   })
 
-  it('shows an accuracy with the attempt count named as attempts', async () => {
-    // "40% of 5" used to read like a fraction — 40% *of the number* 5 — with
-    // nothing to say it meant five attempts. The word has to appear.
+  it('says what the percentage is a percentage of, and nothing else', async () => {
+    // "70% of 20" read like a fraction — 70% *of the number* 20. The sample
+    // size is not shown at all: the threshold already guarantees the figure is
+    // worth trusting, so it would be a number with no job.
     const user = openMenu()
     await openStatistics(user)
 
     // A statistics row is not pressable, so it is a div rather than a button.
     const row = screen.getByText('Augmented Triad').closest('div')
     expect(row).not.toBeNull()
-    expect(within(row!).getByText(/70%/)).toBeVisible()
-    expect(within(row!).getByText(/\(20 attempts\)/)).toBeVisible()
+    expect(within(row!).getByText(/70% accurate/)).toBeVisible()
+    expect(within(row!).queryByText(/20 attempts/)).toBeNull()
   })
 })
 
 describe('thin evidence', () => {
-  it('refuses to print a percentage, and names attempts rather than a bare count', async () => {
-    // Two out of three is not 67%. A statistics screen that says so is worse
-    // than none, because the user acts on it. "2 more to go" used to say
-    // nothing about what there were two more *of*.
-    recordInStore(chordStatsStore, times('chord:major', true, 2))
+  it('keeps a barely-answered item out of the buckets, not just out of the numbers', async () => {
+    // One correct answer used to land under "Getting there" with no percentage
+    // beside it: a verdict delivered on evidence the same screen was refusing
+    // to summarise. It is now not shown at all.
+    recordInStore(chordStatsStore, times('chord:major', true, 1))
     const user = openMenu()
     await openStatistics(user)
 
-    expect(screen.getByText(/2\/5 attempts/)).toBeVisible()
-    expect(screen.queryByText('100%')).toBeNull()
+    expect(screen.queryByText('Major Triad')).toBeNull()
+    expect(screen.queryByText('Getting there')).toBeNull()
   })
 
-  it('explains the rule once, rather than leaving every row to imply it', async () => {
+  it('counts what is missing in one line rather than per row', async () => {
+    // The user does not need to know how many more attempts each one wants,
+    // only that some things have not been practised enough yet.
+    recordInStore(chordStatsStore, [
+      ...times('chord:major', true, 10),
+      ...times('chord:minor', true, 2),
+      ...times('chord:diminished', false, 1),
+    ])
+    const user = openMenu()
+    await openStatistics(user)
+
+    expect(screen.getByText('Major Triad')).toBeVisible()
+    expect(screen.getByText(/2 others need more practice/)).toBeVisible()
+    expect(screen.queryByText(/more to go/)).toBeNull()
+  })
+
+  it('agrees with itself when only one item is short', async () => {
+    recordInStore(chordStatsStore, [
+      ...times('chord:major', true, 10),
+      ...times('chord:minor', true, 2),
+    ])
+    const user = openMenu()
+    await openStatistics(user)
+
+    expect(screen.getByText(/1 other needs more practice/)).toBeVisible()
+  })
+
+  it('says something useful when nothing has been answered enough', async () => {
+    // Otherwise the screen is a Reset button and a count of things it will not
+    // talk about.
     recordInStore(chordStatsStore, times('chord:major', true, 2))
     const user = openMenu()
     await openStatistics(user)
 
-    expect(screen.getByText(/at least 5 times/)).toBeVisible()
+    expect(
+      screen.getByText(/Nothing has been answered enough times yet/),
+    ).toBeVisible()
   })
 })
 

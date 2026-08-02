@@ -191,11 +191,9 @@ export interface StatsRow {
   item: ItemStats
   /** Null until there is enough evidence to report one. */
   accuracy: number | null
-  /** How many more attempts before an accuracy can be shown. */
-  moreNeeded: number
 }
 
-/** One section's rows, worst first. */
+/** One section's rows, worst first, before the reporting threshold is applied. */
 export function statsRows(
   stats: ExerciseStats,
   section: StatsSection,
@@ -209,9 +207,22 @@ export function statsRows(
         item.attempts >= MIN_ATTEMPTS_TO_REPORT
           ? item.correct / item.attempts
           : null,
-      moreNeeded: Math.max(0, MIN_ATTEMPTS_TO_REPORT - item.attempts),
     }))
     .sort((a, b) => smoothedAccuracy(a.item) - smoothedAccuracy(b.item))
+}
+
+/**
+ * The rows there is enough evidence to say anything about.
+ *
+ * Everything else is left off the screen entirely rather than shown without a
+ * number. An item was previously bucketed anyway — `mastery` smooths, so it
+ * always produces an answer — while its percentage abstained, so a chord
+ * answered once correctly appeared under "Getting there" reading as a verdict
+ * on evidence that did not exist. Bucketing and reporting have to agree about
+ * what counts as enough, and this is the one place that decides.
+ */
+export function reportableRows(rows: readonly StatsRow[]): StatsRow[] {
+  return rows.filter((row) => row.accuracy !== null)
 }
 
 /** The confusions for one row, worst first, already labelled. */
