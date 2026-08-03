@@ -159,7 +159,19 @@ function AnswerSection({
   )
 }
 
-/** A condition the question was asked under — a plain worst-first list. */
+/**
+ * A condition the question was asked under — a plain worst-first list.
+ *
+ * A breakdown with data but nothing over the threshold keeps its heading and
+ * says so, rather than disappearing. Vanishing silently was defensible while
+ * every breakdown filled at one record per question, but melody's opening
+ * degrees fill at one per *melody* — so the most useful section on that screen
+ * was also the last to appear, and until it did the screen said "you struggle
+ * with the first note" and nothing about which one.
+ *
+ * A heading that promises a figure later is worth more than a gap the reader
+ * has to notice is missing.
+ */
 function BreakdownSection({
   stats,
   section,
@@ -167,17 +179,31 @@ function BreakdownSection({
   stats: ExerciseStats
   section: StatsSection
 }) {
-  // Same threshold as the buckets. A breakdown crosses it quickly — every
-  // question records against one — so an unreported condition is genuinely
-  // unpractised rather than merely new, and needs no line of its own.
-  const rows = reportableRows(statsRows(stats, section))
-  if (rows.length === 0) return null
+  const all = statsRows(stats, section)
+  if (all.length === 0) return null
+
+  const rows = reportableRows(all)
 
   return (
-    <ListCard title={section.title}>
-      {rows.map((row) => (
-        <StatRow key={row.id} row={row} section={section} />
-      ))}
+    <ListCard
+      title={section.title}
+      footer={
+        rows.length === 0
+          ? 'Not enough yet — keep practising and this will fill in.'
+          : undefined
+      }
+    >
+      {rows.length === 0 ? (
+        <ListRow
+          label={
+            <span className="text-content-muted">
+              {all.length} still being measured
+            </span>
+          }
+        />
+      ) : (
+        rows.map((row) => <StatRow key={row.id} row={row} section={section} />)
+      )}
     </ListCard>
   )
 }

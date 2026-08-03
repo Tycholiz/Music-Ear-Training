@@ -222,6 +222,36 @@ describe('the breakdowns', () => {
     expect(inversions.getByText(/20%/)).toBeVisible()
   })
 
+  it('keeps its heading while it is still filling up', async () => {
+    // Melody's opening degrees accrue one per melody, not one per note, so
+    // this section is the last to appear and the most useful when it does.
+    // Vanishing silently left the screen saying "you struggle with the first
+    // note" and nothing about which one — which is the complaint that led
+    // here.
+    recordInStore(rootStatsStore, [
+      ...times('chord:major', true, 10),
+      ...times('inversion:1', true, 2),
+    ])
+    const user = openMenu(ROOT_STATS_VIEW, rootStatsStore)
+    await openStatistics(user)
+
+    expect(screen.getByRole('heading', { name: 'By inversion' })).toBeVisible()
+    expect(screen.getByText(/still being measured/)).toBeVisible()
+    expect(
+      screen.getByText(/keep practising and this will fill in/),
+    ).toBeVisible()
+  })
+
+  it('says nothing about a breakdown with no data at all', async () => {
+    // Nothing to promise, so no heading. Only a section that has started
+    // collecting earns a placeholder.
+    recordInStore(rootStatsStore, times('chord:major', true, 10))
+    const user = openMenu(ROOT_STATS_VIEW, rootStatsStore)
+    await openStatistics(user)
+
+    expect(screen.queryByRole('heading', { name: 'By inversion' })).toBeNull()
+  })
+
   it('shows no confusions for a self-graded exercise', async () => {
     // There is no wrong answer to name — only the user's word that they had
     // the note or did not. Seeded *with* answers, which chord root cannot
