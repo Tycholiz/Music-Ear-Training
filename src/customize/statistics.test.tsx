@@ -224,11 +224,15 @@ describe('the breakdowns', () => {
 
   it('shows no confusions for a self-graded exercise', async () => {
     // There is no wrong answer to name — only the user's word that they had
-    // the note or did not.
-    recordInStore(rootStatsStore, times('chord:major', false, 10))
+    // the note or did not. Seeded *with* answers, which chord root cannot
+    // produce, so this fails if the screen reports whatever it finds instead
+    // of what the section asked for. That is exactly how a stale record kept
+    // showing "♭3 often mistaken for 2" after melody stopped writing it.
+    recordInStore(rootStatsStore, times('chord:major', false, 10, 'minor'))
     const user = openMenu(ROOT_STATS_VIEW, rootStatsStore)
     await openStatistics(user)
 
+    expect(screen.getByText('Major Triad')).toBeVisible()
     expect(screen.queryByText(/Often mistaken for/)).toBeNull()
   })
 })

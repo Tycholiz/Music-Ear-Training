@@ -27,10 +27,11 @@ import { CADENCE_NAMES } from './progressionValidation'
  *
  * ## Two tiers, because they answer different questions
  *
- * The **answer** namespace is the thing the user names — the chord, the
- * interval, the numeral, the degree. It is the only one with confusions
- * recorded against it, since it is the only one where a wrong answer exists to
- * name, and it is what gets bucketed into learning / practising / solid.
+ * The **answer** is the measure an exercise leads with, bucketed into learning
+ * / practising / solid. Usually that is the thing the user names — the chord,
+ * the interval, the numeral — but melody leads with *how a note arrived*
+ * instead, because which degree it was matters less there than whether it was
+ * a step or a leap.
  *
  * A **breakdown** is a condition the question was asked under: which inversion,
  * which play mode, which cadence, which position in the progression. These say
@@ -38,6 +39,10 @@ import { CADENCE_NAMES } from './progressionValidation'
  * inversion 41%" is the whole difficulty of chord root in one line — but
  * bucketing them as though the user were learning "2nd inversion" would be
  * nonsense, so they are a plain worst-first list.
+ *
+ * Whether a section diagnoses — "often mistaken for …" — is a third, separate
+ * question, and one each section answers for itself with `showsConfusions`.
+ * Neither tier implies it.
  */
 
 export interface StatsSection {
@@ -46,10 +51,23 @@ export interface StatsSection {
   title: string
   /** Turns the value after the colon into something a musician reads. */
   label: (value: string) => string
+  /**
+   * Whether "often mistaken for …" is worth showing here.
+   *
+   * Declared rather than inferred from what happens to be in the store. It was
+   * inferred once — a section showed confusions if the exercise recorded an
+   * `answered` — and the two promptly disagreed: melody stopped recording them
+   * for degrees, and every record already written kept showing them until its
+   * window rolled over. A screen that reports whatever it finds cannot be
+   * changed by changing what is written, only by waiting.
+   *
+   * Off by default, so a namespace has to *ask* to be diagnosed.
+   */
+  showsConfusions?: boolean
 }
 
 export interface StatsView {
-  /** The thing the user names. Bucketed, and the only one with confusions. */
+  /** The measure this exercise leads with. Bucketed into mastery. */
   answer: StatsSection
   /** Conditions the question was asked under. Plain lists. */
   breakdowns: StatsSection[]
@@ -70,6 +88,7 @@ const chordAnswer: StatsSection = {
   namespace: 'chord',
   title: 'Chords',
   label: safely((id) => chordById(id).name),
+  showsConfusions: true,
 }
 
 const inversionBreakdown: StatsSection = {
@@ -83,6 +102,7 @@ export const INTERVAL_STATS_VIEW: StatsView = {
     namespace: 'interval',
     title: 'Intervals',
     label: safely((value) => intervalName(Number(value))),
+    showsConfusions: true,
   },
   breakdowns: [
     {
@@ -116,7 +136,10 @@ export const CHORD_STATS_VIEW: StatsView = {
  * barely the same task.
  */
 export const ROOT_STATS_VIEW: StatsView = {
-  answer: chordAnswer,
+  // Not `chordAnswer`: same namespace and label, but this exercise is
+  // self-graded, so there is no wrong answer and nothing to diagnose. Sharing
+  // the object would have it opting into a confusion it can never have.
+  answer: { ...chordAnswer, showsConfusions: false },
   breakdowns: [inversionBreakdown],
 }
 
@@ -148,6 +171,7 @@ export const MELODY_STATS_VIEW: StatsView = {
     namespace: 'motion',
     title: 'By melodic motion',
     label: (value) => MOTION_NAMES[value] ?? value,
+    showsConfusions: true,
   },
   breakdowns: [
     {
@@ -168,6 +192,7 @@ export const PROGRESSION_STATS_VIEW: StatsView = {
     namespace: 'numeral',
     title: 'Chords',
     label: safely((id) => numeralById(id).label),
+    showsConfusions: true,
   },
   breakdowns: [
     {
@@ -298,6 +323,12 @@ export const MAX_CONFUSIONS_SHOWN = 2
  * already answered the only question a count would settle.
  */
 export function confusionsFor(row: StatsRow, section: StatsSection): string[] {
+  // The section decides, not the record. A namespace that has stopped
+  // recording answers still has them in every window written before it
+  // stopped, and reading the store would keep reporting them for another
+  // twenty questions.
+  if (!section.showsConfusions) return []
+
   const attempts = row.item.recent.length
   if (attempts === 0) return []
 

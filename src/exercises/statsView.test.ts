@@ -290,6 +290,40 @@ describe('confusions', () => {
     expect(namedFor(stats)).toEqual([])
   })
 
+  it('stays silent for a section that has not asked to diagnose', () => {
+    // The bug this guards: melody stopped recording answers on degrees, but
+    // every window written before it stopped still had them, and the screen
+    // kept reporting them for another twenty questions. The section decides,
+    // not the record.
+    const stats = record(
+      ...repeat('degree:3', false, 10).map((a) => ({ ...a, answered: '2' })),
+      ...repeat('degree:3', true, 10),
+    )
+    const degrees = MELODY_STATS_VIEW.breakdowns.find(
+      (s) => s.namespace === 'degree',
+    )!
+    const [row] = statsRows(stats, degrees)
+
+    // The stale answers really are in the record...
+    expect(row.item.recent.some((a) => a.answered === '2')).toBe(true)
+    // ...and the screen still says nothing about them.
+    expect(confusionsFor(row, degrees)).toEqual([])
+  })
+
+  it('stays silent for a self-graded exercise even if answers appear', () => {
+    // Chord root cannot produce one, so a record carrying them is corrupt or
+    // stale. Either way the exercise has no wrong answer to name.
+    const stats = record(
+      ...repeat('chord:major', false, 10).map((a) => ({
+        ...a,
+        answered: 'minor',
+      })),
+    )
+    const [row] = statsRows(stats, ROOT_STATS_VIEW.answer)
+
+    expect(confusionsFor(row, ROOT_STATS_VIEW.answer)).toEqual([])
+  })
+
   it('has none for a self-graded exercise', () => {
     // Chord root records no answer, because there is none to record.
     const stats = record(...repeat('chord:major', false, 5))
