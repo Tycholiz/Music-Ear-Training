@@ -86,7 +86,7 @@ function safely(label: (value: string) => string) {
 
 const chordAnswer: StatsSection = {
   namespace: 'chord',
-  title: 'Chords',
+  title: 'Naming each chord',
   label: safely((id) => chordById(id).name),
   showsConfusions: true,
 }
@@ -100,7 +100,7 @@ const inversionBreakdown: StatsSection = {
 export const INTERVAL_STATS_VIEW: StatsView = {
   answer: {
     namespace: 'interval',
-    title: 'Intervals',
+    title: 'Naming each interval',
     label: safely((value) => intervalName(Number(value))),
     showsConfusions: true,
   },
@@ -175,7 +175,7 @@ const MOTION_NAMES: Record<string, string> = {
 export const MELODY_STATS_VIEW: StatsView = {
   answer: {
     namespace: 'motion',
-    title: 'By melodic motion',
+    title: 'How each note arrives',
     label: (value) => MOTION_NAMES[value] ?? value,
     showsConfusions: true,
   },
@@ -193,25 +193,53 @@ export const MELODY_STATS_VIEW: StatsView = {
   ],
 }
 
+const MOVEMENT_NAMES: Record<string, string> = {
+  opening: 'First chord',
+  'same-root': 'Same root',
+  step: 'Root moves by a step',
+  third: 'Root moves by a third',
+  'fourth-fifth': 'Root moves by a fourth or fifth',
+  tritone: 'Root moves by a tritone',
+}
+
+/**
+ * By position is gone, and was worse than uninformative.
+ *
+ * A wrong press ends the attempt, so position four only existed in the record
+ * for progressions where one to three had already gone right. "Chord 4: 90%"
+ * meant "when I had already got the first three, I usually got the fourth" —
+ * close to a tautology, and read as a finding.
+ *
+ * Root movement replaces it, and answers a question a user can act on. How far
+ * the bass travels between chords is the thing the ear actually tracks, and
+ * struggling with step-wise motion while hearing falling fifths cleanly points
+ * at inversions blurring where the root is — which is why the inversion
+ * breakdown sits beside it.
+ */
 export const PROGRESSION_STATS_VIEW: StatsView = {
   answer: {
     namespace: 'numeral',
-    title: 'Chords',
+    title: 'Naming each chord',
     label: safely((id) => numeralById(id).label),
     showsConfusions: true,
   },
   breakdowns: [
+    {
+      namespace: 'movement',
+      title: 'By root movement',
+      label: (value) => MOVEMENT_NAMES[value] ?? value,
+    },
     {
       namespace: 'cadence',
       title: 'By cadence',
       label: (value) => CADENCE_NAMES[value as 'authentic'] ?? value,
     },
     {
-      namespace: 'position',
-      // Losing chord four of five while getting one to three is working
-      // memory, not harmony, and no amount of chord drilling addresses it.
-      title: 'By position in the progression',
-      label: (value) => `Chord ${Number(value) + 1}`,
+      namespace: 'inversion',
+      // Heard but never answered — `I⁶` is still `I` — so this is the one
+      // dimension a user cannot see going wrong from the pad alone.
+      title: 'By inversion',
+      label: (value) => INVERSION_NAMES[Number(value)] ?? value,
     },
   ],
 }

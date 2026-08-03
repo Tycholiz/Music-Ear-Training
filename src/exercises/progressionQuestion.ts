@@ -364,3 +364,51 @@ export function checkProgression(
     positions,
   }
 }
+
+/**
+ * How a chord's root arrives: from nowhere, or by moving from the one before.
+ *
+ * The progression equivalent of melody's steps and leaps, and useful for the
+ * same reason. Naming `V` in isolation is not really the skill — the ear
+ * tracks how far the bass has travelled and in what relation, and a user who
+ * misses step-wise motion but hears falling fifths cleanly has a specific,
+ * fixable gap. It also points somewhere concrete: root movement is hardest to
+ * follow when inversions blur where the root is, so the fix is often to
+ * practise inversions rather than to drill chords.
+ *
+ * Measured as an interval class — the smaller of the two directions — so a
+ * fifth up and a fourth down are one relationship rather than two. Direction
+ * is deliberately left out for now: it would double the rows and the question
+ * a user is asking here is how *far* the root moved.
+ */
+export type RootMovement =
+  'opening' | 'same-root' | 'step' | 'third' | 'fourth-fifth' | 'tritone'
+
+export function rootMovement(
+  question: ProgressionQuestion,
+  index: number,
+): RootMovement {
+  if (index <= 0) return 'opening'
+
+  const from = numeralById(question.numerals[index - 1]).root
+  const to = numeralById(question.numerals[index]).root
+  const distance = Math.abs(to - from) % 12
+  const size = Math.min(distance, 12 - distance)
+
+  // IV to iv keeps its root and changes mode, which is a real move and not a
+  // step. Nothing else in the successor table shares a root across a change.
+  if (size === 0) return 'same-root'
+  if (size <= 2) return 'step'
+  if (size <= 4) return 'third'
+  if (size === 6) return 'tritone'
+  return 'fourth-fifth'
+}
+
+/** Whether this position is one of the chords the cadence is made of. */
+export function isCadenceChord(
+  question: ProgressionQuestion,
+  index: number,
+): boolean {
+  const ending = cadenceNumerals(question.cadence).length
+  return index >= question.numerals.length - ending
+}

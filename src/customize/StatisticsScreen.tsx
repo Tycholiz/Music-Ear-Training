@@ -133,6 +133,16 @@ function AnswerSection({
 
   return (
     <div className="flex flex-col gap-4">
+      {/*
+        The buckets alone never said what they were bucketing. On the chord
+        screen that was survivable, since a list of chord names explains
+        itself; on progressions it left "SOLID" sitting above three roman
+        numerals with nothing to say they were about naming chords rather than
+        about anything else on the screen. The heading is a size up from the
+        bucket labels so the two read as a group and its parts.
+      */}
+      <h2 className="px-1 text-base font-semibold">{section.title}</h2>
+
       {BUCKET_ORDER.map((bucket) => {
         const inBucket = rows.filter((row) => mastery(row.item) === bucket)
         if (inBucket.length === 0) return null

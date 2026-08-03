@@ -36,13 +36,15 @@ describe('labels', () => {
     expect(MELODY_STATS_VIEW.answer.label('opening')).toBe('First note')
   })
 
-  it('counts progression positions from one, not from zero', () => {
-    // The record is indexed; the user is looking at the first chord.
-    const positions = PROGRESSION_STATS_VIEW.breakdowns.find(
-      (s) => s.namespace === 'position',
+  it('names root movements by how far the root travels', () => {
+    const movement = PROGRESSION_STATS_VIEW.breakdowns.find(
+      (s) => s.namespace === 'movement',
     )
-    expect(positions?.label('0')).toBe('Chord 1')
-    expect(positions?.label('3')).toBe('Chord 4')
+    expect(movement?.label('step')).toBe('Root moves by a step')
+    expect(movement?.label('fourth-fifth')).toBe(
+      'Root moves by a fourth or fifth',
+    )
+    expect(movement?.label('opening')).toBe('First chord')
   })
 
   it('falls back to the raw id rather than throwing on a stale record', () => {
@@ -64,10 +66,14 @@ describe('what each exercise breaks down by', () => {
     )
   })
 
-  it('breaks progressions down by cadence and by position', () => {
+  it('breaks progressions down by movement, cadence and inversion', () => {
+    // Position is gone: a wrong press ends the attempt, so later positions
+    // only existed in the record for progressions already going well, and
+    // "Chord 4: 90%" was close to a tautology.
     expect(PROGRESSION_STATS_VIEW.breakdowns.map((s) => s.namespace)).toEqual([
+      'movement',
       'cadence',
-      'position',
+      'inversion',
     ])
   })
 

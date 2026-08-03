@@ -105,6 +105,8 @@ export {
   canGenerateProgression,
   checkProgression,
   generateProgressionQuestion,
+  isCadenceChord,
+  rootMovement,
   progressionNumerals,
   usableCadences,
 } from './progressionQuestion'
@@ -114,6 +116,7 @@ export type {
 } from './progressionQuestion'
 export {
   keyChord,
+  inversionOf,
   voiceChordAlone,
   voiceGuess,
   voiceMovement,

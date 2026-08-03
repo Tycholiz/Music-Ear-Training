@@ -233,3 +233,31 @@ export function keyChord(
 ): number[] {
   return voiceChordAlone('I', question.tonic, settings)
 }
+
+/**
+ * Which inversion a voiced chord ended up in, read back off its bass note.
+ *
+ * The voicing chooses inversions for smoothness rather than announcing them,
+ * so this recovers the choice after the fact. Worth recording because
+ * inversions are the one thing in this exercise that is *heard but never
+ * answered* — a user who names chords cleanly in root position and loses them
+ * once the bass moves has a specific gap, and an Inversions setting to
+ * practise it with.
+ */
+export function inversionOf(
+  numeralId: string,
+  tonic: number,
+  notes: readonly number[],
+): number {
+  const numeral = numeralById(numeralId)
+  const chord = numeralChord(numeral)
+
+  const rootClass = ((numeralRoot(numeral, tonic) % 12) + 12) % 12
+  const bassClass = ((notes[0] % 12) + 12) % 12
+  const above = (bassClass - rootClass + 12) % 12
+
+  const inversion = chord.offsets.findIndex((offset) => offset % 12 === above)
+  // A bass note that is not a chord tone cannot happen from `voicingsFor`;
+  // reading it as root position beats throwing inside a statistics path.
+  return inversion < 0 ? 0 : inversion
+}

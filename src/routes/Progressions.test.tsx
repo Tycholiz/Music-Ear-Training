@@ -734,9 +734,8 @@ describe('keyboard focus', () => {
 })
 
 describe('what goes into the statistics', () => {
-  it('records the numeral, the cadence and the position of each press', async () => {
-    // Three separate facts because they fail for different reasons: harmony,
-    // how progressions end, and working memory.
+  it('records the numeral, how its root arrived, and its inversion', async () => {
+    // The progression is I IV V I, so the opening chord has nothing before it.
     const user = userEvent.setup()
     renderExercise()
     await start(user)
@@ -744,8 +743,43 @@ describe('what goes into the statistics', () => {
 
     const stats = progressionStatsStore.read()
     expect(stats['numeral:I'].correct).toBe(1)
-    expect(stats['cadence:authentic'].correct).toBe(1)
-    expect(stats['position:0'].correct).toBe(1)
+    expect(stats['movement:opening'].correct).toBe(1)
+    // Which inversion is the voicing's business — it picks for smoothness —
+    // so this only asserts the dimension is being recorded at all.
+    expect(Object.keys(stats).some((key) => key.startsWith('inversion:'))).toBe(
+      true,
+    )
+  })
+
+  it('records the cadence only on the chords the cadence is made of', async () => {
+    // An authentic cadence is V then I, so in I IV V I the first two presses
+    // are the run-up. Averaging them in made this a figure about the run-up:
+    // nail four chords, miss the ending, and it still read 75%.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await tap(user, 'I')
+    expect(progressionStatsStore.read()['cadence:authentic']).toBeUndefined()
+
+    await tap(user, 'IV')
+    expect(progressionStatsStore.read()['cadence:authentic']).toBeUndefined()
+
+    await tap(user, 'V')
+    expect(progressionStatsStore.read()['cadence:authentic'].attempts).toBe(1)
+  })
+
+  it('classifies root movement by how far the root travels', async () => {
+    // I to IV is a fourth; IV to V is a step.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await tap(user, 'I', 'IV', 'V')
+
+    const stats = progressionStatsStore.read()
+    expect(stats['movement:fourth-fifth'].correct).toBe(1)
+    expect(stats['movement:step'].correct).toBe(1)
   })
 
   it('records what was pressed instead, so a confusion can be named', async () => {
@@ -762,10 +796,9 @@ describe('what goes into the statistics', () => {
     })
   })
 
-  it('takes the first run at a progression and nothing after it', async () => {
-    // A retry is the user working from knowledge of where they went wrong,
-    // which is the point of retrying and is not fresh evidence about whether
-    // they can hear a IV.
+  it('measures each position once, the first time it is reached', async () => {
+    // A retry re-covering ground already measured adds nothing: the user has
+    // been told those chords.
     const user = userEvent.setup()
     renderExercise()
     await start(user)
@@ -774,9 +807,32 @@ describe('what goes into the statistics', () => {
     await untilRetryable()
     await tap(user, 'I', 'IV', 'V', 'I')
 
-    // One attempt at the opening chord, the wrong one, despite two presses.
-    expect(progressionStatsStore.read()['numeral:I'].attempts).toBe(1)
-    expect(progressionStatsStore.read()['numeral:I'].correct).toBe(0)
+    // `movement:opening` can only come from position zero, so it is the clean
+    // witness — `numeral:I` would be two records, since this progression uses
+    // I at both ends.
+    const opening = progressionStatsStore.read()['movement:opening']
+    expect(opening.attempts).toBe(1)
+    expect(opening.correct).toBe(0)
+  })
+
+  it('still measures the chords past where the first attempt broke down', async () => {
+    // The bias this replaces. Recording only the first run left the cadence
+    // chords — always last — measured almost solely on progressions that had
+    // already gone right, so `I`, `vi` and `V` read as mastery when they were
+    // mostly selection.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    // Fail immediately, then get the whole thing on the retry.
+    await tap(user, 'V')
+    await untilRetryable()
+    await tap(user, 'I', 'IV', 'V', 'I')
+
+    const stats = progressionStatsStore.read()
+    // The closing I is position 3, never reached on the first attempt.
+    expect(stats['cadence:authentic']).toBeDefined()
+    expect(stats['cadence:authentic'].attempts).toBeGreaterThan(0)
   })
 
   it('keeps counting across questions rather than starting over', async () => {
