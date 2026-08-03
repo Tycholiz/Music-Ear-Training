@@ -195,23 +195,31 @@ export const MELODY_STATS_VIEW: StatsView = {
 }
 
 const MOVEMENT_NAMES: Record<string, string> = {
-  'root-opening': 'First chord',
-  'root-same-root': 'Root stays, quality changes',
-  'root-step': 'Root moves by a step',
-  'root-third': 'Root moves by a third',
-  'root-fourth-fifth': 'Root moves by a fourth or fifth',
+  // Roots are pitch classes, so the far half of the circle is named by its
+  // descending complement — which is how these moves are spoken about. `I` to
+  // `vi` is nine semitones up and every musician calls it down a third.
+  'root-same': 'Root stays, quality changes',
+  'root-up-half-step': 'Root moves up a half step',
+  'root-up-whole-step': 'Root moves up a whole step',
+  'root-up-third': 'Root moves up a third',
+  'root-up-fourth': 'Root moves up a fourth',
   'root-tritone': 'Root moves by a tritone',
+  'root-up-fifth': 'Root moves up a fifth',
+  'root-down-third': 'Root moves down a third',
+  'root-down-whole-step': 'Root moves down a whole step',
+  'root-down-half-step': 'Root moves down a half step',
 
-  // Same transitions, heard rather than analysed. Where the two lists
-  // disagree is where an inversion is putting something other than the root
+  // The same transitions as heard rather than analysed. Where the two lists
+  // disagree is where an inversion has put something other than the root
   // underneath, which is the hardest case in this exercise.
-  'bass-opening': 'First chord',
-  'bass-same-note': 'Bass stays put',
+  'bass-same': 'Bass stays put',
   'bass-half-step': 'Bass moves by a half step',
   'bass-whole-step': 'Bass moves by a whole step',
   'bass-third': 'Bass moves by a third',
-  'bass-fourth-fifth': 'Bass moves by a fourth or fifth',
+  'bass-fourth': 'Bass moves by a fourth',
   'bass-tritone': 'Bass moves by a tritone',
+  'bass-fifth': 'Bass moves by a fifth',
+  'bass-sixth-or-more': 'Bass moves by a sixth or more',
 }
 
 /**
@@ -239,6 +247,15 @@ export const PROGRESSION_STATS_VIEW: StatsView = {
     showsConfusions: true,
   },
   breakdowns: [
+    {
+      // Its own section rather than a row in the movement list: there is
+      // nothing before the first chord, so it is heard by its function
+      // against the key. Every later chord can use the one before it as a
+      // landmark, which is a different skill and a different fix.
+      namespace: 'opening',
+      title: 'First chord',
+      label: safely((id) => numeralById(id).label),
+    },
     {
       namespace: 'movement',
       title: 'By root and bass movement',

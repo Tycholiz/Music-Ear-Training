@@ -273,51 +273,43 @@ export function inversionOf(
 export const BASS_AS_ROOT = 'bass-as-root'
 
 /**
- * The interval class between two pitches: the smaller of the two directions.
- *
- * A fifth up and a fourth down are one relationship, and an octave
- * displacement is not a different move.
- */
-function intervalClass(from: number, to: number): number {
-  const distance = Math.abs(to - from) % 12
-  return Math.min(distance, 12 - distance)
-}
-
-/**
- * How the *bass* moves into a chord, which is not always how the root does.
+ * How far the *bass* moves into a chord, which is not always how the root does.
  *
  * `V IV I` has roots G F C — a step then a fourth. Invert the `I` and its bass
  * is E, so the line is G F E: a whole step then a **half** step. An ear
  * following the bass hears a stepwise descent and reads `V IV III`, because
  * `III` is rooted on E. The harmony did one thing and the bass said another.
  *
- * Half and whole steps are separated here but not in `rootMovement`, and the
- * asymmetry is deliberate. A root moving by a semitone needs a chromatic
- * chord and is rare; a semitone in the *bass* is the commonest artefact of an
- * inversion, and is exactly the one that misleads.
+ * Sized rather than merely "a step": half and whole steps are the pair that
+ * gets confused, and a bass moving by a semitone is the commonest artefact of
+ * an inversion. Direction is left out — unlike the root, the bass is a real
+ * pitch and could carry it, but it would double a list that is already long
+ * and the question here is how far, not which way.
  */
 export type BassMovement =
-  | 'opening'
-  | 'same-note'
+  | 'same'
   | 'half-step'
   | 'whole-step'
   | 'third'
-  | 'fourth-fifth'
+  | 'fourth'
   | 'tritone'
+  | 'fifth'
+  | 'sixth-or-more'
 
 export function bassMovement(
   voiced: readonly (readonly number[])[],
   index: number,
 ): BassMovement {
-  if (index <= 0) return 'opening'
+  const size = Math.abs(voiced[index][0] - voiced[index - 1][0])
 
-  const size = intervalClass(voiced[index - 1][0], voiced[index][0])
-  if (size === 0) return 'same-note'
+  if (size === 0) return 'same'
   if (size === 1) return 'half-step'
   if (size === 2) return 'whole-step'
   if (size <= 4) return 'third'
+  if (size === 5) return 'fourth'
   if (size === 6) return 'tritone'
-  return 'fourth-fifth'
+  if (size === 7) return 'fifth'
+  return 'sixth-or-more'
 }
 
 /**

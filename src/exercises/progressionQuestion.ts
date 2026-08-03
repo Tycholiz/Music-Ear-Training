@@ -366,42 +366,74 @@ export function checkProgression(
 }
 
 /**
- * How a chord's root arrives: from nowhere, or by moving from the one before.
+ * How far a chord's root moves from the one before it.
  *
- * The progression equivalent of melody's steps and leaps, and useful for the
- * same reason. Naming `V` in isolation is not really the skill — the ear
- * tracks how far the bass has travelled and in what relation, and a user who
- * misses step-wise motion but hears falling fifths cleanly has a specific,
- * fixable gap. It also points somewhere concrete: root movement is hardest to
- * follow when inversions blur where the root is, so the fix is often to
- * practise inversions rather than to drill chords.
+ * The progression equivalent of melody's steps and leaps. Naming `V` in
+ * isolation is not really the skill — the ear tracks how far the harmony has
+ * travelled — and it points somewhere concrete, since root movement is hardest
+ * to follow when an inversion hides where the root is.
  *
- * Measured as an interval class — the smaller of the two directions — so a
- * fifth up and a fourth down are one relationship rather than two. Direction
- * is deliberately left out for now: it would double the rows and the question
- * a user is asking here is how *far* the root moved.
+ * ## Directed, not by interval class
+ *
+ * An earlier version measured the smaller of the two directions, which
+ * collapsed a fifth into a fourth and a sixth into a third: three distinct
+ * relationships reported as one. `I` to `V` and `V` to `I` are not the same
+ * move — one departs and one arrives — and a user can be fluent at one while
+ * lost in the other.
+ *
+ * Roots are pitch classes, so "up" is measured as the ascending distance and
+ * the far half is named by its descending complement, which is how the moves
+ * are actually spoken about. `I` to `vi` is nine semitones up and every
+ * musician calls it down a third; `V` to `IV` is ten up and is a step down.
+ * A sixth is therefore tracked — it is the same relationship as a third the
+ * other way, and named the way it would be said aloud.
  */
 export type RootMovement =
-  'opening' | 'same-root' | 'step' | 'third' | 'fourth-fifth' | 'tritone'
+  | 'same'
+  | 'up-half-step'
+  | 'up-whole-step'
+  | 'up-third'
+  | 'up-fourth'
+  | 'tritone'
+  | 'up-fifth'
+  | 'down-third'
+  | 'down-whole-step'
+  | 'down-half-step'
 
 export function rootMovement(
   question: ProgressionQuestion,
   index: number,
 ): RootMovement {
-  if (index <= 0) return 'opening'
-
   const from = numeralById(question.numerals[index - 1]).root
   const to = numeralById(question.numerals[index]).root
-  const distance = Math.abs(to - from) % 12
-  const size = Math.min(distance, 12 - distance)
+  const up = (((to - from) % 12) + 12) % 12
 
-  // IV to iv keeps its root and changes mode, which is a real move and not a
-  // step. Nothing else in the successor table shares a root across a change.
-  if (size === 0) return 'same-root'
-  if (size <= 2) return 'step'
-  if (size <= 4) return 'third'
-  if (size === 6) return 'tritone'
-  return 'fourth-fifth'
+  switch (up) {
+    case 0:
+      // IV to iv keeps its root and changes mode. Nothing else in the
+      // successor table shares a root across a move.
+      return 'same'
+    case 1:
+      return 'up-half-step'
+    case 2:
+      return 'up-whole-step'
+    case 3:
+    case 4:
+      return 'up-third'
+    case 5:
+      return 'up-fourth'
+    case 6:
+      return 'tritone'
+    case 7:
+      return 'up-fifth'
+    case 8:
+    case 9:
+      return 'down-third'
+    case 10:
+      return 'down-whole-step'
+    default:
+      return 'down-half-step'
+  }
 }
 
 /** Whether this position is one of the chords the cadence is made of. */

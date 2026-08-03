@@ -259,17 +259,30 @@ export default function Progressions() {
           // tells the user nothing about which mistake they made.
           answered: heardBassAsRoot ? BASS_AS_ROOT : numeralId,
         },
-        {
-          item: itemId(
-            'movement',
-            `root-${rootMovement(round.question, index)}`,
-          ),
-          correct: wasRight,
-        },
-        {
-          item: itemId('movement', `bass-${bassMovement(voiced, index)}`),
-          correct: wasRight,
-        },
+        // Which chord opens a progression is a different skill from how the
+        // harmony moves: there is nothing before it, so it has to be heard by
+        // its function against the key rather than by a distance travelled.
+        // Every later chord can lean on the one before it as a landmark.
+        ...(index === 0
+          ? [
+              {
+                item: itemId('opening', round.question.numerals[index]),
+                correct: wasRight,
+              },
+            ]
+          : [
+              {
+                item: itemId(
+                  'movement',
+                  `root-${rootMovement(round.question, index)}`,
+                ),
+                correct: wasRight,
+              },
+              {
+                item: itemId('movement', `bass-${bassMovement(voiced, index)}`),
+                correct: wasRight,
+              },
+            ]),
         {
           item: itemId(
             'inversion',

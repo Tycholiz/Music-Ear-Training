@@ -743,7 +743,11 @@ describe('what goes into the statistics', () => {
 
     const stats = progressionStatsStore.read()
     expect(stats['numeral:I'].correct).toBe(1)
-    expect(stats['movement:root-opening'].correct).toBe(1)
+    expect(stats['opening:I'].correct).toBe(1)
+    // No movement record for the first chord — there is nothing before it.
+    expect(Object.keys(stats).some((key) => key.startsWith('movement:'))).toBe(
+      false,
+    )
     // Which inversion is the voicing's business — it picks for smoothness —
     // so this only asserts the dimension is being recorded at all.
     expect(Object.keys(stats).some((key) => key.startsWith('inversion:'))).toBe(
@@ -778,8 +782,9 @@ describe('what goes into the statistics', () => {
     await tap(user, 'I', 'IV', 'V')
 
     const stats = progressionStatsStore.read()
-    expect(stats['movement:root-fourth-fifth'].correct).toBe(1)
-    expect(stats['movement:root-step'].correct).toBe(1)
+    // I to IV is up a fourth; IV to V is up a whole step.
+    expect(stats['movement:root-up-fourth'].correct).toBe(1)
+    expect(stats['movement:root-up-whole-step'].correct).toBe(1)
     // The same transitions recorded as the ear meets them.
     expect(
       Object.keys(stats).some((key) => key.startsWith('movement:bass-')),
@@ -866,7 +871,7 @@ describe('what goes into the statistics', () => {
     // `movement:opening` can only come from position zero, so it is the clean
     // witness — `numeral:I` would be two records, since this progression uses
     // I at both ends.
-    const opening = progressionStatsStore.read()['movement:root-opening']
+    const opening = progressionStatsStore.read()['opening:I']
     expect(opening.attempts).toBe(1)
     expect(opening.correct).toBe(0)
   })

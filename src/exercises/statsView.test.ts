@@ -44,12 +44,16 @@ describe('labels', () => {
     const movement = PROGRESSION_STATS_VIEW.breakdowns.find(
       (s) => s.namespace === 'movement',
     )
-    expect(movement?.label('root-step')).toBe('Root moves by a step')
-    expect(movement?.label('root-fourth-fifth')).toBe(
-      'Root moves by a fourth or fifth',
+    // A fourth and a fifth are separate moves — one arrives, one departs —
+    // and interval class used to report them as the same thing.
+    expect(movement?.label('root-up-fourth')).toBe('Root moves up a fourth')
+    expect(movement?.label('root-up-fifth')).toBe('Root moves up a fifth')
+    // A sixth up is a third down, named the way it is spoken about.
+    expect(movement?.label('root-down-third')).toBe('Root moves down a third')
+    // Nothing is ever merely "a step".
+    expect(movement?.label('root-up-half-step')).toBe(
+      'Root moves up a half step',
     )
-    expect(movement?.label('root-opening')).toBe('First chord')
-    // The same transitions as heard, which is where an inversion shows up.
     expect(movement?.label('bass-half-step')).toBe('Bass moves by a half step')
     expect(movement?.label('bass-whole-step')).toBe(
       'Bass moves by a whole step',
@@ -80,6 +84,7 @@ describe('what each exercise breaks down by', () => {
     // only existed in the record for progressions already going well, and
     // "Chord 4: 90%" was close to a tautology.
     expect(PROGRESSION_STATS_VIEW.breakdowns.map((s) => s.namespace)).toEqual([
+      'opening',
       'movement',
       'cadence',
       'inversion',
