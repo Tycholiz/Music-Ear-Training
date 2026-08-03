@@ -161,10 +161,16 @@ const MOTION_NAMES: Record<string, string> = {
  * judged against what just happened. Someone can be solid at one and lost at
  * the other, and a list of degrees cannot say which.
  *
- * Degrees stay as a breakdown, because the featured-degrees setting can act on
- * them — but without confusions. Melodic misses land on a neighbouring degree
- * for nearly everyone, so that pairing reads as a finding while saying the
- * same thing about every user.
+ * Which is why the degree breakdown covers the **opening note only**. That is
+ * the one position where naming a degree is the actual task; everywhere else
+ * the ear is following a step or a leap and the degree it lands on is mostly a
+ * consequence of where it started. Recorded across all positions, the figure
+ * averaged the two skills and described neither — so the title says which one
+ * it is, and the recording matches.
+ *
+ * No confusions on it either. Melodic misses land on a neighbouring degree for
+ * nearly everyone, so that pairing reads as a finding while saying the same
+ * thing about every user.
  */
 export const MELODY_STATS_VIEW: StatsView = {
   answer: {
@@ -176,7 +182,7 @@ export const MELODY_STATS_VIEW: StatsView = {
   breakdowns: [
     {
       namespace: 'degree',
-      title: 'By scale degree',
+      title: 'First note, by degree',
       label: safely((value) => degreeLabel(Number(value) as Degree)),
     },
     {

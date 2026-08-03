@@ -248,24 +248,15 @@ export default function Melody() {
     // knowledge of where they went wrong, which is the point of retrying and
     // is not evidence about whether they can hear a ♭6.
     //
-    // Recorded per degree rather than per melody. "You got 60% of melodies"
-    // is a fact about melodies; "you miss the 7th" is a fact about your ears,
-    // and only one of them tells you what to practise.
+    // Recorded per note rather than per melody. "You got 60% of melodies" is a
+    // fact about melodies; "you miss descending leaps" is a fact about your
+    // ears, and only one of them tells you what to practise.
     const measuring = !graded.current
     const wasRight = outcome.positions[latest]
     if (measuring) {
       recordInStore(melodyStatsStore, [
         ...motionAttempt(round.question, latest, entered[latest], wasRight),
-        // No `answered`, so no "♭3 often mistaken for 2". Melodic misses land
-        // on a neighbouring degree for nearly everybody — the generator
-        // prefers steps, so hearing the contour and misjudging its size puts
-        // you one position out — which makes the pairing read as a finding
-        // while saying the same thing to every user. The accuracy still says
-        // something, because the featured-degrees setting can act on it.
-        {
-          item: itemId('degree', round.question.degrees[latest]),
-          correct: wasRight,
-        },
+        ...openingDegreeAttempt(round.question, latest, wasRight),
         { item: itemId('scale', round.question.scaleId), correct: wasRight },
       ])
     }
@@ -426,6 +417,33 @@ export default function Melody() {
       </ModalSheet>
     </main>
   )
+}
+
+/**
+ * Which degree the melody opened on, recorded only for the opening note.
+ *
+ * Identifying a degree is a real, separable skill for exactly one note in a
+ * melody: the first, judged against the drone with nothing before it. Every
+ * note after that is judged against what just happened — the ear is following
+ * a step or a leap, and the degree it lands on is mostly a consequence of
+ * where it started.
+ *
+ * Recording every position under one degree therefore mixed the two tasks and
+ * reported a figure that was about neither. Scoped here, "♭3 45%" means the
+ * one thing it sounds like it means: cold, against the key, ♭3 is hard to
+ * name.
+ *
+ * No `answered`, so no "♭3 often mistaken for 2". Melodic misses land on a
+ * neighbouring degree for nearly everybody, which makes the pairing read as a
+ * finding while saying the same thing about every user.
+ */
+function openingDegreeAttempt(
+  question: MelodyQuestion,
+  index: number,
+  correct: boolean,
+): Attempt[] {
+  if (index !== 0) return []
+  return [{ item: itemId('degree', question.degrees[index]), correct }]
 }
 
 /**
