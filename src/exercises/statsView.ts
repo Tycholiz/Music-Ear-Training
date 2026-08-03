@@ -12,6 +12,7 @@ import {
   type ItemStats,
 } from '../settings'
 import { smoothedAccuracy } from './adaptive'
+import { BASS_AS_ROOT } from './progressionVoicing'
 import { CHORD_PLAY_MODE_NAMES, INVERSION_NAMES } from './chordValidation'
 import { PLAY_MODE_NAMES } from './intervalValidation'
 import { CADENCE_NAMES } from './progressionValidation'
@@ -194,12 +195,23 @@ export const MELODY_STATS_VIEW: StatsView = {
 }
 
 const MOVEMENT_NAMES: Record<string, string> = {
-  opening: 'First chord',
-  'same-root': 'Same root',
-  step: 'Root moves by a step',
-  third: 'Root moves by a third',
-  'fourth-fifth': 'Root moves by a fourth or fifth',
-  tritone: 'Root moves by a tritone',
+  'root-opening': 'First chord',
+  'root-same-root': 'Root stays, quality changes',
+  'root-step': 'Root moves by a step',
+  'root-third': 'Root moves by a third',
+  'root-fourth-fifth': 'Root moves by a fourth or fifth',
+  'root-tritone': 'Root moves by a tritone',
+
+  // Same transitions, heard rather than analysed. Where the two lists
+  // disagree is where an inversion is putting something other than the root
+  // underneath, which is the hardest case in this exercise.
+  'bass-opening': 'First chord',
+  'bass-same-note': 'Bass stays put',
+  'bass-half-step': 'Bass moves by a half step',
+  'bass-whole-step': 'Bass moves by a whole step',
+  'bass-third': 'Bass moves by a third',
+  'bass-fourth-fifth': 'Bass moves by a fourth or fifth',
+  'bass-tritone': 'Bass moves by a tritone',
 }
 
 /**
@@ -220,13 +232,16 @@ export const PROGRESSION_STATS_VIEW: StatsView = {
   answer: {
     namespace: 'numeral',
     title: 'Naming each chord',
-    label: safely((id) => numeralById(id).label),
+    label: (id) =>
+      id === BASS_AS_ROOT
+        ? 'the chord on the bass note'
+        : safely((value) => numeralById(value).label)(id),
     showsConfusions: true,
   },
   breakdowns: [
     {
       namespace: 'movement',
-      title: 'By root movement',
+      title: 'By root and bass movement',
       label: (value) => MOVEMENT_NAMES[value] ?? value,
     },
     {

@@ -32,6 +32,10 @@ describe('labels', () => {
     expect(INTERVAL_STATS_VIEW.answer.label('7')).toBe('Perfect 5th')
     expect(CHORD_STATS_VIEW.answer.label('major-7th')).toBe('Major 7th')
     expect(PROGRESSION_STATS_VIEW.answer.label('vii-dim')).toBe('vii°')
+    // Not a numeral: the reserved id for hearing the bass as the root.
+    expect(PROGRESSION_STATS_VIEW.answer.label('bass-as-root')).toBe(
+      'the chord on the bass note',
+    )
     expect(MELODY_STATS_VIEW.answer.label('leap-down')).toBe('Leap down')
     expect(MELODY_STATS_VIEW.answer.label('opening')).toBe('First note')
   })
@@ -40,11 +44,16 @@ describe('labels', () => {
     const movement = PROGRESSION_STATS_VIEW.breakdowns.find(
       (s) => s.namespace === 'movement',
     )
-    expect(movement?.label('step')).toBe('Root moves by a step')
-    expect(movement?.label('fourth-fifth')).toBe(
+    expect(movement?.label('root-step')).toBe('Root moves by a step')
+    expect(movement?.label('root-fourth-fifth')).toBe(
       'Root moves by a fourth or fifth',
     )
-    expect(movement?.label('opening')).toBe('First chord')
+    expect(movement?.label('root-opening')).toBe('First chord')
+    // The same transitions as heard, which is where an inversion shows up.
+    expect(movement?.label('bass-half-step')).toBe('Bass moves by a half step')
+    expect(movement?.label('bass-whole-step')).toBe(
+      'Bass moves by a whole step',
+    )
   })
 
   it('falls back to the raw id rather than throwing on a stale record', () => {

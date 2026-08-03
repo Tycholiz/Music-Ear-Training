@@ -116,7 +116,10 @@ export type {
 } from './progressionQuestion'
 export {
   keyChord,
+  BASS_AS_ROOT,
+  bassMovement,
   inversionOf,
+  isBassMistakenForRoot,
   voiceChordAlone,
   voiceGuess,
   voiceMovement,

@@ -743,7 +743,7 @@ describe('what goes into the statistics', () => {
 
     const stats = progressionStatsStore.read()
     expect(stats['numeral:I'].correct).toBe(1)
-    expect(stats['movement:opening'].correct).toBe(1)
+    expect(stats['movement:root-opening'].correct).toBe(1)
     // Which inversion is the voicing's business — it picks for smoothness —
     // so this only asserts the dimension is being recorded at all.
     expect(Object.keys(stats).some((key) => key.startsWith('inversion:'))).toBe(
@@ -778,15 +778,46 @@ describe('what goes into the statistics', () => {
     await tap(user, 'I', 'IV', 'V')
 
     const stats = progressionStatsStore.read()
-    expect(stats['movement:fourth-fifth'].correct).toBe(1)
-    expect(stats['movement:step'].correct).toBe(1)
+    expect(stats['movement:root-fourth-fifth'].correct).toBe(1)
+    expect(stats['movement:root-step'].correct).toBe(1)
+    // The same transitions recorded as the ear meets them.
+    expect(
+      Object.keys(stats).some((key) => key.startsWith('movement:bass-')),
+    ).toBe(true)
   })
 
-  it('records what was pressed instead, so a confusion can be named', async () => {
+  it('does not call a quality mistake a bass mistake', async () => {
+    // IV and iv share a root. In root position the bass *is* that root, so
+    // without a guard "answered a numeral rooted on the bass" fires for a
+    // mistake that is about the chord's quality and nothing to do with the
+    // bass at all.
+    progressionSettingsStore.write({
+      ...DEFAULT_PROGRESSION_SETTINGS,
+      numerals: ['I', 'IV', 'V', 'iv'],
+      inversions: [0],
+    })
     const user = userEvent.setup()
     renderExercise()
     await start(user)
-    // The first chord is I; pressing V is a miss with an answer attached.
+
+    await tap(user, 'I', 'iv')
+
+    expect(progressionStatsStore.read()['numeral:IV'].recent[0].answered).toBe(
+      'iv',
+    )
+  })
+
+  it('names a plain function confusion by the chord that was pressed', async () => {
+    // Root position only, so the bass *is* the root and pressing V for I can
+    // only mean the function was misjudged.
+    progressionSettingsStore.write({
+      ...DEFAULT_PROGRESSION_SETTINGS,
+      inversions: [0],
+    })
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
     await tap(user, 'V')
 
     expect(progressionStatsStore.read()['numeral:I']).toMatchObject({
@@ -794,6 +825,31 @@ describe('what goes into the statistics', () => {
       correct: 0,
       recent: [{ correct: false, answered: 'V' }],
     })
+  })
+
+  /**
+   * The other failure, which wears the same name and wants different practice.
+   *
+   * With inversions allowed the opening I is voiced in second inversion, so G
+   * is in the bass — and V is rooted on G. Pressing V there is not a misjudged
+   * function, it is hearing the bass and taking it for the root. Recording it
+   * as "mistaken for V" would be true and would say nothing about which of the
+   * two mistakes was made.
+   */
+  it('names hearing the bass as the root as its own kind of mistake', async () => {
+    progressionSettingsStore.write({
+      ...DEFAULT_PROGRESSION_SETTINGS,
+      inversions: [0, 1, 2],
+    })
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await tap(user, 'V')
+
+    const answered =
+      progressionStatsStore.read()['numeral:I'].recent[0].answered
+    expect(answered).toBe('bass-as-root')
   })
 
   it('measures each position once, the first time it is reached', async () => {
@@ -810,7 +866,7 @@ describe('what goes into the statistics', () => {
     // `movement:opening` can only come from position zero, so it is the clean
     // witness — `numeral:I` would be two records, since this progression uses
     // I at both ends.
-    const opening = progressionStatsStore.read()['movement:opening']
+    const opening = progressionStatsStore.read()['movement:root-opening']
     expect(opening.attempts).toBe(1)
     expect(opening.correct).toBe(0)
   })

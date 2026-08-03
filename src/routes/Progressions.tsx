@@ -23,7 +23,10 @@ import {
 import {
   canGenerateProgression,
   generateProgressionQuestion,
+  BASS_AS_ROOT,
+  bassMovement,
   inversionOf,
+  isBassMistakenForRoot,
   isCadenceChord,
   rootMovement,
   keyChord,
@@ -240,14 +243,31 @@ export default function Progressions() {
     // position already recorded is skipped however often it comes round again.
     if (index >= furthestReached.current) {
       furthestReached.current = index + 1
+      const voiced = voiceProgression(round.question, settings)
+      const heardBassAsRoot =
+        !wasRight &&
+        isBassMistakenForRoot(round.question, index, numeralId, voiced)
+
       recordInStore(progressionStatsStore, [
         {
           item: itemId('numeral', round.question.numerals[index]),
           correct: wasRight,
-          answered: numeralId,
+          // Two failures wear the same name and want different practice.
+          // Answering `vi` for `V` is a misjudged *function*. Answering `III`
+          // for an inverted `I` is not — the bass was E, and the ear took it
+          // for the root. Reporting both as "mistaken for III" is true and
+          // tells the user nothing about which mistake they made.
+          answered: heardBassAsRoot ? BASS_AS_ROOT : numeralId,
         },
         {
-          item: itemId('movement', rootMovement(round.question, index)),
+          item: itemId(
+            'movement',
+            `root-${rootMovement(round.question, index)}`,
+          ),
+          correct: wasRight,
+        },
+        {
+          item: itemId('movement', `bass-${bassMovement(voiced, index)}`),
           correct: wasRight,
         },
         {
@@ -256,7 +276,7 @@ export default function Progressions() {
             inversionOf(
               round.question.numerals[index],
               round.question.tonic,
-              voiceProgression(round.question, settings)[index],
+              voiced[index],
             ),
           ),
           correct: wasRight,

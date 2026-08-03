@@ -261,3 +261,86 @@ export function inversionOf(
   // reading it as root position beats throwing inside a statistics path.
   return inversion < 0 ? 0 : inversion
 }
+
+/**
+ * The answer id recorded when the bass was taken for the root.
+ *
+ * A reserved value rather than a numeral, because the fact being recorded is
+ * not "they said III" — it is "they named whatever was in the bass". Which
+ * numeral that happened to be varies with the inversion and says less than the
+ * pattern does.
+ */
+export const BASS_AS_ROOT = 'bass-as-root'
+
+/**
+ * The interval class between two pitches: the smaller of the two directions.
+ *
+ * A fifth up and a fourth down are one relationship, and an octave
+ * displacement is not a different move.
+ */
+function intervalClass(from: number, to: number): number {
+  const distance = Math.abs(to - from) % 12
+  return Math.min(distance, 12 - distance)
+}
+
+/**
+ * How the *bass* moves into a chord, which is not always how the root does.
+ *
+ * `V IV I` has roots G F C — a step then a fourth. Invert the `I` and its bass
+ * is E, so the line is G F E: a whole step then a **half** step. An ear
+ * following the bass hears a stepwise descent and reads `V IV III`, because
+ * `III` is rooted on E. The harmony did one thing and the bass said another.
+ *
+ * Half and whole steps are separated here but not in `rootMovement`, and the
+ * asymmetry is deliberate. A root moving by a semitone needs a chromatic
+ * chord and is rare; a semitone in the *bass* is the commonest artefact of an
+ * inversion, and is exactly the one that misleads.
+ */
+export type BassMovement =
+  | 'opening'
+  | 'same-note'
+  | 'half-step'
+  | 'whole-step'
+  | 'third'
+  | 'fourth-fifth'
+  | 'tritone'
+
+export function bassMovement(
+  voiced: readonly (readonly number[])[],
+  index: number,
+): BassMovement {
+  if (index <= 0) return 'opening'
+
+  const size = intervalClass(voiced[index - 1][0], voiced[index][0])
+  if (size === 0) return 'same-note'
+  if (size === 1) return 'half-step'
+  if (size === 2) return 'whole-step'
+  if (size <= 4) return 'third'
+  if (size === 6) return 'tritone'
+  return 'fourth-fifth'
+}
+
+/**
+ * Whether a wrong answer named the chord sitting on the bass note.
+ *
+ * The signature of hearing the bass as the root: the numeral pressed is rooted
+ * on the note that was actually sounding underneath. `I` in first inversion
+ * answered as `III`; `V` in first inversion answered as `vii°`.
+ *
+ * Only counted when the chord was inverted. In root position the bass *is* the
+ * root, so this would fire for `IV` answered as `iv` — same root, different
+ * quality — which is a mistake about the chord rather than about the bass.
+ */
+export function isBassMistakenForRoot(
+  question: ProgressionQuestion,
+  index: number,
+  answeredId: string,
+  voiced: readonly (readonly number[])[],
+): boolean {
+  const played = question.numerals[index]
+  if (inversionOf(played, question.tonic, voiced[index]) === 0) return false
+
+  const bassClass = ((voiced[index][0] % 12) + 12) % 12
+  const answeredRoot = numeralRoot(numeralById(answeredId), question.tonic)
+  return ((answeredRoot % 12) + 12) % 12 === bassClass
+}
