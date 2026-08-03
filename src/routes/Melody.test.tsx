@@ -988,19 +988,55 @@ describe('what goes into the statistics', () => {
     expect(stats['scale:major-pentatonic'].attempts).toBe(2)
   })
 
-  it('records what was pressed instead, so a confusion can be named', async () => {
+  it('names no confusion on a degree, because every miss lands on a neighbour', async () => {
+    // The generator prefers steps, so hearing the contour and misjudging its
+    // size puts you one position out — which makes the pairing read as a
+    // finding while saying the same thing about every user.
     const user = userEvent.setup()
     renderExercise()
     await start(user)
 
-    // The melody opens on 1; pressing 5 is a miss with an answer attached.
     await tap(user, '5')
 
     expect(melodyStatsStore.read()['degree:0']).toMatchObject({
       attempts: 1,
       correct: 0,
-      recent: [{ correct: false, answered: '7' }],
+      recent: [{ correct: false }],
     })
+  })
+
+  it('records how the note arrived, not just which note it was', async () => {
+    // The melody is 1 5 6 5, so the opening note has nothing before it.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await tap(user, '1')
+    expect(melodyStatsStore.read()['motion:opening']).toMatchObject({
+      attempts: 1,
+      correct: 1,
+    })
+
+    // 1 to 5 is two scale positions in the major pentatonic: a leap up.
+    await tap(user, '5')
+    expect(melodyStatsStore.read()['motion:leap-up']).toMatchObject({
+      attempts: 1,
+      correct: 1,
+    })
+  })
+
+  it('names the motion a wrong guess implied, which is the useful confusion', async () => {
+    // Third note is 6, a step up from 5. Pressing 1 implies a leap instead,
+    // so the size was misjudged rather than the direction.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await tap(user, '1', '5', '1')
+
+    const motion = melodyStatsStore.read()['motion:step-up']
+    expect(motion.correct).toBe(0)
+    expect(motion.recent[0].answered).toMatch(/leap/)
   })
 
   it('takes the first run at a melody and nothing after it', async () => {

@@ -425,6 +425,67 @@ export function guessPitch(
   )
 }
 
+/**
+ * How a note arrives: on its own, or by moving from the one before it.
+ *
+ * The unit melodic dictation actually trains. A per-degree figure conflates
+ * every way a degree can turn up — the ♭3 opening a phrase is judged against
+ * the drone alone, and the ♭3 two notes later is judged against what just
+ * happened, which is a different task with a different failure. Splitting them
+ * is what makes "fine on steps, lost on descending leaps" sayable at all.
+ */
+export type MelodyMotion =
+  'opening' | 'repeat' | 'step-up' | 'step-down' | 'leap-up' | 'leap-down'
+
+/**
+ * Where a pitch sits on the scale ladder, or null if it is not on it.
+ *
+ * Positions, not semitones — the distinction the whole generator is built on.
+ * A step is one position whatever distance that happens to be, so the minor
+ * pentatonic's three-semitone 1→♭3 is a step like any other rather than being
+ * filed as a leap for having a gap in it.
+ */
+function pitchPosition(
+  scale: Scale,
+  tonic: number,
+  pitch: number,
+): number | null {
+  const offset = pitch - tonic
+  const octave = Math.floor(offset / DEGREES_PER_OCTAVE)
+  const index = scale.degrees.indexOf(
+    (offset - octave * DEGREES_PER_OCTAVE) as Degree,
+  )
+
+  return index < 0 ? null : index + octave * scale.degrees.length
+}
+
+/**
+ * How the note at `index` arrives, optionally for a pitch other than the one
+ * the melody actually sang — which is how a guess gets classified the same way.
+ *
+ * Null when the pitch is not on the scale at all. Nothing generated can be, so
+ * this only guards a caller passing something arbitrary; recording a motion
+ * derived from a note the ladder cannot place would be worse than recording
+ * nothing.
+ */
+export function melodyMotion(
+  question: MelodyQuestion,
+  index: number,
+  pitch: number = question.notes[index],
+): MelodyMotion | null {
+  if (index <= 0) return 'opening'
+
+  const scale = scaleById(question.scaleId)
+  const from = pitchPosition(scale, question.tonic, question.notes[index - 1])
+  const to = pitchPosition(scale, question.tonic, pitch)
+  if (from === null || to === null) return null
+
+  const steps = to - from
+  if (steps === 0) return 'repeat'
+  if (Math.abs(steps) === 1) return steps > 0 ? 'step-up' : 'step-down'
+  return steps > 0 ? 'leap-up' : 'leap-down'
+}
+
 /** Every pitch with this degree that a melody on this tonic could have used. */
 function octavesWithin(tonic: number, degree: Degree): number[] {
   const pitches: number[] = []

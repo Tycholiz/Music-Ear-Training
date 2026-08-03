@@ -120,13 +120,41 @@ export const ROOT_STATS_VIEW: StatsView = {
   breakdowns: [inversionBreakdown],
 }
 
+const MOTION_NAMES: Record<string, string> = {
+  opening: 'First note',
+  repeat: 'Repeated note',
+  'step-up': 'Step up',
+  'step-down': 'Step down',
+  'leap-up': 'Leap up',
+  'leap-down': 'Leap down',
+}
+
+/**
+ * Melody leads with *motion* rather than with the degree.
+ *
+ * A per-degree figure conflates every way a degree can arrive, and the ways
+ * differ more than the degrees do: the first note of a phrase is judged
+ * against the drone with nothing before it, while every note after it is
+ * judged against what just happened. Someone can be solid at one and lost at
+ * the other, and a list of degrees cannot say which.
+ *
+ * Degrees stay as a breakdown, because the featured-degrees setting can act on
+ * them — but without confusions. Melodic misses land on a neighbouring degree
+ * for nearly everyone, so that pairing reads as a finding while saying the
+ * same thing about every user.
+ */
 export const MELODY_STATS_VIEW: StatsView = {
   answer: {
-    namespace: 'degree',
-    title: 'Scale degrees',
-    label: safely((value) => degreeLabel(Number(value) as Degree)),
+    namespace: 'motion',
+    title: 'By melodic motion',
+    label: (value) => MOTION_NAMES[value] ?? value,
   },
   breakdowns: [
+    {
+      namespace: 'degree',
+      title: 'By scale degree',
+      label: safely((value) => degreeLabel(Number(value) as Degree)),
+    },
     {
       namespace: 'scale',
       title: 'By scale',

@@ -32,7 +32,8 @@ describe('labels', () => {
     expect(INTERVAL_STATS_VIEW.answer.label('7')).toBe('Perfect 5th')
     expect(CHORD_STATS_VIEW.answer.label('major-7th')).toBe('Major 7th')
     expect(PROGRESSION_STATS_VIEW.answer.label('vii-dim')).toBe('vii°')
-    expect(MELODY_STATS_VIEW.answer.label('0')).toBe('1')
+    expect(MELODY_STATS_VIEW.answer.label('leap-down')).toBe('Leap down')
+    expect(MELODY_STATS_VIEW.answer.label('opening')).toBe('First note')
   })
 
   it('counts progression positions from one, not from zero', () => {

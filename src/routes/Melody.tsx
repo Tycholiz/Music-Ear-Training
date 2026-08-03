@@ -18,12 +18,14 @@ import {
   recordInStore,
   recordGuess,
   usePersisted,
+  type Attempt,
 } from '../settings'
 import {
   canGenerateMelody,
   checkMelody,
   generateMelodyQuestion,
   guessPitch,
+  melodyMotion,
   tonicChordFor,
   phraseForMelodyQuestion,
   selectedScales,
@@ -253,10 +255,16 @@ export default function Melody() {
     const wasRight = outcome.positions[latest]
     if (measuring) {
       recordInStore(melodyStatsStore, [
+        ...motionAttempt(round.question, latest, entered[latest], wasRight),
+        // No `answered`, so no "♭3 often mistaken for 2". Melodic misses land
+        // on a neighbouring degree for nearly everybody — the generator
+        // prefers steps, so hearing the contour and misjudging its size puts
+        // you one position out — which makes the pairing read as a finding
+        // while saying the same thing to every user. The accuracy still says
+        // something, because the featured-degrees setting can act on it.
         {
           item: itemId('degree', round.question.degrees[latest]),
           correct: wasRight,
-          answered: String(entered[latest]),
         },
         { item: itemId('scale', round.question.scaleId), correct: wasRight },
       ])
@@ -418,6 +426,41 @@ export default function Melody() {
       </ModalSheet>
     </main>
   )
+}
+
+/**
+ * The motion this note arrived by, and what the guess implied instead.
+ *
+ * The confusion is the point of measuring motion at all: a descending leap
+ * entered as a step means the size was underestimated, which is a different
+ * fault from mishearing the direction and wants different practice.
+ *
+ * `answered` is omitted when the two agree. A wrong degree can still imply the
+ * right motion — miss by an octave and the contour was heard correctly — and
+ * "often mistaken for a leap down" under *Leap down* would be nonsense.
+ */
+function motionAttempt(
+  question: MelodyQuestion,
+  index: number,
+  entered: Degree,
+  correct: boolean,
+): Attempt[] {
+  const expected = melodyMotion(question, index)
+  if (expected === null) return []
+
+  const implied = melodyMotion(
+    question,
+    index,
+    guessPitch(question, index, entered),
+  )
+
+  return [
+    {
+      item: itemId('motion', expected),
+      correct,
+      answered: implied !== null && implied !== expected ? implied : undefined,
+    },
+  ]
 }
 
 /**

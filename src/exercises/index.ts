@@ -86,6 +86,7 @@ export {
   checkMelody,
   generateMelodyQuestion,
   guessPitch,
+  melodyMotion,
   tonicChordFor,
   phraseForMelodyQuestion,
   selectedScales,
