@@ -560,7 +560,7 @@ describe('what goes into the statistics', () => {
     expect(chordStatsStore.read()['chord:major']).toMatchObject({
       attempts: 1,
       correct: 0,
-      confusions: { minor: 1 },
+      recent: [{ correct: false, answered: 'minor' }],
     })
   })
 

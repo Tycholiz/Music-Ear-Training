@@ -53,7 +53,9 @@ export const MAX_WEIGHT_RATIO = 4
  */
 export function smoothedAccuracy(item: ItemStats | undefined): number {
   const recent = item?.recent ?? []
-  const correct = recent.filter(Boolean).length
+  // Not `filter(Boolean)`: an attempt is an object now, and every object is
+  // truthy, so that quietly scored a perfect record for everyone.
+  const correct = recent.filter((attempt) => attempt.correct).length
 
   // Beta(1, 1): one imagined hit and one imagined miss.
   return (correct + 1) / (recent.length + 2)

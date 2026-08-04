@@ -30,13 +30,12 @@ export {
   EMPTY_ITEM_STATS,
   RECENT_WINDOW,
   itemId,
-  itemNamespace,
   itemsInNamespace,
   recordAttempt,
   recordAttempts,
   recordInStore,
 } from './stats'
-export type { Attempt, ExerciseStats, ItemStats } from './stats'
+export type { Attempt, ExerciseStats, ItemStats, RecentAttempt } from './stats'
 export { createStore } from './store'
 export type { PersistedStore } from './store'
 export {

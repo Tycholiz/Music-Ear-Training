@@ -50,6 +50,21 @@ import type { PersistedStore } from './store'
  */
 export const RECENT_WINDOW = 20
 
+/**
+ * One recent attempt: whether it was right, and what was said if it was not.
+ *
+ * `answered` lives here rather than in a separate lifetime tally so that a
+ * mistake expires with the window that holds it. Someone who spent a month
+ * hearing every perfect 5th as an octave, and then stopped, should not still
+ * be told about it — the record is meant to describe where they are, not where
+ * they have been.
+ */
+export interface RecentAttempt {
+  correct: boolean
+  /** What was answered instead. Absent when correct or when self-graded. */
+  answered?: string
+}
+
 /** One tracked item — a chord, an interval, a cadence, an inversion. */
 export interface ItemStats {
   /** Lifetime attempts, first tries only. */
@@ -57,12 +72,12 @@ export interface ItemStats {
   /** Lifetime correct. */
   correct: number
   /**
-   * The last `RECENT_WINDOW` outcomes, oldest first.
+   * The last `RECENT_WINDOW` attempts, oldest first.
    *
    * Newest last so that reading it as a sequence goes forwards in time, which
    * is how anything charting it would want it.
    */
-  recent: boolean[]
+  recent: RecentAttempt[]
   /**
    * When this item was last attempted, ms since epoch.
    *
@@ -71,15 +86,6 @@ export interface ItemStats {
    * way to notice that has happened.
    */
   lastSeen: number
-  /**
-   * What was answered instead, counted by answer id.
-   *
-   * Absent where there is no answer to record. Chord root is self-graded — the
-   * user reports whether they had the note in mind, and there is no wrong
-   * answer to name — so it records the chord and the inversion and leaves this
-   * alone rather than inventing something.
-   */
-  confusions?: Record<string, number>
 }
 
 /** Every tracked item for one exercise, by namespaced id. */
@@ -122,26 +128,21 @@ export function recordAttempt(
 ): ExerciseStats {
   const previous = stats[item] ?? EMPTY_ITEM_STATS
 
-  const updated: ItemStats = {
-    attempts: previous.attempts + 1,
-    correct: previous.correct + (correct ? 1 : 0),
-    recent: [...previous.recent, correct].slice(-RECENT_WINDOW),
-    lastSeen: now,
+  // Only a wrong answer says anything. Keeping the right one would record
+  // that the user confused a chord with itself, which is not a fact about
+  // anything and would drown the pairs that mean something.
+  const attempt: RecentAttempt =
+    !correct && answered !== undefined ? { correct, answered } : { correct }
+
+  return {
+    ...stats,
+    [item]: {
+      attempts: previous.attempts + 1,
+      correct: previous.correct + (correct ? 1 : 0),
+      recent: [...previous.recent, attempt].slice(-RECENT_WINDOW),
+      lastSeen: now,
+    },
   }
-
-  // Only a wrong answer says anything. Recording the right one would fill the
-  // map with an item's own id and drown the pairs that mean something.
-  const confusions =
-    !correct && answered !== undefined
-      ? {
-          ...previous.confusions,
-          [answered]: (previous.confusions?.[answered] ?? 0) + 1,
-        }
-      : previous.confusions
-
-  if (confusions) updated.confusions = confusions
-
-  return { ...stats, [item]: updated }
 }
 
 /** Record several outcomes at once, in order. */
@@ -194,11 +195,6 @@ export function recordInStore(
  */
 export function itemId(namespace: string, value: string | number): string {
   return `${namespace}:${value}`
-}
-
-/** The namespace an item id belongs to, for grouping a mixed record. */
-export function itemNamespace(id: string): string {
-  return id.slice(0, id.indexOf(':'))
 }
 
 /** Every item in one namespace, keyed by the value after the colon. */

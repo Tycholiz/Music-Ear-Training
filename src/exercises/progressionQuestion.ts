@@ -364,3 +364,83 @@ export function checkProgression(
     positions,
   }
 }
+
+/**
+ * How far a chord's root moves from the one before it.
+ *
+ * The progression equivalent of melody's steps and leaps. Naming `V` in
+ * isolation is not really the skill — the ear tracks how far the harmony has
+ * travelled — and it points somewhere concrete, since root movement is hardest
+ * to follow when an inversion hides where the root is.
+ *
+ * ## Directed, not by interval class
+ *
+ * An earlier version measured the smaller of the two directions, which
+ * collapsed a fifth into a fourth and a sixth into a third: three distinct
+ * relationships reported as one. `I` to `V` and `V` to `I` are not the same
+ * move — one departs and one arrives — and a user can be fluent at one while
+ * lost in the other.
+ *
+ * Roots are pitch classes, so "up" is measured as the ascending distance and
+ * the far half is named by its descending complement, which is how the moves
+ * are actually spoken about. `I` to `vi` is nine semitones up and every
+ * musician calls it down a third; `V` to `IV` is ten up and is a step down.
+ * A sixth is therefore tracked — it is the same relationship as a third the
+ * other way, and named the way it would be said aloud.
+ */
+export type RootMovement =
+  | 'same'
+  | 'up-half-step'
+  | 'up-whole-step'
+  | 'up-third'
+  | 'up-fourth'
+  | 'tritone'
+  | 'up-fifth'
+  | 'down-third'
+  | 'down-whole-step'
+  | 'down-half-step'
+
+export function rootMovement(
+  question: ProgressionQuestion,
+  index: number,
+): RootMovement {
+  const from = numeralById(question.numerals[index - 1]).root
+  const to = numeralById(question.numerals[index]).root
+  const up = (((to - from) % 12) + 12) % 12
+
+  switch (up) {
+    case 0:
+      // IV to iv keeps its root and changes mode. Nothing else in the
+      // successor table shares a root across a move.
+      return 'same'
+    case 1:
+      return 'up-half-step'
+    case 2:
+      return 'up-whole-step'
+    case 3:
+    case 4:
+      return 'up-third'
+    case 5:
+      return 'up-fourth'
+    case 6:
+      return 'tritone'
+    case 7:
+      return 'up-fifth'
+    case 8:
+    case 9:
+      return 'down-third'
+    case 10:
+      return 'down-whole-step'
+    default:
+      return 'down-half-step'
+  }
+}
+
+/** Whether this position is one of the chords the cadence is made of. */
+export function isCadenceChord(
+  question: ProgressionQuestion,
+  index: number,
+): boolean {
+  const ending = cadenceNumerals(question.cadence).length
+  return index >= question.numerals.length - ending
+}

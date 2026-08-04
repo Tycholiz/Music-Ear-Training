@@ -18,12 +18,14 @@ import {
   recordInStore,
   recordGuess,
   usePersisted,
+  type Attempt,
 } from '../settings'
 import {
   canGenerateMelody,
   checkMelody,
   generateMelodyQuestion,
   guessPitch,
+  melodyMotion,
   tonicChordFor,
   phraseForMelodyQuestion,
   selectedScales,
@@ -246,18 +248,15 @@ export default function Melody() {
     // knowledge of where they went wrong, which is the point of retrying and
     // is not evidence about whether they can hear a ♭6.
     //
-    // Recorded per degree rather than per melody. "You got 60% of melodies"
-    // is a fact about melodies; "you miss the 7th" is a fact about your ears,
-    // and only one of them tells you what to practise.
+    // Recorded per note rather than per melody. "You got 60% of melodies" is a
+    // fact about melodies; "you miss descending leaps" is a fact about your
+    // ears, and only one of them tells you what to practise.
     const measuring = !graded.current
     const wasRight = outcome.positions[latest]
     if (measuring) {
       recordInStore(melodyStatsStore, [
-        {
-          item: itemId('degree', round.question.degrees[latest]),
-          correct: wasRight,
-          answered: String(entered[latest]),
-        },
+        ...motionAttempt(round.question, latest, entered[latest], wasRight),
+        ...openingDegreeAttempt(round.question, latest, wasRight),
         { item: itemId('scale', round.question.scaleId), correct: wasRight },
       ])
     }
@@ -418,6 +417,68 @@ export default function Melody() {
       </ModalSheet>
     </main>
   )
+}
+
+/**
+ * Which degree the melody opened on, recorded only for the opening note.
+ *
+ * Identifying a degree is a real, separable skill for exactly one note in a
+ * melody: the first, judged against the drone with nothing before it. Every
+ * note after that is judged against what just happened — the ear is following
+ * a step or a leap, and the degree it lands on is mostly a consequence of
+ * where it started.
+ *
+ * Recording every position under one degree therefore mixed the two tasks and
+ * reported a figure that was about neither. Scoped here, "♭3 45%" means the
+ * one thing it sounds like it means: cold, against the key, ♭3 is hard to
+ * name.
+ *
+ * No `answered`, so no "♭3 often mistaken for 2". Melodic misses land on a
+ * neighbouring degree for nearly everybody, which makes the pairing read as a
+ * finding while saying the same thing about every user.
+ */
+function openingDegreeAttempt(
+  question: MelodyQuestion,
+  index: number,
+  correct: boolean,
+): Attempt[] {
+  if (index !== 0) return []
+  return [{ item: itemId('degree', question.degrees[index]), correct }]
+}
+
+/**
+ * The motion this note arrived by, and what the guess implied instead.
+ *
+ * The confusion is the point of measuring motion at all: a descending leap
+ * entered as a step means the size was underestimated, which is a different
+ * fault from mishearing the direction and wants different practice.
+ *
+ * `answered` is omitted when the two agree. A wrong degree can still imply the
+ * right motion — miss by an octave and the contour was heard correctly — and
+ * "often mistaken for a leap down" under *Leap down* would be nonsense.
+ */
+function motionAttempt(
+  question: MelodyQuestion,
+  index: number,
+  entered: Degree,
+  correct: boolean,
+): Attempt[] {
+  const expected = melodyMotion(question, index)
+  if (expected === null) return []
+
+  const implied = melodyMotion(
+    question,
+    index,
+    guessPitch(question, index, entered),
+  )
+
+  return [
+    {
+      item: itemId('motion', expected),
+      correct,
+      answered: implied !== null && implied !== expected ? implied : undefined,
+    },
+  ]
 }
 
 /**

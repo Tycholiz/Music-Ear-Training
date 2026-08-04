@@ -19,6 +19,7 @@ import {
   usePersisted,
 } from '../settings'
 import {
+  ROOT_STATS_VIEW,
   canGenerateChord,
   generateRootQuestion,
   groupsForRootQuestion,
@@ -235,6 +236,8 @@ export default function ChordRoot() {
       >
         <ChordSettingsMenu
           store={rootSettingsStore}
+          statsStore={rootStatsStore}
+          statsView={ROOT_STATS_VIEW}
           availableChords={UNAMBIGUOUS_ROOT_CHORDS}
           onResetScore={() => {
             resetScore()

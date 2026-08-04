@@ -23,6 +23,12 @@ import {
 import {
   canGenerateProgression,
   generateProgressionQuestion,
+  BASS_AS_ROOT,
+  bassMovement,
+  inversionOf,
+  isBassMistakenForRoot,
+  isCadenceChord,
+  rootMovement,
   keyChord,
   voiceGuess,
   voiceProgression,
@@ -89,6 +95,14 @@ export default function Progressions() {
    * against the first one's position. Kept in step by an effect below.
    */
   const position = useRef(0)
+  /**
+   * The furthest position this progression has ever been answered at.
+   *
+   * Statistics are recorded once per position, the first time it is reached,
+   * so a retry re-covering ground already measured adds nothing and a position
+   * beyond the previous failure is still counted. Reset with the question.
+   */
+  const furthestReached = useRef(0)
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -136,6 +150,7 @@ export default function Progressions() {
     setPhase('entering')
     setFlash(null)
     graded.current = false
+    furthestReached.current = 0
     setRound((current) => ({
       number: (current?.number ?? 0) + 1,
       question: generateProgressionQuestion(settings),
@@ -154,6 +169,7 @@ export default function Progressions() {
     setPhase('entering')
     setFlash(null)
     graded.current = false
+    furthestReached.current = 0
   }, [settings])
 
   useEffect(() => {
@@ -212,23 +228,84 @@ export default function Progressions() {
 
     const wasRight = numeralId === round.question.numerals[index]
 
-    // First run only, read before `scoreOnce` flips the ref — a retry is the
-    // user working from knowledge of where they went wrong.
+    // Each position is measured the first time it is *reached*, whichever
+    // attempt that happens on — not on the first attempt only.
     //
-    // Three separate facts, because they fail for different reasons and want
-    // different fixes. Missing `V` is harmony. Missing the cadence is a
-    // question about how progressions end. Missing chord four of five while
-    // getting one to three is working memory, and no amount of chord drilling
-    // addresses it.
-    if (!graded.current) {
+    // A wrong press ends the attempt, so recording only the first run meant
+    // position four existed in the record solely for progressions where one
+    // to three had already gone right. Every figure downstream inherited that:
+    // the cadence chords sit at the end, so `I`, `vi` and `V` were measured
+    // almost exclusively on progressions the user was already getting right,
+    // and read as mastery when they were mostly selection.
+    //
+    // Reaching a position on a retry is still fresh evidence about *that*
+    // chord — the user has been told the ones before it, not this one — and a
+    // position already recorded is skipped however often it comes round again.
+    if (index >= furthestReached.current) {
+      furthestReached.current = index + 1
+      const voiced = voiceProgression(round.question, settings)
+      const heardBassAsRoot =
+        !wasRight &&
+        isBassMistakenForRoot(round.question, index, numeralId, voiced)
+
       recordInStore(progressionStatsStore, [
         {
           item: itemId('numeral', round.question.numerals[index]),
           correct: wasRight,
-          answered: numeralId,
+          // Two failures wear the same name and want different practice.
+          // Answering `vi` for `V` is a misjudged *function*. Answering `III`
+          // for an inverted `I` is not — the bass was E, and the ear took it
+          // for the root. Reporting both as "mistaken for III" is true and
+          // tells the user nothing about which mistake they made.
+          answered: heardBassAsRoot ? BASS_AS_ROOT : numeralId,
         },
-        { item: itemId('cadence', round.question.cadence), correct: wasRight },
-        { item: itemId('position', index), correct: wasRight },
+        // Which chord opens a progression is a different skill from how the
+        // harmony moves: there is nothing before it, so it has to be heard by
+        // its function against the key rather than by a distance travelled.
+        // Every later chord can lean on the one before it as a landmark.
+        ...(index === 0
+          ? [
+              {
+                item: itemId('opening', round.question.numerals[index]),
+                correct: wasRight,
+              },
+            ]
+          : [
+              {
+                item: itemId(
+                  'movement',
+                  `root-${rootMovement(round.question, index)}`,
+                ),
+                correct: wasRight,
+              },
+              {
+                item: itemId('movement', `bass-${bassMovement(voiced, index)}`),
+                correct: wasRight,
+              },
+            ]),
+        {
+          item: itemId(
+            'inversion',
+            inversionOf(
+              round.question.numerals[index],
+              round.question.tonic,
+              voiced[index],
+            ),
+          ),
+          correct: wasRight,
+        },
+        // Only the chords the cadence is actually made of. Averaging every
+        // press in the progression made this a figure about the run-up: nail
+        // four chords, miss the deceptive `vi`, and it read 80% for a cadence
+        // that was not heard at all.
+        ...(isCadenceChord(round.question, index)
+          ? [
+              {
+                item: itemId('cadence', round.question.cadence),
+                correct: wasRight,
+              },
+            ]
+          : []),
       ])
     }
 

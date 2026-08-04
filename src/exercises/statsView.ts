@@ -1,0 +1,447 @@
+import {
+  chordById,
+  degreeLabel,
+  intervalName,
+  numeralById,
+  scaleById,
+  type Degree,
+} from '../theory'
+import {
+  itemsInNamespace,
+  type ExerciseStats,
+  type ItemStats,
+} from '../settings'
+import { smoothedAccuracy } from './adaptive'
+import { BASS_AS_ROOT } from './progressionVoicing'
+import { CHORD_PLAY_MODE_NAMES, INVERSION_NAMES } from './chordValidation'
+import { PLAY_MODE_NAMES } from './intervalValidation'
+import { CADENCE_NAMES } from './progressionValidation'
+
+/**
+ * What a statistics screen should show for each exercise.
+ *
+ * The stats store is deliberately dumb about music — it keeps namespaced ids
+ * and counts. Turning `chord:major-7th` back into "Major 7th", and knowing
+ * that chord root wants a breakdown by *inversion* while intervals want one by
+ * direction, is knowledge about the exercise. It lives here so the screen can
+ * be one component rather than five.
+ *
+ * ## Two tiers, because they answer different questions
+ *
+ * The **answer** is the measure an exercise leads with, bucketed into learning
+ * / practising / solid. Usually that is the thing the user names — the chord,
+ * the interval, the numeral — but melody leads with *how a note arrived*
+ * instead, because which degree it was matters less there than whether it was
+ * a step or a leap.
+ *
+ * A **breakdown** is a condition the question was asked under: which inversion,
+ * which play mode, which cadence, how far the root moved. These say *why* an
+ * answer figure looks the way it does — "root position 88%, second inversion
+ * 41%" is the whole difficulty of chord root in one line — but bucketing them
+ * as though the user were learning "2nd inversion" would be nonsense, so they
+ * are a plain list.
+ *
+ * Whether a section diagnoses — "often mistaken for …" — is a third, separate
+ * question, and one each section answers for itself with `showsConfusions`.
+ * Neither tier implies it.
+ */
+
+export interface StatsSection {
+  /** The namespace its items live under, without the colon. */
+  namespace: string
+  title: string
+  /** Turns the value after the colon into something a musician reads. */
+  label: (value: string) => string
+  /**
+   * Whether "often mistaken for …" is worth showing here.
+   *
+   * Declared rather than inferred from what happens to be in the store. It was
+   * inferred once — a section showed confusions if the exercise recorded an
+   * `answered` — and the two promptly disagreed: melody stopped recording them
+   * for degrees, and every record already written kept showing them until its
+   * window rolled over. A screen that reports whatever it finds cannot be
+   * changed by changing what is written, only by waiting.
+   *
+   * Off by default, so a namespace has to *ask* to be diagnosed.
+   */
+  showsConfusions?: boolean
+  /**
+   * How the rows are ordered.
+   *
+   * Worst-first everywhere by default, because the point of the screen is what
+   * to work on next. Inversions are the exception: root position, 1st, 2nd is
+   * an order the reader already has in their head, and shuffling it by
+   * accuracy makes a three-row list something you have to parse rather than
+   * scan. The ordering carries meaning of its own — the numbers usually fall
+   * off as the bass climbs, and that shape is only visible in sequence.
+   */
+  order?: 'worst-first' | 'natural'
+}
+
+export interface StatsView {
+  /** The measure this exercise leads with. Bucketed into mastery. */
+  answer: StatsSection
+  /** Conditions the question was asked under. Plain lists. */
+  breakdowns: StatsSection[]
+}
+
+/** Falls back to the raw id rather than throwing on a stale record. */
+function safely(label: (value: string) => string) {
+  return (value: string) => {
+    try {
+      return label(value)
+    } catch {
+      return value
+    }
+  }
+}
+
+const chordAnswer: StatsSection = {
+  namespace: 'chord',
+  title: 'Naming each chord',
+  label: safely((id) => chordById(id).name),
+  showsConfusions: true,
+}
+
+const inversionBreakdown: StatsSection = {
+  namespace: 'inversion',
+  title: 'By inversion',
+  label: (value) => INVERSION_NAMES[Number(value)] ?? value,
+  order: 'natural',
+}
+
+export const INTERVAL_STATS_VIEW: StatsView = {
+  answer: {
+    namespace: 'interval',
+    title: 'Naming each interval',
+    label: safely((value) => intervalName(Number(value))),
+    showsConfusions: true,
+  },
+  breakdowns: [
+    {
+      namespace: 'mode',
+      title: 'By play mode',
+      // Descending is a different skill from ascending, and one figure across
+      // both hides which of the two is the problem.
+      label: (value) => PLAY_MODE_NAMES[value as 'ascending'] ?? value,
+    },
+  ],
+}
+
+export const CHORD_STATS_VIEW: StatsView = {
+  answer: chordAnswer,
+  breakdowns: [
+    inversionBreakdown,
+    {
+      namespace: 'mode',
+      title: 'By play mode',
+      label: (value) => CHORD_PLAY_MODE_NAMES[value] ?? value,
+    },
+  ],
+}
+
+/**
+ * Chord root has no confusions to show — it is self-graded, so there is no
+ * wrong answer, only the user's word that they had the note or did not.
+ *
+ * Inversion leads its breakdowns because it *is* the difficulty here. Finding
+ * the root of a root-position chord and finding it under a 2nd inversion are
+ * barely the same task.
+ */
+export const ROOT_STATS_VIEW: StatsView = {
+  // Not `chordAnswer`: same namespace and label, but this exercise is
+  // self-graded, so there is no wrong answer and nothing to diagnose. Sharing
+  // the object would have it opting into a confusion it can never have.
+  answer: { ...chordAnswer, showsConfusions: false },
+  breakdowns: [inversionBreakdown],
+}
+
+const MOTION_NAMES: Record<string, string> = {
+  opening: 'First note',
+  repeat: 'Repeated note',
+  'step-up': 'Step up',
+  'step-down': 'Step down',
+  'leap-up': 'Leap up',
+  'leap-down': 'Leap down',
+}
+
+/**
+ * Melody leads with *motion* rather than with the degree.
+ *
+ * A per-degree figure conflates every way a degree can arrive, and the ways
+ * differ more than the degrees do: the first note of a phrase is judged
+ * against the drone with nothing before it, while every note after it is
+ * judged against what just happened. Someone can be solid at one and lost at
+ * the other, and a list of degrees cannot say which.
+ *
+ * Which is why the degree breakdown covers the **opening note only**. That is
+ * the one position where naming a degree is the actual task; everywhere else
+ * the ear is following a step or a leap and the degree it lands on is mostly a
+ * consequence of where it started. Recorded across all positions, the figure
+ * averaged the two skills and described neither — so the title says which one
+ * it is, and the recording matches.
+ *
+ * No confusions on it either. Melodic misses land on a neighbouring degree for
+ * nearly everyone, so that pairing reads as a finding while saying the same
+ * thing about every user.
+ */
+export const MELODY_STATS_VIEW: StatsView = {
+  answer: {
+    namespace: 'motion',
+    title: 'How each note arrives',
+    label: (value) => MOTION_NAMES[value] ?? value,
+    showsConfusions: true,
+  },
+  breakdowns: [
+    {
+      namespace: 'degree',
+      title: 'First note, by degree',
+      label: safely((value) => degreeLabel(Number(value) as Degree)),
+    },
+    {
+      namespace: 'scale',
+      title: 'By scale',
+      label: safely((id) => scaleById(id).name),
+    },
+  ],
+}
+
+const MOVEMENT_NAMES: Record<string, string> = {
+  // Roots are pitch classes, so the far half of the circle is named by its
+  // descending complement — which is how these moves are spoken about. `I` to
+  // `vi` is nine semitones up and every musician calls it down a third.
+  'root-same': 'Root stays, quality changes',
+  'root-up-half-step': 'Root moves up a half step',
+  'root-up-whole-step': 'Root moves up a whole step',
+  'root-up-third': 'Root moves up a third',
+  'root-up-fourth': 'Root moves up a fourth',
+  'root-tritone': 'Root moves by a tritone',
+  'root-up-fifth': 'Root moves up a fifth',
+  'root-down-third': 'Root moves down a third',
+  'root-down-whole-step': 'Root moves down a whole step',
+  'root-down-half-step': 'Root moves down a half step',
+
+  // The same transitions as heard rather than analysed. Where the two lists
+  // disagree is where an inversion has put something other than the root
+  // underneath, which is the hardest case in this exercise.
+  'bass-same': 'Bass stays put',
+  'bass-half-step': 'Bass moves by a half step',
+  'bass-whole-step': 'Bass moves by a whole step',
+  'bass-third': 'Bass moves by a third',
+  'bass-fourth': 'Bass moves by a fourth',
+  'bass-tritone': 'Bass moves by a tritone',
+  'bass-fifth': 'Bass moves by a fifth',
+  'bass-sixth-or-more': 'Bass moves by a sixth or more',
+}
+
+/**
+ * Four questions about a progression, each with a different answer.
+ *
+ * *Which chord was that* is the headline, and the only one carrying
+ * confusions. *Which chord opened it* is separated out because there is
+ * nothing before the first chord to measure against. *How the harmony moved*
+ * is the ear's actual work once a progression is under way, given twice —
+ * once by root and once by bass, since an inversion makes those two disagree.
+ * *How it ended* is the cadence.
+ *
+ * There is deliberately no breakdown by position. A wrong press ends the
+ * attempt, so chord four would only ever be recorded on progressions where one
+ * to three had already gone right, and "Chord 4: 90%" would mean "when I had
+ * already got the first three, I usually got the fourth" — a tautology wearing
+ * the clothes of a finding.
+ */
+export const PROGRESSION_STATS_VIEW: StatsView = {
+  answer: {
+    namespace: 'numeral',
+    title: 'Naming each chord',
+    label: (id) =>
+      id === BASS_AS_ROOT
+        ? 'the chord on the bass note'
+        : safely((value) => numeralById(value).label)(id),
+    showsConfusions: true,
+  },
+  breakdowns: [
+    {
+      // Its own section rather than a row in the movement list: there is
+      // nothing before the first chord, so it is heard by its function
+      // against the key. Every later chord can use the one before it as a
+      // landmark, which is a different skill and a different fix.
+      namespace: 'opening',
+      title: 'First chord',
+      label: safely((id) => numeralById(id).label),
+    },
+    {
+      namespace: 'movement',
+      title: 'By root and bass movement',
+      label: (value) => MOVEMENT_NAMES[value] ?? value,
+    },
+    {
+      namespace: 'cadence',
+      title: 'By cadence',
+      label: (value) => CADENCE_NAMES[value as 'authentic'] ?? value,
+    },
+    // Heard but never answered — `I⁶` is still `I` — so this is the one
+    // dimension a user cannot see going wrong from the pad alone. Shared with
+    // the chord exercises rather than restated, so the ordering and the naming
+    // cannot drift between screens showing the same thing.
+    inversionBreakdown,
+  ],
+}
+
+/**
+ * How many recent attempts before a percentage is worth printing.
+ *
+ * Two out of three is not 67%. A statistics screen that says so is worse than
+ * one that says nothing, because the user acts on it — and this one sits next
+ * to a feature that is already quietly using the same thin evidence, so the
+ * temptation to show a number is real.
+ *
+ * Counted against the recent window rather than the lifetime total, so the
+ * threshold guards the same figure it is gating. They only differ for a record
+ * whose window is shorter than its history, which is what a hand-edited blob
+ * looks like.
+ */
+export const MIN_ATTEMPTS_TO_REPORT = 5
+
+export type Mastery = 'learning' | 'practising' | 'solid'
+
+/**
+ * Which bucket an item falls into.
+ *
+ * Deliberately the *same* smoothed accuracy adaptive difficulty weights by, so
+ * what the screen calls "needs work" is exactly what the exercise has been
+ * asking more often. Two different definitions of struggling would have the
+ * app contradicting itself in front of the user.
+ */
+export function mastery(item: ItemStats): Mastery {
+  const accuracy = smoothedAccuracy(item)
+  if (accuracy < 0.6) return 'learning'
+  if (accuracy < 0.85) return 'practising'
+  return 'solid'
+}
+
+export interface StatsRow {
+  /** The value after the colon, e.g. `major-7th`. */
+  id: string
+  label: string
+  item: ItemStats
+  /** Null until there is enough evidence to report one. */
+  accuracy: number | null
+}
+
+/**
+ * One section's rows, worst first, before the reporting threshold is applied.
+ *
+ * Accuracy is measured over the **recent window**, the same span the buckets
+ * and adaptive difficulty read. A lifetime figure answers a question nobody is
+ * asking — someone who was bad at a chord months ago and has since fixed it
+ * would read a low percentage while sitting under "Solid", because the two
+ * numbers were describing different stretches of time.
+ */
+export function statsRows(
+  stats: ExerciseStats,
+  section: StatsSection,
+): StatsRow[] {
+  return Object.entries(itemsInNamespace(stats, section.namespace))
+    .map(([id, item]) => {
+      const seen = item.recent.length
+      const right = item.recent.filter((a) => a.correct).length
+
+      return {
+        id,
+        label: section.label(id),
+        item,
+        accuracy: seen >= MIN_ATTEMPTS_TO_REPORT ? right / seen : null,
+      }
+    })
+    .sort((a, b) =>
+      section.order === 'natural'
+        ? naturally(a.id, b.id)
+        : smoothedAccuracy(a.item) - smoothedAccuracy(b.item),
+    )
+}
+
+/**
+ * Compare two item values the way a reader would order them.
+ *
+ * Numeric when both sides are numbers, so `inversion:2` follows `inversion:1`
+ * rather than sorting as text and putting `10` between `1` and `2`.
+ */
+function naturally(a: string, b: string): number {
+  const left = Number(a)
+  const right = Number(b)
+  const numeric = !Number.isNaN(left) && !Number.isNaN(right)
+  return numeric ? left - right : a.localeCompare(b)
+}
+
+/**
+ * The rows there is enough evidence to say anything about.
+ *
+ * Everything else is left off the screen entirely rather than shown without a
+ * number. An item was previously bucketed anyway — `mastery` smooths, so it
+ * always produces an answer — while its percentage abstained, so a chord
+ * answered once correctly appeared under "Getting there" reading as a verdict
+ * on evidence that did not exist. Bucketing and reporting have to agree about
+ * what counts as enough, and this is the one place that decides.
+ */
+export function reportableRows(rows: readonly StatsRow[]): StatsRow[] {
+  return rows.filter((row) => row.accuracy !== null)
+}
+
+/**
+ * How often a mistake has to happen before it is worth naming.
+ *
+ * As a share of *attempts*, not of misses: mistaking a perfect 5th for an
+ * octave a fifth of the time is a habit worth knowing about, and the same
+ * mistake made once in twenty tries is noise. A share of misses would call
+ * that second one 100% of a single miss and say it just as loudly.
+ *
+ * Set between the two cases that decide it — a fifth of the time counts, a
+ * twentieth does not.
+ */
+export const CONFUSION_THRESHOLD = 0.15
+
+/** At most this many named per row, commonest first. */
+export const MAX_CONFUSIONS_SHOWN = 2
+
+/**
+ * What this item is habitually mistaken for, commonest first.
+ *
+ * Counted over the recent window, so a mistake stops being mentioned once it
+ * stops being made — the same span the accuracy and the bucket use. Answers
+ * below `CONFUSION_THRESHOLD` are left out entirely rather than listed with a
+ * small number beside them: a rare mistake named alongside a habitual one
+ * reads as though both were findings.
+ *
+ * No counts come back with them. "Mistaken for an octave 11 times" invites
+ * arithmetic against a total that is not on screen, and the threshold has
+ * already answered the only question a count would settle.
+ */
+export function confusionsFor(row: StatsRow, section: StatsSection): string[] {
+  // The section decides, not the record. A namespace that has stopped
+  // recording answers still has them in every window written before it
+  // stopped, and reading the store would keep reporting them for another
+  // twenty questions.
+  if (!section.showsConfusions) return []
+
+  const attempts = row.item.recent.length
+  if (attempts === 0) return []
+
+  const counts = new Map<string, number>()
+  for (const { answered } of row.item.recent) {
+    if (answered !== undefined) {
+      counts.set(answered, (counts.get(answered) ?? 0) + 1)
+    }
+  }
+
+  return [...counts.entries()]
+    .filter(([, count]) => count / attempts >= CONFUSION_THRESHOLD)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, MAX_CONFUSIONS_SHOWN)
+    .map(([answered]) => section.label(answered))
+}
+
+/** Whether anything at all has been recorded for this exercise. */
+export function hasAnyStats(stats: ExerciseStats): boolean {
+  return Object.keys(stats).length > 0
+}

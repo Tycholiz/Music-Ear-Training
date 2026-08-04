@@ -7,8 +7,11 @@ import {
   DEFAULT_ROOT_SETTINGS,
   chordSettingsStore,
   rootSettingsStore,
+  rootStatsStore,
+  chordStatsStore,
 } from '../settings'
 import { CHORDS, UNAMBIGUOUS_ROOT_CHORDS } from '../theory'
+import { CHORD_STATS_VIEW, ROOT_STATS_VIEW } from '../exercises'
 import { ChordSettingsMenu } from './ChordSettingsMenu'
 
 /**
@@ -23,6 +26,8 @@ function openRootMenu() {
     <ModalSheet open onClose={vi.fn()} title="Menu">
       <ChordSettingsMenu
         store={rootSettingsStore}
+        statsStore={rootStatsStore}
+        statsView={ROOT_STATS_VIEW}
         onResetScore={vi.fn()}
         availableChords={UNAMBIGUOUS_ROOT_CHORDS}
       />
@@ -173,7 +178,12 @@ describe('chords with no identifiable root are not offered', () => {
     const user = userEvent.setup()
     render(
       <ModalSheet open onClose={vi.fn()} title="Menu">
-        <ChordSettingsMenu store={chordSettingsStore} onResetScore={vi.fn()} />
+        <ChordSettingsMenu
+          store={chordSettingsStore}
+          statsStore={chordStatsStore}
+          statsView={CHORD_STATS_VIEW}
+          onResetScore={vi.fn()}
+        />
       </ModalSheet>,
     )
     await goTo(user, 'Chords')

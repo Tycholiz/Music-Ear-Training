@@ -972,35 +972,88 @@ describe('hearing one note at a time', () => {
 })
 
 describe('what goes into the statistics', () => {
-  it('records each degree as it is entered, and the scale', async () => {
-    // Per degree rather than per melody. "You got 60% of melodies" is a fact
-    // about melodies; "you miss the 6th" is a fact about your ears, and only
-    // one of them says what to practise.
+  it('records the degree of the opening note and no other', async () => {
+    // Naming a degree is the real task for exactly one note: the first, judged
+    // against the drone with nothing before it. Every note after is judged
+    // against what just happened, so the degree it lands on is mostly a
+    // consequence of where it started — and averaging the two described
+    // neither.
     const user = userEvent.setup()
     renderExercise()
     await start(user)
 
+    // The melody is 1 5 6 5, so the 5 at index 1 must not be recorded.
     await tap(user, '1', '5')
 
     const stats = melodyStatsStore.read()
     expect(stats['degree:0']).toMatchObject({ attempts: 1, correct: 1 })
-    expect(stats['degree:7']).toMatchObject({ attempts: 1, correct: 1 })
+    expect(stats['degree:7']).toBeUndefined()
+    // The scale is still recorded for every note.
     expect(stats['scale:major-pentatonic'].attempts).toBe(2)
   })
 
-  it('records what was pressed instead, so a confusion can be named', async () => {
+  it('records a missed opening note against its degree', async () => {
     const user = userEvent.setup()
     renderExercise()
     await start(user)
 
-    // The melody opens on 1; pressing 5 is a miss with an answer attached.
     await tap(user, '5')
 
     expect(melodyStatsStore.read()['degree:0']).toMatchObject({
       attempts: 1,
       correct: 0,
-      confusions: { '7': 1 },
     })
+  })
+
+  it('names no confusion on a degree, because every miss lands on a neighbour', async () => {
+    // The generator prefers steps, so hearing the contour and misjudging its
+    // size puts you one position out — which makes the pairing read as a
+    // finding while saying the same thing about every user.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await tap(user, '5')
+
+    expect(melodyStatsStore.read()['degree:0']).toMatchObject({
+      attempts: 1,
+      correct: 0,
+      recent: [{ correct: false }],
+    })
+  })
+
+  it('records how the note arrived, not just which note it was', async () => {
+    // The melody is 1 5 6 5, so the opening note has nothing before it.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await tap(user, '1')
+    expect(melodyStatsStore.read()['motion:opening']).toMatchObject({
+      attempts: 1,
+      correct: 1,
+    })
+
+    // 1 to 5 is two scale positions in the major pentatonic: a leap up.
+    await tap(user, '5')
+    expect(melodyStatsStore.read()['motion:leap-up']).toMatchObject({
+      attempts: 1,
+      correct: 1,
+    })
+  })
+
+  it('names the motion a wrong guess implied, which is the useful confusion', async () => {
+    // Third note is 6, a step up from 5. Pressing 1 implies a leap instead,
+    // so the size was misjudged rather than the direction.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await tap(user, '1', '5', '1')
+
+    const motion = melodyStatsStore.read()['motion:step-up']
+    expect(motion.correct).toBe(0)
+    expect(motion.recent[0].answered).toMatch(/leap/)
   })
 
   it('takes the first run at a melody and nothing after it', async () => {

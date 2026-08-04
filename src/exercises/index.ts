@@ -1,4 +1,18 @@
 export {
+  CHORD_STATS_VIEW,
+  INTERVAL_STATS_VIEW,
+  MELODY_STATS_VIEW,
+  MIN_ATTEMPTS_TO_REPORT,
+  PROGRESSION_STATS_VIEW,
+  ROOT_STATS_VIEW,
+  confusionsFor,
+  hasAnyStats,
+  mastery,
+  reportableRows,
+  statsRows,
+} from './statsView'
+export type { Mastery, StatsRow, StatsSection, StatsView } from './statsView'
+export {
   MAX_WEIGHT_RATIO,
   chordKey,
   intervalKey,
@@ -72,6 +86,7 @@ export {
   checkMelody,
   generateMelodyQuestion,
   guessPitch,
+  melodyMotion,
   tonicChordFor,
   phraseForMelodyQuestion,
   selectedScales,
@@ -90,6 +105,8 @@ export {
   canGenerateProgression,
   checkProgression,
   generateProgressionQuestion,
+  isCadenceChord,
+  rootMovement,
   progressionNumerals,
   usableCadences,
 } from './progressionQuestion'
@@ -99,6 +116,10 @@ export type {
 } from './progressionQuestion'
 export {
   keyChord,
+  BASS_AS_ROOT,
+  bassMovement,
+  inversionOf,
+  isBassMistakenForRoot,
   voiceChordAlone,
   voiceGuess,
   voiceMovement,

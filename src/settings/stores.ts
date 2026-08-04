@@ -38,7 +38,12 @@ import {
   sanitizeInteger,
   sanitizeSelection,
 } from './store'
-import { RECENT_WINDOW, type ExerciseStats, type ItemStats } from './stats'
+import {
+  RECENT_WINDOW,
+  type ExerciseStats,
+  type ItemStats,
+  type RecentAttempt,
+} from './stats'
 
 /**
  * The concrete persisted stores. Components go through these rather than
@@ -359,7 +364,7 @@ function sanitizeItemStats(raw: unknown): ItemStats | null {
   })
 
   const recent = Array.isArray(raw.recent)
-    ? raw.recent.filter((v): v is boolean => typeof v === 'boolean')
+    ? raw.recent.map(sanitizeRecentAttempt).filter((a) => a !== null)
     : []
 
   return {
@@ -374,22 +379,30 @@ function sanitizeItemStats(raw: unknown): ItemStats | null {
       max: Number.MAX_SAFE_INTEGER,
       fallback: 0,
     }),
-    ...sanitizeConfusions(raw.confusions),
   }
 }
 
-function sanitizeConfusions(raw: unknown): {
-  confusions?: Record<string, number>
-} {
-  if (!isRecord(raw)) return {}
+/**
+ * One recent attempt, accepting the shape this used to have.
+ *
+ * `recent` was a bare `boolean[]` before mistakes were windowed. Reading those
+ * as outcomes with no answer attached keeps every existing user's history
+ * rather than bumping the store version and throwing it away — nothing is lost
+ * except confusions from before they were recorded per attempt, which were
+ * never in that array to begin with.
+ *
+ * The separate lifetime `confusions` map those blobs also carry is dropped on
+ * read. Keeping it would leave two records of the same thing disagreeing about
+ * how old a mistake is allowed to be, which is the drift this whole change
+ * exists to remove.
+ */
+function sanitizeRecentAttempt(raw: unknown): RecentAttempt | null {
+  if (typeof raw === 'boolean') return { correct: raw }
+  if (!isRecord(raw) || typeof raw.correct !== 'boolean') return null
 
-  const clean: Record<string, number> = {}
-  for (const [answered, count] of Object.entries(raw)) {
-    if (typeof count === 'number' && Number.isInteger(count) && count > 0) {
-      clean[answered] = count
-    }
-  }
-  return Object.keys(clean).length > 0 ? { confusions: clean } : {}
+  return typeof raw.answered === 'string'
+    ? { correct: raw.correct, answered: raw.answered }
+    : { correct: raw.correct }
 }
 
 function statsStore(key: string) {

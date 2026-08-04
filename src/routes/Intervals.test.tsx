@@ -367,7 +367,7 @@ describe('what goes into the statistics', () => {
     expect(intervalStatsStore.read()['interval:7']).toMatchObject({
       attempts: 1,
       correct: 0,
-      confusions: { '5': 1 },
+      recent: [{ correct: false, answered: '5' }],
     })
   })
 

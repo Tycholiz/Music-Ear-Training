@@ -734,9 +734,8 @@ describe('keyboard focus', () => {
 })
 
 describe('what goes into the statistics', () => {
-  it('records the numeral, the cadence and the position of each press', async () => {
-    // Three separate facts because they fail for different reasons: harmony,
-    // how progressions end, and working memory.
+  it('records the numeral, how its root arrived, and its inversion', async () => {
+    // The progression is I IV V I, so the opening chord has nothing before it.
     const user = userEvent.setup()
     renderExercise()
     await start(user)
@@ -744,28 +743,123 @@ describe('what goes into the statistics', () => {
 
     const stats = progressionStatsStore.read()
     expect(stats['numeral:I'].correct).toBe(1)
-    expect(stats['cadence:authentic'].correct).toBe(1)
-    expect(stats['position:0'].correct).toBe(1)
+    expect(stats['opening:I'].correct).toBe(1)
+    // No movement record for the first chord — there is nothing before it.
+    expect(Object.keys(stats).some((key) => key.startsWith('movement:'))).toBe(
+      false,
+    )
+    // Which inversion is the voicing's business — it picks for smoothness —
+    // so this only asserts the dimension is being recorded at all.
+    expect(Object.keys(stats).some((key) => key.startsWith('inversion:'))).toBe(
+      true,
+    )
   })
 
-  it('records what was pressed instead, so a confusion can be named', async () => {
+  it('records the cadence only on the chords the cadence is made of', async () => {
+    // An authentic cadence is V then I, so in I IV V I the first two presses
+    // are the run-up. Averaging them in made this a figure about the run-up:
+    // nail four chords, miss the ending, and it still read 75%.
     const user = userEvent.setup()
     renderExercise()
     await start(user)
-    // The first chord is I; pressing V is a miss with an answer attached.
+
+    await tap(user, 'I')
+    expect(progressionStatsStore.read()['cadence:authentic']).toBeUndefined()
+
+    await tap(user, 'IV')
+    expect(progressionStatsStore.read()['cadence:authentic']).toBeUndefined()
+
+    await tap(user, 'V')
+    expect(progressionStatsStore.read()['cadence:authentic'].attempts).toBe(1)
+  })
+
+  it('classifies root movement by how far the root travels', async () => {
+    // I to IV is a fourth; IV to V is a step.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await tap(user, 'I', 'IV', 'V')
+
+    const stats = progressionStatsStore.read()
+    // I to IV is up a fourth; IV to V is up a whole step.
+    expect(stats['movement:root-up-fourth'].correct).toBe(1)
+    expect(stats['movement:root-up-whole-step'].correct).toBe(1)
+    // The same transitions recorded as the ear meets them.
+    expect(
+      Object.keys(stats).some((key) => key.startsWith('movement:bass-')),
+    ).toBe(true)
+  })
+
+  it('does not call a quality mistake a bass mistake', async () => {
+    // IV and iv share a root. In root position the bass *is* that root, so
+    // without a guard "answered a numeral rooted on the bass" fires for a
+    // mistake that is about the chord's quality and nothing to do with the
+    // bass at all.
+    progressionSettingsStore.write({
+      ...DEFAULT_PROGRESSION_SETTINGS,
+      numerals: ['I', 'IV', 'V', 'iv'],
+      inversions: [0],
+    })
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await tap(user, 'I', 'iv')
+
+    expect(progressionStatsStore.read()['numeral:IV'].recent[0].answered).toBe(
+      'iv',
+    )
+  })
+
+  it('names a plain function confusion by the chord that was pressed', async () => {
+    // Root position only, so the bass *is* the root and pressing V for I can
+    // only mean the function was misjudged.
+    progressionSettingsStore.write({
+      ...DEFAULT_PROGRESSION_SETTINGS,
+      inversions: [0],
+    })
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
     await tap(user, 'V')
 
     expect(progressionStatsStore.read()['numeral:I']).toMatchObject({
       attempts: 1,
       correct: 0,
-      confusions: { V: 1 },
+      recent: [{ correct: false, answered: 'V' }],
     })
   })
 
-  it('takes the first run at a progression and nothing after it', async () => {
-    // A retry is the user working from knowledge of where they went wrong,
-    // which is the point of retrying and is not fresh evidence about whether
-    // they can hear a IV.
+  /**
+   * The other failure, which wears the same name and wants different practice.
+   *
+   * With inversions allowed the opening I is voiced in second inversion, so G
+   * is in the bass — and V is rooted on G. Pressing V there is not a misjudged
+   * function, it is hearing the bass and taking it for the root. Recording it
+   * as "mistaken for V" would be true and would say nothing about which of the
+   * two mistakes was made.
+   */
+  it('names hearing the bass as the root as its own kind of mistake', async () => {
+    progressionSettingsStore.write({
+      ...DEFAULT_PROGRESSION_SETTINGS,
+      inversions: [0, 1, 2],
+    })
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await tap(user, 'V')
+
+    const answered =
+      progressionStatsStore.read()['numeral:I'].recent[0].answered
+    expect(answered).toBe('bass-as-root')
+  })
+
+  it('measures each position once, the first time it is reached', async () => {
+    // A retry re-covering ground already measured adds nothing: the user has
+    // been told those chords.
     const user = userEvent.setup()
     renderExercise()
     await start(user)
@@ -774,9 +868,32 @@ describe('what goes into the statistics', () => {
     await untilRetryable()
     await tap(user, 'I', 'IV', 'V', 'I')
 
-    // One attempt at the opening chord, the wrong one, despite two presses.
-    expect(progressionStatsStore.read()['numeral:I'].attempts).toBe(1)
-    expect(progressionStatsStore.read()['numeral:I'].correct).toBe(0)
+    // `movement:opening` can only come from position zero, so it is the clean
+    // witness — `numeral:I` would be two records, since this progression uses
+    // I at both ends.
+    const opening = progressionStatsStore.read()['opening:I']
+    expect(opening.attempts).toBe(1)
+    expect(opening.correct).toBe(0)
+  })
+
+  it('still measures the chords past where the first attempt broke down', async () => {
+    // The bias this replaces. Recording only the first run left the cadence
+    // chords — always last — measured almost solely on progressions that had
+    // already gone right, so `I`, `vi` and `V` read as mastery when they were
+    // mostly selection.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    // Fail immediately, then get the whole thing on the retry.
+    await tap(user, 'V')
+    await untilRetryable()
+    await tap(user, 'I', 'IV', 'V', 'I')
+
+    const stats = progressionStatsStore.read()
+    // The closing I is position 3, never reached on the first attempt.
+    expect(stats['cadence:authentic']).toBeDefined()
+    expect(stats['cadence:authentic'].attempts).toBeGreaterThan(0)
   })
 
   it('keeps counting across questions rather than starting over', async () => {
