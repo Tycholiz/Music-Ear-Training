@@ -30,7 +30,6 @@ export {
   EMPTY_ITEM_STATS,
   RECENT_WINDOW,
   itemId,
-  itemNamespace,
   itemsInNamespace,
   recordAttempt,
   recordAttempts,

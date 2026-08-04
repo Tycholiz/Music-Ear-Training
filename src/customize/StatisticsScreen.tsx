@@ -43,21 +43,22 @@ import {
  * ## An item with too little evidence is not shown at all
  *
  * Two out of three is not 67%, so nothing is reported below
- * `MIN_ATTEMPTS_TO_REPORT` attempts. The first version still *bucketed* those
- * items, because `mastery` smooths and so always produces an answer — which
- * meant a chord answered once correctly appeared under "Getting there" with no
- * percentage beside it. That reads as a verdict, delivered on evidence the
- * same screen was simultaneously refusing to summarise, and no wording fixes
- * it: bucketing and reporting have to agree about what counts as enough.
+ * `MIN_ATTEMPTS_TO_REPORT`. Thin items are left off entirely and counted in one
+ * line underneath: the user does not need to know how many more attempts each
+ * one wants, only that some things have not been practised enough to say
+ * anything about yet.
  *
- * So thin items are left off entirely and counted in one line underneath. The
- * user does not need to know how many more attempts each one wants — only that
- * some things have not been practised enough to say anything about yet.
+ * **Bucketing and reporting have to agree about what counts as enough.**
+ * `mastery` smooths, so it always produces an answer — bucket a thin item and
+ * it lands under "Getting there" with no percentage beside it, which is a
+ * verdict delivered on evidence the same screen is refusing to summarise. No
+ * wording fixes that; the two have to use one threshold, and `reportableRows`
+ * is where it is applied.
  *
- * Two earlier attempts at the per-row version are worth not repeating. `{n}
- * more to go` never said more of *what*, and reads as progress toward the next
- * bucket rather than toward a number existing at all. `{percent}% of {n}`
- * parses like a fraction — "40% of 5" is how you write "40% of 5 dollars".
+ * **Say what a number counts.** `{n} more to go` never said more of *what*,
+ * and read as progress toward the next bucket rather than toward a figure
+ * existing at all. `{percent}% of {n}` parses like a fraction — "40% of 5" is
+ * how you write "40% of 5 dollars".
  */
 export function StatisticsScreen({
   store,

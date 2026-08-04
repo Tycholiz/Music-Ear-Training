@@ -3,7 +3,6 @@ import {
   EMPTY_ITEM_STATS,
   RECENT_WINDOW,
   itemId,
-  itemNamespace,
   itemsInNamespace,
   recordAttempt,
   recordAttempts,
@@ -229,10 +228,6 @@ describe('item ids', () => {
   it('namespaces a value', () => {
     expect(itemId('chord', 'major-7th')).toBe('chord:major-7th')
     expect(itemId('interval', 6)).toBe('interval:6')
-  })
-
-  it('reads the namespace back off an id', () => {
-    expect(itemNamespace('chord:major-7th')).toBe('chord')
   })
 
   it('groups one namespace out of a mixed record', () => {

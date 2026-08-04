@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1224 tests across 47 files.** All of `npm run lint`, `npm run build`,
+**1247 tests across 47 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -140,67 +140,113 @@ is no way in for an illegal combination.
 `settings/stats.ts` keeps the missing detail, one store per exercise, keyed by
 a **namespaced id the exercise chooses** — `chord:major-7th`, `interval:6`,
 `numeral:V`, `cadence:authentic`, `inversion:1`. The store knows nothing about
-music; which dimensions matter differs per exercise (inversion is the whole
-difficulty of chord root and irrelevant to intervals), and the namespace is
-what lets a reader group them again.
+music; which dimensions matter differs per exercise, and the namespace is what
+lets a reader group them again.
 
-Each item keeps **lifetime totals and a rolling window of recent outcomes**,
-because they answer different questions — "you have done this 340 times" is
-not "you are getting it right lately", and one decayed counter is an honest
-answer to neither. Plus `lastSeen`, recorded from the start because weighted
-selection can starve an item and nothing else would notice, and `confusions`:
-what was answered _instead_. That last one is the only diagnostic field here.
-"Diminished 41%" says practise more; "you hear diminished as minor" says what
-to listen for. Chord root has none, being self-graded — there is no wrong
-answer to name, and inventing one would record a mistake nobody made.
+Each item keeps **lifetime totals and a rolling window of recent attempts**,
+because they answer different questions — "you have done this 340 times" is not
+"you are getting it right lately", and one decayed counter is an honest answer
+to neither. Plus `lastSeen`, recorded from the start because weighted selection
+can starve an item and nothing else would notice.
 
-Two rules that cost real debugging:
+**What was answered instead lives on the attempt, not in a separate tally.**
+That is what lets a mistake expire with the window holding it: someone who
+spent a month hearing every perfect 5th as an octave and then stopped should
+not still be told about it. A lifetime confusion map cannot forget.
 
-- **Statistics take the first attempt only, even where the score does not.**
-  Intervals and chords score every press — three misses then a hit is 1/4,
-  right for a scoreboard. Later presses are process of elimination, and
-  counting them makes an item look easier the longer someone struggled.
+Three rules that cost real debugging:
+
 - **Record through `recordInStore`, never `setStats(recordAttempts(stats, …))`.**
   A render-time snapshot loses writes when two presses land in one React batch,
   and on the melody screen — which judges in an effect — a write that changes
   `stats` re-runs the effect that wrote it. Reading the store at write time
   fixes both, and keeps `stats` out of the dependency array rather than needing
   a guard to break the cycle.
+- **Statistics measure one attempt per item, but "one attempt" differs.**
+  Intervals and chords take the first press, since later ones are process of
+  elimination. Progressions take the first time each _position is reached_,
+  which is not the same thing: a wrong press ends the attempt, so recording only
+  the first run left the closing chords measured solely on progressions that had
+  already gone right.
+- **`recent` holds objects, not booleans.** It was `boolean[]`; the day it
+  gained a shape, `recent.filter(Boolean)` started counting every attempt as
+  correct — a silent perfect score for everybody, and adaptive difficulty
+  quietly switched off. Only the tests caught it.
 
 Nothing in `stats.ts` reports an accuracy. Two out of three is not 67%, and the
 consumers need different policies about it: a screen should decline to print a
 number, a weighting function must still return something for an item with no
 data. So the store records and the callers decide what it means.
 
-### Statistics: what am I actually bad at
+### The statistics screen: what am I actually bad at
 
-The record above is shown per exercise, reached from its menu. Not a scoreboard
-— the header already carries the score — so it answers _which_ things go wrong
-and what they are being mistaken for.
+Shown per exercise, reached from its menu. `exercises/statsView.ts` holds what
+each namespace _means_, so the screen stays one component rather than five.
 
-**Confusions are the only diagnostic thing on it.** "Diminished 38%" tells a
-user to practise more, which they knew; "heard as Minor Triad ×11" tells them
-what to listen for. So a confusion sits on the row it belongs to rather than in
-a list of its own. Chord root shows none and should not, being self-graded.
+Two tiers. The **answer** is the measure an exercise leads with, bucketed into
+needs work / getting there / solid. Usually that is the thing the user names,
+but **melody leads with how a note arrived** — step or leap, up or down —
+because a per-degree figure conflates every way a degree can turn up, and those
+differ more than the degrees do. A **breakdown** is a condition the question was
+asked under, as a plain list.
 
-`exercises/statsView.ts` holds what each exercise's namespaces _mean_ — the
-store is dumb about music, so turning `chord:major-7th` back into "Major 7th"
-lives with the exercises and the screen stays one component. Two tiers: the
-**answer** (the thing the user names, bucketed, the only one carrying
-confusions) and **breakdowns** (the conditions a question was asked under —
-inversion, play mode, cadence, position). Chord root leads with inversion
-because that is its whole difficulty; progressions break down by position
-because losing chord four of five is working memory rather than harmony.
+Whether a section diagnoses — "often mistaken for …" — is declared per section,
+never inferred from what happens to be in the store. It was inferred once, and
+a namespace that stopped recording answers went on reporting them until every
+window rolled over.
 
-Two rules worth keeping:
+Rules the screen has to keep:
 
-- **No percentage below five attempts.** Two out of three is not 67%, and a
-  statistics screen that says so is worse than none because the user acts on
-  it. The row says how many more are needed instead.
+- **No percentage below five attempts, and no bucket either.** Bucketing and
+  reporting must agree about what counts as enough: `mastery` smooths, so a
+  thin item lands under "Getting there" with no percentage beside it — a
+  verdict on evidence the same screen is refusing to summarise. Thin items are
+  hidden and counted in one line.
 - **The buckets use the same smoothed accuracy adaptive difficulty weights
-  by.** "Needs work" is exactly what the exercise has been asking more often;
-  two definitions of struggling would have the app contradicting itself in
-  front of the user.
+  by.** Two definitions of struggling would have the app contradicting itself.
+- **Accuracy is measured over the recent window**, like the bucket. A lifetime
+  figure put a low percentage next to "Solid" for anyone who had improved.
+- **Say what a number counts.** `{n} more to go` never said more of _what_;
+  `{percent}% of {n}` parses like a fraction.
+
+**Each exercise is measured by the skill it actually trains**, which is rarely
+the thing the user taps:
+
+| Exercise    | Leads with         | And breaks down by                                        |
+| ----------- | ------------------ | --------------------------------------------------------- |
+| Intervals   | the interval       | play mode                                                 |
+| Chords      | the chord          | inversion, play mode                                      |
+| Chord root  | the chord          | inversion — its whole difficulty                          |
+| Melody      | how a note arrives | opening degree, scale                                     |
+| Progression | the chord          | opening chord, root and bass movement, cadence, inversion |
+
+Two of those are worth the detail. **Melody's degree breakdown covers the
+opening note only** — naming a degree is the real task for exactly one note,
+the one judged against the drone with nothing before it; everywhere else the
+ear follows a step or a leap and the degree it lands on is a consequence of
+where it started. **Progressions record root movement and bass movement side by
+side**, because an inversion makes them disagree, and that gap is the hardest
+case in the exercise: `V IV I` with the `I` inverted has a bass of G F E, which
+reads as `V IV III`.
+
+That last case is detected rather than described. When the numeral pressed is
+rooted on the note actually sounding underneath, the row says **"often mistaken
+for the chord on the bass note"** instead of naming a numeral — a bass-reading
+failure and a misjudged function are different mistakes wanting different
+practice, and reporting both as "mistaken for III" tells the user neither. Only
+counted when the chord was inverted; in root position the bass _is_ the root,
+and `IV` answered as `iv` is a mistake about quality.
+
+Root movement is **directed**. Measuring it by interval class collapsed a fifth
+into a fourth and a sixth into a third — three relationships reported as one,
+and `I`→`V` and `V`→`I` are not the same move. Roots are pitch classes, so the
+far half of the circle is named by its descending complement, which is how
+these moves are spoken about: `I`→`vi` is nine semitones up and every musician
+calls it down a third.
+
+Inversion lists are ordered **root position first**, not worst first — the
+sequence is one the reader already has, and the numbers falling off as the bass
+climbs is a shape only visible in order.
 
 ### Adaptive difficulty: same pool, different frequency
 

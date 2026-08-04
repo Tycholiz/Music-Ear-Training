@@ -197,11 +197,6 @@ export function itemId(namespace: string, value: string | number): string {
   return `${namespace}:${value}`
 }
 
-/** The namespace an item id belongs to, for grouping a mixed record. */
-export function itemNamespace(id: string): string {
-  return id.slice(0, id.indexOf(':'))
-}
-
 /** Every item in one namespace, keyed by the value after the colon. */
 export function itemsInNamespace(
   stats: ExerciseStats,

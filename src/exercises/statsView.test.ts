@@ -197,6 +197,57 @@ describe('statsRows', () => {
   })
 })
 
+describe('ordering', () => {
+  it('lists inversions from the root up, not worst first', () => {
+    // Root position, 1st, 2nd is an order the reader already has in their
+    // head, and the shape of the numbers falling off as the bass climbs is
+    // only visible in sequence.
+    const stats = record(
+      ...repeat('inversion:2', false, 16),
+      ...repeat('inversion:2', true, 4),
+      ...repeat('inversion:0', true, 18),
+      ...repeat('inversion:0', false, 2),
+      ...repeat('inversion:1', true, 10),
+      ...repeat('inversion:1', false, 10),
+    )
+    const inversions = CHORD_STATS_VIEW.breakdowns.find(
+      (section) => section.namespace === 'inversion',
+    )!
+
+    expect(statsRows(stats, inversions).map((row) => row.id)).toEqual([
+      '0',
+      '1',
+      '2',
+    ])
+  })
+
+  it('sorts numerically, so a tenth inversion would not land between 1 and 2', () => {
+    const stats = record(
+      ...repeat('inversion:10', true, 5),
+      ...repeat('inversion:2', true, 5),
+    )
+    const inversions = CHORD_STATS_VIEW.breakdowns.find(
+      (section) => section.namespace === 'inversion',
+    )!
+
+    expect(statsRows(stats, inversions).map((row) => row.id)).toEqual([
+      '2',
+      '10',
+    ])
+  })
+
+  it('still puts the worst first everywhere else', () => {
+    const stats = record(
+      ...repeat('chord:good', true, 20),
+      ...repeat('chord:bad', false, 20),
+    )
+
+    expect(
+      statsRows(stats, CHORD_STATS_VIEW.answer).map((row) => row.id),
+    ).toEqual(['bad', 'good'])
+  })
+})
+
 describe('mastery buckets', () => {
   it('agrees with what adaptive difficulty is doing', () => {
     // Two definitions of struggling would have the app contradicting itself:

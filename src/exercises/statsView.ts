@@ -35,11 +35,11 @@ import { CADENCE_NAMES } from './progressionValidation'
  * a step or a leap.
  *
  * A **breakdown** is a condition the question was asked under: which inversion,
- * which play mode, which cadence, which position in the progression. These say
- * *why* an answer figure looks the way it does — "root position 88%, second
- * inversion 41%" is the whole difficulty of chord root in one line — but
- * bucketing them as though the user were learning "2nd inversion" would be
- * nonsense, so they are a plain worst-first list.
+ * which play mode, which cadence, how far the root moved. These say *why* an
+ * answer figure looks the way it does — "root position 88%, second inversion
+ * 41%" is the whole difficulty of chord root in one line — but bucketing them
+ * as though the user were learning "2nd inversion" would be nonsense, so they
+ * are a plain list.
  *
  * Whether a section diagnoses — "often mistaken for …" — is a third, separate
  * question, and one each section answers for itself with `showsConfusions`.
@@ -65,6 +65,17 @@ export interface StatsSection {
    * Off by default, so a namespace has to *ask* to be diagnosed.
    */
   showsConfusions?: boolean
+  /**
+   * How the rows are ordered.
+   *
+   * Worst-first everywhere by default, because the point of the screen is what
+   * to work on next. Inversions are the exception: root position, 1st, 2nd is
+   * an order the reader already has in their head, and shuffling it by
+   * accuracy makes a three-row list something you have to parse rather than
+   * scan. The ordering carries meaning of its own — the numbers usually fall
+   * off as the bass climbs, and that shape is only visible in sequence.
+   */
+  order?: 'worst-first' | 'natural'
 }
 
 export interface StatsView {
@@ -96,6 +107,7 @@ const inversionBreakdown: StatsSection = {
   namespace: 'inversion',
   title: 'By inversion',
   label: (value) => INVERSION_NAMES[Number(value)] ?? value,
+  order: 'natural',
 }
 
 export const INTERVAL_STATS_VIEW: StatsView = {
@@ -223,18 +235,20 @@ const MOVEMENT_NAMES: Record<string, string> = {
 }
 
 /**
- * By position is gone, and was worse than uninformative.
+ * Four questions about a progression, each with a different answer.
  *
- * A wrong press ends the attempt, so position four only existed in the record
- * for progressions where one to three had already gone right. "Chord 4: 90%"
- * meant "when I had already got the first three, I usually got the fourth" —
- * close to a tautology, and read as a finding.
+ * *Which chord was that* is the headline, and the only one carrying
+ * confusions. *Which chord opened it* is separated out because there is
+ * nothing before the first chord to measure against. *How the harmony moved*
+ * is the ear's actual work once a progression is under way, given twice —
+ * once by root and once by bass, since an inversion makes those two disagree.
+ * *How it ended* is the cadence.
  *
- * Root movement replaces it, and answers a question a user can act on. How far
- * the bass travels between chords is the thing the ear actually tracks, and
- * struggling with step-wise motion while hearing falling fifths cleanly points
- * at inversions blurring where the root is — which is why the inversion
- * breakdown sits beside it.
+ * There is deliberately no breakdown by position. A wrong press ends the
+ * attempt, so chord four would only ever be recorded on progressions where one
+ * to three had already gone right, and "Chord 4: 90%" would mean "when I had
+ * already got the first three, I usually got the fourth" — a tautology wearing
+ * the clothes of a finding.
  */
 export const PROGRESSION_STATS_VIEW: StatsView = {
   answer: {
@@ -266,13 +280,11 @@ export const PROGRESSION_STATS_VIEW: StatsView = {
       title: 'By cadence',
       label: (value) => CADENCE_NAMES[value as 'authentic'] ?? value,
     },
-    {
-      namespace: 'inversion',
-      // Heard but never answered — `I⁶` is still `I` — so this is the one
-      // dimension a user cannot see going wrong from the pad alone.
-      title: 'By inversion',
-      label: (value) => INVERSION_NAMES[Number(value)] ?? value,
-    },
+    // Heard but never answered — `I⁶` is still `I` — so this is the one
+    // dimension a user cannot see going wrong from the pad alone. Shared with
+    // the chord exercises rather than restated, so the ordering and the naming
+    // cannot drift between screens showing the same thing.
+    inversionBreakdown,
   ],
 }
 
@@ -342,7 +354,24 @@ export function statsRows(
         accuracy: seen >= MIN_ATTEMPTS_TO_REPORT ? right / seen : null,
       }
     })
-    .sort((a, b) => smoothedAccuracy(a.item) - smoothedAccuracy(b.item))
+    .sort((a, b) =>
+      section.order === 'natural'
+        ? naturally(a.id, b.id)
+        : smoothedAccuracy(a.item) - smoothedAccuracy(b.item),
+    )
+}
+
+/**
+ * Compare two item values the way a reader would order them.
+ *
+ * Numeric when both sides are numbers, so `inversion:2` follows `inversion:1`
+ * rather than sorting as text and putting `10` between `1` and `2`.
+ */
+function naturally(a: string, b: string): number {
+  const left = Number(a)
+  const right = Number(b)
+  const numeric = !Number.isNaN(left) && !Number.isNaN(right)
+  return numeric ? left - right : a.localeCompare(b)
 }
 
 /**
