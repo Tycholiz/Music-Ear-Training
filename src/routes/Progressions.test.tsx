@@ -19,7 +19,7 @@ import {
   progressionStatsStore,
 } from '../settings'
 import * as exercises from '../exercises'
-import { keyChord, keyNote } from '../exercises'
+import { keyChord } from '../exercises'
 import type { ProgressionQuestion } from '../exercises'
 
 /** I IV V I in C: an authentic cadence with a run-up, and I appearing twice. */
@@ -101,7 +101,7 @@ describe('starting', () => {
     expect(piano.playSchedule).not.toHaveBeenCalled()
   })
 
-  it('plays the progression as a sequence of chords, over an established key', async () => {
+  it('plays the progression as a sequence of chords', async () => {
     const user = userEvent.setup()
     renderExercise()
     await start(user)
@@ -109,49 +109,20 @@ describe('starting', () => {
     await waitFor(() => expect(piano.playSchedule).toHaveBeenCalledOnce())
     const scheduled = vi.mocked(piano.playSchedule).mock.calls[0][0]
 
-    // The tonic note, then four chords struck at four different times, three
-    // notes each.
+    // Four chords, struck at four different times, three notes each — and
+    // nothing sounded in front of them.
     const onsets = [...new Set(scheduled.map((n) => n.startMs))]
-    expect(onsets).toHaveLength(5)
-    expect(scheduled).toHaveLength(13)
+    expect(onsets).toHaveLength(4)
+    expect(scheduled).toHaveLength(12)
+    expect(Math.min(...onsets)).toBe(0)
   })
 
-  it('frames the progression with the tonic note, not the tonic chord', async () => {
-    // Without a tonic the answer is not well defined: I V I V and IV I IV I
-    // are the same four sounds and differ only in where home is. A user who
-    // heard the second reading was not wrong, and was charged for it anyway.
-    //
-    // One note is all the frame has to say. It also cannot be mistaken for the
-    // first chord, which the tonic *chord* could be: the Key button's voicing
-    // and a progression's opening chord are placed by the same centre-register
-    // rule, so a progression opening on I began with exactly the sound of its
-    // own frame.
-    const user = userEvent.setup()
-    renderExercise()
-    await start(user)
-
-    await waitFor(() => expect(piano.playSchedule).toHaveBeenCalledOnce())
-    const scheduled = vi.mocked(piano.playSchedule).mock.calls[0][0]
-    const onsets = [...new Set(scheduled.map((n) => n.startMs))].sort(
-      (a, b) => a - b,
-    )
-
-    const anchor = scheduled.filter((n) => n.startMs === onsets[0])
-    expect(anchor).toHaveLength(1)
-    expect(anchor[0].midi).toBe(
-      keyNote(PROGRESSION, DEFAULT_PROGRESSION_SETTINGS),
-    )
-    // The tonic itself, not some other note of the tonic chord.
-    expect(anchor[0].midi % 12).toBe(PROGRESSION.tonic % 12)
-
-    // It stops, with real silence, before the progression starts.
-    const anchorEnds = onsets[0] + anchor[0].durationMs
-    expect(onsets[1]).toBeGreaterThan(anchorEnds)
-  })
-
-  it('keeps the Key button on the full chord, since that is a reference', async () => {
-    // The frame says where home is and then gets out of the way. The Key
-    // button is something the user asks for, and a chord answers it better.
+  it('leaves finding the tonic to the Key button, on demand', async () => {
+    // A tonic used to be sounded in front of every progression to settle the
+    // I V I V / IV I IV I ambiguity. It read as part of the progression, so a
+    // user counting chords had to know to discard the first thing they heard.
+    // The button answers the same question without being a sound everyone has
+    // to learn to ignore.
     const user = userEvent.setup()
     renderExercise()
     await start(user)
@@ -733,11 +704,10 @@ describe('replaying', () => {
     expect(answer()).toBe('IIVVI'.slice(0, 3) + '··')
   })
 
-  it('re-establishes the key, rather than replaying the progression bare', async () => {
-    // Replay is exactly when a user who has lost the tonic asks to hear the
-    // question again, so taking it away here would drop it when it is needed
-    // most — and would make the replayed question a different question from
-    // the one first asked.
+  it('replays exactly what was played the first time', async () => {
+    // A replayed question has to be the same question. Anything the first
+    // playback had and the replay lacked — or gained — would make them two
+    // different things to identify.
     const user = userEvent.setup()
     renderExercise()
     await start(user)

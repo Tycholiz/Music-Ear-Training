@@ -30,7 +30,6 @@ import {
   isCadenceChord,
   rootMovement,
   keyChord,
-  keyNote,
   voiceGuess,
   voiceProgression,
   type ProgressionQuestion,
@@ -115,32 +114,21 @@ export default function Progressions() {
   )
 
   /**
-   * Play the question: the key, then the progression.
+   * Play the question: the progression, and nothing before it.
    *
-   * The tonic comes first because without it the answer is not well defined.
-   * `I V I V` and `IV I IV I` are the same four sounds and only differ in where
-   * home is, so a user hearing the second was not wrong — the exercise simply
-   * had not said. It charged them anyway, and every statistic built on that
-   * press inherited the error.
+   * A tonic was sounded here for a while, to settle the fact that `I V I V` and
+   * `IV I IV I` are the same four sounds and differ only in where home is. It
+   * did settle that, and it was still the wrong trade: heard rather than
+   * reasoned about, the frame read as part of the progression, so a user
+   * counting chords had to know to discard the first thing they heard.
    *
-   * Replay goes through here too, and has to. Playing the progression alone on
-   * replay would take the tonic away exactly when a user who has lost it asks
-   * to hear the question again, which is when they need it most.
-   *
-   * The frame is the tonic *note*, not the tonic chord. One note says where
-   * home is, which is all the frame is for — and unlike the chord it cannot be
-   * mistaken for the progression's first chord, which is voiced by the same
-   * centre-register rule the Key button uses and so could be the identical
-   * sound. The Key button still plays the chord: that is a reference the user
-   * asks for, not a frame.
+   * The Key button already answers "where is home", on demand, for the users
+   * who want it — without being a sound everyone else has to learn to ignore.
    */
   const playProgression = useCallback(
     (question: ProgressionQuestion) => {
       void piano.playSchedule(
-        buildProgressionSchedule({
-          chords: voiceProgression(question, settings),
-          key: [keyNote(question, settings)],
-        }),
+        buildProgressionSchedule(voiceProgression(question, settings)),
       )
     },
     [settings],

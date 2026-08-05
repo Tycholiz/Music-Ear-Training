@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1289 tests across 47 files.** All of `npm run lint`, `npm run build`,
+**1278 tests across 47 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -30,8 +30,8 @@ precaching, install offer, update prompt) and iOS audio handling.
 
 In progress: a run of follow-ups to the statistics feature, `#110`–`#122` —
 sharper progression statistics, direction-aware interval statistics, drills for
-confusable chords, and some customization and formatting work. `#110`–`#115`
-are done.
+confusable chords, and some customization and formatting work. `#110`–`#112`
+and `#114`–`#115` are done; `#113` was built and then reverted (see Audio).
 
 See **Ideas not yet built** at the end for what is deliberately left undone.
 
@@ -390,11 +390,11 @@ itself off with nothing failing to say so.
 progression is. Exercise-specific arrangement lives in `schedule.ts` as separate
 builders, because the layers genuinely differ:
 
-| Builder                    | Sustain rule                                                                                                                                                |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `buildSchedule`            | Everything rings to the end of the phrase, as if the pedal were down. Right for intervals and arpeggios, which are _meant_ to accumulate into a chord.      |
-| `buildMelodySchedule`      | Melody notes detached, backing chord sustained. Two opposite rules in one phrase, which is why note groups cannot express it.                               |
-| `buildProgressionSchedule` | Key chord first, then silence, then each chord released as the next takes over; the last rings out, because it is the cadence and the arrival is the point. |
+| Builder                    | Sustain rule                                                                                                                                           |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `buildSchedule`            | Everything rings to the end of the phrase, as if the pedal were down. Right for intervals and arpeggios, which are _meant_ to accumulate into a chord. |
+| `buildMelodySchedule`      | Melody notes detached, backing chord sustained. Two opposite rules in one phrase, which is why note groups cannot express it.                          |
+| `buildProgressionSchedule` | Each chord released as the next takes over; the last rings out, because it is the cadence and the arrival is the point.                                |
 
 **Legato has a hard constraint worth knowing:** a note's length must clear its
 onset gap by more than `RELEASE_MS` (180ms), or it begins fading before its
@@ -402,36 +402,23 @@ successor arrives and a run of them pulses instead of joining up. Melody notes
 were 520ms against a 460ms onset and sounded choppy for exactly this reason.
 Tests assert the relationship, not the numbers.
 
-**The progression's key frame runs on the opposite rule**, and is the one place
-in the app where silence is the point. Without a tonic the answer is not well
-defined — `I V I V` and `IV I IV I` are the same four sounds, differing only in
-where home is — so a user hearing the second reading was not wrong, and the
-exercise charged them anyway. The tonic is now sounded, released, and followed by
-real silence before the progression begins.
+**Nothing is sounded in front of a progression, and that was tried.** `I V I V`
+and `IV I IV I` are the same four sounds, differing only in where home is, so
+the answer is not strictly well defined without a tonic — and for a while one
+was played first, released, and separated by silence (`#113`, `#126`, refined to
+a single note in `#127`).
 
-**The frame is the tonic note, not the tonic chord.** One note says where home
-is, which is all a frame is for; the quality of the tonic triad was never in
-question, since `I` is major in every key this exercise builds. It also removes
-a collision: `keyChord` and a progression's opening chord are placed by the same
-centre-register rule, so a progression opening on `I` began with _exactly_ the
-sound of its own frame, and only the gap said which was which. A single note
-against a triad cannot be mistaken for it however short the gap. `keyNote` takes
-the tonic out of the voiced chord rather than from `question.tonic`, so it sits
-in the register the progression will use — and looks for the tonic's pitch class
-rather than taking the chord's lowest note, which inversions make unreliable.
+It was removed. The argument for it was about correctness on paper; in use, the
+frame read as part of the progression, so a user counting chords had to know to
+discard the first thing they heard. That is a worse problem than the one it
+fixed, and it was imposed on every question to serve an ambiguity most
+progressions do not have.
 
-The Key button still plays the full chord. That is a reference the user asks
-for, not a frame.
-
-The silence still matters: it is what makes the frame a separate utterance
-rather than a pickup into chord one, so `keyGapMs` clears `RELEASE_MS` on its
-own. **Replay includes the frame** — a replay is when a user who has lost the
-tonic asks to hear the question again, and stripping it there would drop it
-exactly when it is needed most.
-
-Deliberately not a setting. Turning it off does not make the exercise harder, it
-makes the answer ambiguous again, and an option that restores a correctness bug
-is not a difficulty option.
+**The Key button already answers it**, on demand, for the users who want it —
+without being a sound everyone else has to learn to ignore. Worth remembering
+before reaching for a frame again: the fix has been built twice, and the reason
+it came out both times is that a grounding sound and a question sound arriving
+back to back are hard to tell apart, however much silence sits between them.
 
 `piano.strike(notes)` plays and lets the sample decay naturally — for references
 the user asked to hear. `piano.play(groups)` cuts at a scheduled length — for
