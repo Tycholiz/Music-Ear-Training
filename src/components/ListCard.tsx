@@ -40,6 +40,7 @@ export function ListRow({
   value,
   chevron = false,
   destructive = false,
+  alignFirstLine = false,
   onClick,
   to,
   icon,
@@ -61,6 +62,17 @@ export function ListRow({
   to?: string
   /** Leading glyph, shown before the label. */
   icon?: ReactNode
+  /**
+   * Line the value up with the label's *first* line rather than centring it.
+   *
+   * For rows whose label runs to several lines. Centred, the value drifts to
+   * the middle of however tall the row happens to be, so two rows in the same
+   * card put their figures at different heights and the column stops being a
+   * column. Baseline rather than top: the value is set smaller than the label,
+   * and aligning the boxes would leave the small text floating above the big
+   * text's baseline by the difference in line height.
+   */
+  alignFirstLine?: boolean
   /** Custom row content, used instead of `label`. */
   children?: ReactNode
 }) {
@@ -72,15 +84,20 @@ export function ListRow({
           {label}
         </span>
       </span>
-      <span className="flex items-center gap-1.5 text-content-muted">
+      {/*
+        `shrink-0` so a value is never squeezed into wrapping. The label can
+        shrink — it has `min-w-0` — and it is the side with room to give.
+      */}
+      <span className="flex shrink-0 items-center gap-1.5 text-content-muted">
         {value}
         {chevron && <ChevronRight />}
       </span>
     </>
   )
 
-  const className =
-    'flex w-full items-center justify-between gap-3 border-t border-separator px-4 py-3.5 text-left first:border-t-0'
+  const className = `flex w-full ${
+    alignFirstLine ? 'items-baseline' : 'items-center'
+  } justify-between gap-3 border-t border-separator px-4 py-3.5 text-left first:border-t-0`
 
   if (to) {
     return (

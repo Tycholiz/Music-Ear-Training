@@ -307,6 +307,50 @@ describe('the breakdowns', () => {
   })
 })
 
+describe('the accuracy column', () => {
+  it('keeps every figure on one line, whatever its length', async () => {
+    // "33% accurate" is a word longer than "0% accurate". Squeezed by a long
+    // label the longer one broke over two lines and the shorter one did not,
+    // which is what put two figures in one card at different heights.
+    recordInStore(chordStatsStore, [
+      ...times('chord:major', true, 20),
+      ...times('chord:diminished', false, 20, 'minor'),
+    ])
+    const user = openMenu()
+    await openStatistics(user)
+
+    for (const text of ['100% accurate', '0% accurate']) {
+      expect(screen.getByText(text).className).toContain('whitespace-nowrap')
+    }
+  })
+
+  it('lines the figure up with the row label, not the middle of the row', async () => {
+    // The rows are different heights, because some carry confusion lines and
+    // some do not. Centred, each figure drifts to the middle of its own row.
+    recordInStore(
+      chordStatsStore,
+      times('chord:diminished', false, 20, 'minor'),
+    )
+    const user = openMenu()
+    await openStatistics(user)
+
+    const row = screen.getByText('0% accurate').closest('div.flex')
+    expect(row?.className).toContain('items-baseline')
+  })
+
+  it('sets the figure smaller than the item it describes', async () => {
+    // A supporting figure rather than the row's headline: the item name is
+    // what the reader is scanning for, and at the row's own size the number
+    // competed with it.
+    recordInStore(chordStatsStore, times('chord:major', true, 20))
+    const user = openMenu()
+    await openStatistics(user)
+
+    expect(screen.getByText('100% accurate').className).toContain('text-xs')
+    expect(screen.getByText('Major Triad').className).not.toContain('text-xs')
+  })
+})
+
 describe('sections and the buckets inside them', () => {
   it('gives every section a heading, not just the bucketed one', async () => {
     // They are peers in the model and used to render a tier apart: the
