@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1288 tests across 47 files.** All of `npm run lint`, `npm run build`,
+**1289 tests across 47 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -30,7 +30,7 @@ precaching, install offer, update prompt) and iOS audio handling.
 
 In progress: a run of follow-ups to the statistics feature, `#110`–`#122` —
 sharper progression statistics, direction-aware interval statistics, drills for
-confusable chords, and some customization and formatting work. `#110`–`#114`
+confusable chords, and some customization and formatting work. `#110`–`#115`
 are done.
 
 See **Ideas not yet built** at the end for what is deliberately left undone.
@@ -206,6 +206,18 @@ Whether a section diagnoses — "often mistaken for …" — is declared per sec
 never inferred from what happens to be in the store. It was inferred once, and
 a namespace that stopped recording answers went on reporting them until every
 window rolled over.
+
+Confusions are **one per line under the row, with no cap on how many**. They
+were a sentence — "often mistaken for A and B" — which reads as a clause to
+parse rather than a list to scan, and the awkwardness of a third clause was the
+only reason the list was ever truncated at two. Lines do not have that problem,
+so `CONFUSION_THRESHOLD` governs alone and bounds the list on its own: an answer
+has to be 15% of _attempts_ to appear, and they compete for the share that went
+wrong at all, so an item at 40% accuracy can name four at the very most.
+
+Which makes the count say something a cap was hiding. A row naming one mistake
+is a systematic confusion; a row naming four is a user guessing. Those want
+different practice.
 
 Rules the screen has to keep:
 

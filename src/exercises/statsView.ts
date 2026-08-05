@@ -604,8 +604,27 @@ export function reportableRows(rows: readonly StatsRow[]): StatsRow[] {
  */
 export const CONFUSION_THRESHOLD = 0.15
 
-/** At most this many named per row, commonest first. */
-export const MAX_CONFUSIONS_SHOWN = 2
+/**
+ * There is no cap on how many are named, and there does not need to be.
+ *
+ * There was one — two — and the reason was the shape of the sentence they were
+ * rendered as: "often mistaken for A and B and C and D" stops being readable at
+ * a glance, so the third commonest mistake was dropped for costing more than it
+ * told anyone. Set one per line, that reason is gone; four short lines under a
+ * row scan fine.
+ *
+ * What remains is the threshold, and it bounds the list on its own. An answer
+ * has to be `CONFUSION_THRESHOLD` of *attempts* to appear, so at most
+ * `1 / CONFUSION_THRESHOLD` can ever qualify — and in practice far fewer, since
+ * they also have to fit inside the share of attempts that went wrong at all. An
+ * item at 40% accuracy has 60% to divide up, which is four answers at the very
+ * most and two or three in anything real.
+ *
+ * Which leaves the count saying something a cap would have hidden: a row naming
+ * one mistake is a systematic confusion, and a row naming four is a user
+ * guessing. Those want different practice, and truncating to two made them look
+ * the same.
+ */
 
 /**
  * What this item is habitually mistaken for, commonest first.
@@ -640,7 +659,6 @@ export function confusionsFor(row: StatsRow, section: StatsSection): string[] {
   return [...counts.entries()]
     .filter(([, count]) => count / attempts >= CONFUSION_THRESHOLD)
     .sort(([, a], [, b]) => b - a)
-    .slice(0, MAX_CONFUSIONS_SHOWN)
     .map(([answered]) => section.label(answered))
 }
 

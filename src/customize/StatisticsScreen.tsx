@@ -25,17 +25,21 @@ import {
  *
  * ## Confusions are the only diagnostic thing here
  *
- * "Diminished 41%" tells a user to practise more, which they knew. "Often
- * mistaken for Minor Triad" tells them what to listen for. So it sits directly
- * under the row it belongs to rather than in a section of its own, where it
- * would be a second list to cross-reference against the first.
+ * "Diminished 41%" tells a user to practise more, which they knew. "Mistaken
+ * for Minor Triad" tells them what to listen for. So it sits directly under the
+ * row it belongs to rather than in a section of its own, where it would be a
+ * second list to cross-reference against the first.
  *
- * Named rather than counted, and at most two. A count invites arithmetic
- * against a total that is not on screen, and the threshold in `confusionsFor`
- * has already answered the only question a count would settle — whether this
- * happens often enough to be worth saying. Two, because a row that grows to
- * four clauses stops being readable at a glance, and the third commonest
- * mistake is not what anyone came to find out.
+ * **One per line, and no cap on how many.** They were a sentence — "often
+ * mistaken for A and B" — which reads as a clause to parse rather than a list
+ * to scan, and the awkwardness of a third clause was the only reason the list
+ * was truncated at two. Lines do not have that problem, so the threshold in
+ * `confusionsFor` governs alone, and how *many* a row names becomes information
+ * of its own: one is a systematic confusion, four is a user guessing.
+ *
+ * Still named rather than counted. A count invites arithmetic against a total
+ * that is not on screen, and the threshold has already answered the only
+ * question a count would settle — whether this happens often enough to say.
  *
  * Chord root shows none and should not: it is self-graded, so there is no
  * wrong answer to name.
@@ -246,6 +250,19 @@ function PlainList({
   )
 }
 
+/**
+ * One item, with whatever it gets mistaken for stacked underneath it.
+ *
+ * The confusions were a sentence — "Often mistaken for Minor 6th and Octave" —
+ * which reads as a clause to parse rather than a list to scan, and got worse
+ * with every name added. Now they are lines, and adding a name costs a line
+ * instead of a comma.
+ *
+ * Set smaller than the row it belongs to, and indented under a lead-in that
+ * stays on its own line. The three levels are the point: what the item is, that
+ * a diagnosis follows, and what the diagnosis says. Run together at one size
+ * they read as one long label, and the row stops having a subject.
+ */
 function StatRow({ row, section }: { row: StatsRow; section: StatsSection }) {
   const confusions = confusionsFor(row, section)
 
@@ -255,8 +272,13 @@ function StatRow({ row, section }: { row: StatsRow; section: StatsSection }) {
         <>
           <span className="block">{row.label}</span>
           {confusions.length > 0 && (
-            <span className="block text-sm text-content-muted">
-              Often mistaken for {confusions.join(' and ')}
+            <span className="mt-1 block text-xs leading-snug text-content-muted">
+              <span className="block">often mistaken for:</span>
+              {confusions.map((name) => (
+                <span key={name} className="block pl-3">
+                  {name}
+                </span>
+              ))}
             </span>
           )}
         </>
