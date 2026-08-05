@@ -92,12 +92,17 @@ export function ModalSheet({
       <div className="fixed inset-0 z-50 flex items-end justify-center">
         {/* Scrim, not a control: the header already exposes a labelled Close
             button and Escape works, so announcing a second dismiss affordance
-            would just be noise. */}
+            would just be noise.
+
+            `touch-none` because it is not scrollable and does not want to be
+            mistaken for something that is: a drag here would otherwise fall
+            through to the nearest thing that *can* scroll, which is the page
+            the sheet is covering. */}
         <div
           aria-hidden
           data-testid="modal-backdrop"
           onClick={close}
-          className={`absolute inset-0 bg-black/50 transition-opacity duration-300 ${
+          className={`absolute inset-0 touch-none bg-black/50 transition-opacity duration-300 ${
             raised ? 'opacity-100' : 'opacity-0'
           }`}
         />
@@ -123,9 +128,22 @@ export function ModalSheet({
           </header>
 
           <div className="relative flex-1 overflow-hidden">
+            {/*
+              `overscroll-y-contain` so a scroll that reaches the end of this
+              screen stops there. Without it the gesture chains outward to the
+              next thing that can scroll — the exercise page the sheet is
+              covering — and the user watches the background move while they are
+              reading a modal, which is not something they asked for and not
+              something they can see the cause of.
+
+              `body { overscroll-behavior: none }` in `index.css` does not cover
+              this. That stops the *body* passing its own overscroll on to the
+              document; it says nothing about a nested scroller passing scroll
+              *into* the body, which is the direction this travels.
+            */}
             <div
               key={depth}
-              className={`h-full overflow-y-auto ${
+              className={`h-full overflow-y-auto overscroll-y-contain ${
                 depth > 0 ? 'modal-screen-in' : ''
               }`}
             >

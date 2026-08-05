@@ -141,6 +141,39 @@ describe('ModalSheet', () => {
     await waitFor(() => expect(onClose).toHaveBeenCalledOnce())
   })
 
+  it('keeps a scroll inside the sheet rather than moving the page behind it', () => {
+    // A scroll that reaches the end of the sheet chains outward to the next
+    // thing that can scroll, which is the exercise page the sheet is covering.
+    // The user then watches the background move while reading a modal, with
+    // nothing on screen to explain why.
+    //
+    // `body { overscroll-behavior: none }` does not cover this: that stops the
+    // body passing its *own* overscroll to the document, and says nothing about
+    // a nested scroller passing scroll into the body.
+    render(
+      <ModalSheet open onClose={vi.fn()} title="Statistics">
+        <p>Content</p>
+      </ModalSheet>,
+    )
+
+    const scroller = screen.getByText('Content').closest('.overflow-y-auto')
+    expect(scroller?.className).toContain('overscroll-y-contain')
+  })
+
+  it('does not let a drag on the scrim scroll the page', () => {
+    // The scrim cannot scroll and should not be mistaken for something that
+    // can: a drag there falls through to the nearest thing that *can*.
+    render(
+      <ModalSheet open onClose={vi.fn()} title="Statistics">
+        <p>Content</p>
+      </ModalSheet>,
+    )
+
+    expect(screen.getByTestId('modal-backdrop').className).toContain(
+      'touch-none',
+    )
+  })
+
   it('throws if the nav hook is used outside a sheet', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     expect(() => render(<Root />)).toThrow(/inside a ModalSheet/)

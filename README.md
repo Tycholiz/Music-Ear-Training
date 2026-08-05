@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1312 tests across 48 files.** All of `npm run lint`, `npm run build`,
+**1314 tests across 48 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -657,6 +657,22 @@ Two separate layers, and fixing one does not fix the other:
 
 Neither is verifiable off-device. The state machines are tested against fakes;
 the fixes need a real iPhone, in Safari and installed to the home screen.
+
+### Scroll stays inside the modal
+
+The Customize sheet's screen is `overscroll-y-contain`. Without it a scroll that
+reaches the end of the sheet chains outward to the next thing that can scroll —
+the exercise page underneath — and the user watches the background move while
+reading a modal, with nothing on screen to explain why.
+
+**`body { overscroll-behavior: none }` does not cover this**, which is the part
+worth remembering. That stops the body passing its _own_ overscroll on to the
+document. It says nothing about a nested scroller passing scroll _into_ the
+body, which is the direction this travels, and the two read almost the same in
+the stylesheet.
+
+The scrim is `touch-none` for the same family of reason: it cannot scroll, so a
+drag on it falls through to the nearest thing that can.
 
 ### PWA updates
 
