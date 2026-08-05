@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1256 tests across 47 files.** All of `npm run lint`, `npm run build`,
+**1261 tests across 47 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -30,8 +30,8 @@ precaching, install offer, update prompt) and iOS audio handling.
 
 In progress: a run of follow-ups to the statistics feature, `#110`–`#122` —
 sharper progression statistics, direction-aware interval statistics, drills for
-confusable chords, and some customization and formatting work. `#110` is the
-first of them.
+confusable chords, and some customization and formatting work. `#110` and `#111`
+are done.
 
 See **Ideas not yet built** at the end for what is deliberately left undone.
 
@@ -224,13 +224,13 @@ Rules the screen has to keep:
 **Each exercise is measured by the skill it actually trains**, which is rarely
 the thing the user taps:
 
-| Exercise    | Buckets                        | And also lists                                      |
-| ----------- | ------------------------------ | --------------------------------------------------- |
-| Intervals   | the interval                   | play mode                                           |
-| Chords      | the chord                      | inversion, play mode                                |
-| Chord root  | the chord                      | inversion — its whole difficulty                    |
-| Melody      | how a note arrives             | opening degree, scale                               |
-| Progression | the chord, **after the first** | first chord _(leads)_, movement, cadence, inversion |
+| Exercise    | Buckets                        | And also lists                                                          |
+| ----------- | ------------------------------ | ----------------------------------------------------------------------- |
+| Intervals   | the interval                   | play mode                                                               |
+| Chords      | the chord                      | inversion, play mode                                                    |
+| Chord root  | the chord                      | inversion — its whole difficulty                                        |
+| Melody      | how a note arrives             | opening degree, scale                                                   |
+| Progression | the chord, **after the first** | first chord _(leads)_, root movement, bass movement, cadence, inversion |
 
 Three of those are worth the detail.
 
@@ -250,9 +250,19 @@ the real task for exactly one note, the one judged against the drone with nothin
 before it; everywhere else the ear follows a step or a leap and the degree it
 lands on is a consequence of where it started.
 
-**Progressions record root movement and bass movement side by side**, because an
-inversion makes them disagree, and that gap is the hardest case in the exercise:
-`V IV I` with the `I` inverted has a bass of G F E, which reads as `V IV III`.
+**Progressions record root movement and bass movement as two separate sections**,
+because an inversion makes them disagree, and that gap is the hardest case in the
+exercise: `V IV I` with the `I` inverted has a bass of G F E, which reads as
+`V IV III`. They were one list headed "By root and bass movement" — two findings
+under one heading, and worst-first interleaves them, so each row had to be read
+prefix-first to know which measure it belonged to. Split by **namespace**
+(`root-movement:up-fourth`, `bass-movement:third`) rather than by filtering one
+list in the view, so the store groups them the way the screen shows them and
+`statsRows` needs to know nothing about it.
+
+Only the root list is directed. The bass is a sounding note, so a fourth up and a
+fourth down are the same distance travelled and the ear meets them as one move;
+the root is a pitch class and its direction is a fact about the harmony.
 
 That last case is detected rather than described. When the numeral pressed is
 rooted on the note actually sounding underneath, the row says **"often mistaken
