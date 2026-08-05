@@ -19,6 +19,7 @@ import {
   progressionStatsStore,
 } from '../settings'
 import * as exercises from '../exercises'
+import { keyChord } from '../exercises'
 import type { ProgressionQuestion } from '../exercises'
 
 /** I IV V I in C: an authentic cadence with a run-up, and I appearing twice. */
@@ -100,7 +101,7 @@ describe('starting', () => {
     expect(piano.playSchedule).not.toHaveBeenCalled()
   })
 
-  it('plays the progression as a sequence of chords', async () => {
+  it('plays the progression as a sequence of chords, over an established key', async () => {
     const user = userEvent.setup()
     renderExercise()
     await start(user)
@@ -108,10 +109,37 @@ describe('starting', () => {
     await waitFor(() => expect(piano.playSchedule).toHaveBeenCalledOnce())
     const scheduled = vi.mocked(piano.playSchedule).mock.calls[0][0]
 
-    // Four chords, struck at four different times, three notes each.
+    // The key chord, then four chords struck at four different times, three
+    // notes each.
     const onsets = [...new Set(scheduled.map((n) => n.startMs))]
-    expect(onsets).toHaveLength(4)
-    expect(scheduled).toHaveLength(12)
+    expect(onsets).toHaveLength(5)
+    expect(scheduled).toHaveLength(15)
+  })
+
+  it('establishes the key before the progression, and only once', async () => {
+    // Without a tonic the answer is not well defined: I V I V and IV I IV I
+    // are the same four sounds and differ only in where home is. A user who
+    // heard the second reading was not wrong, and was charged for it anyway.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await waitFor(() => expect(piano.playSchedule).toHaveBeenCalledOnce())
+    const scheduled = vi.mocked(piano.playSchedule).mock.calls[0][0]
+    const onsets = [...new Set(scheduled.map((n) => n.startMs))].sort(
+      (a, b) => a - b,
+    )
+
+    // The same tonic chord the Key button plays. One sound means home.
+    const anchor = scheduled.filter((n) => n.startMs === onsets[0])
+    expect(anchor.map((n) => n.midi)).toEqual(
+      keyChord(PROGRESSION, DEFAULT_PROGRESSION_SETTINGS),
+    )
+
+    // It stops, with real silence, before the progression starts — the gap is
+    // what keeps it from being heard as chord one.
+    const anchorEnds = onsets[0] + anchor[0].durationMs
+    expect(onsets[1]).toBeGreaterThan(anchorEnds)
   })
 
   it('explains itself when nothing can be generated', () => {
@@ -682,6 +710,23 @@ describe('replaying', () => {
 
     await user.click(screen.getByRole('button', { name: 'Play again' }))
     expect(answer()).toBe('IIVVI'.slice(0, 3) + '··')
+  })
+
+  it('re-establishes the key, rather than replaying the progression bare', async () => {
+    // Replay is exactly when a user who has lost the tonic asks to hear the
+    // question again, so taking it away here would drop it when it is needed
+    // most — and would make the replayed question a different question from
+    // the one first asked.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    await waitFor(() => expect(piano.playSchedule).toHaveBeenCalledOnce())
+    const first = vi.mocked(piano.playSchedule).mock.calls[0][0]
+    vi.mocked(piano.playSchedule).mockClear()
+
+    await user.click(screen.getByRole('button', { name: 'Play again' }))
+
+    expect(vi.mocked(piano.playSchedule).mock.calls[0][0]).toEqual(first)
   })
 })
 

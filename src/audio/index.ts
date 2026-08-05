@@ -27,6 +27,7 @@ export {
 export type {
   MelodyPhrase,
   MelodyTiming,
+  ProgressionPhrase,
   ProgressionTiming,
   NoteGroup,
   ScheduledNote,
