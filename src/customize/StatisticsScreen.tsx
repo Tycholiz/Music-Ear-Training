@@ -281,7 +281,7 @@ function StatRow({ row, section }: { row: StatsRow; section: StatsSection }) {
             <span className="mt-1 block text-xs leading-snug text-content-muted">
               <span className="block">often mistaken for:</span>
               {confusions.map((name) => (
-                <span key={name} className="inline pl-3">
+                <span key={name} className="block pl-3">
                   {name}
                 </span>
               ))}
@@ -315,7 +315,7 @@ function Accuracy({ row }: { row: StatsRow }) {
   if (row.accuracy === null) return null
 
   return (
-    <span className="text-s whitespace-nowrap tabular-nums">
+    <span className="text-xs whitespace-nowrap tabular-nums">
       {Math.round(row.accuracy * 100)}% accurate
     </span>
   )
