@@ -86,20 +86,21 @@ describe('customize screen', () => {
 })
 
 describe('intervals screen', () => {
-  it('lists all 25 intervals, split into simple and compound', async () => {
+  it('lists all 24 intervals, split into simple and compound', async () => {
     const { user } = openMenu()
     await goTo(user, 'Intervals')
 
-    expect(screen.getAllByRole('checkbox')).toHaveLength(25)
+    // Twenty-four, not twenty-five: there is no Unison to offer.
+    expect(screen.getAllByRole('checkbox')).toHaveLength(24)
     expect(screen.getByRole('heading', { name: 'Simple' })).toBeVisible()
     expect(screen.getByRole('heading', { name: 'Compound' })).toBeVisible()
   })
 
-  it('checks the defaults and leaves Unison and compounds off', async () => {
+  it('offers no Unison at all, and leaves the compounds off', async () => {
     const { user } = openMenu()
     await goTo(user, 'Intervals')
 
-    expect(screen.getByRole('checkbox', { name: 'Unison' })).not.toBeChecked()
+    expect(screen.queryByRole('checkbox', { name: 'Unison' })).toBeNull()
     expect(screen.getByRole('checkbox', { name: 'Minor 2nd' })).toBeChecked()
     expect(screen.getByRole('checkbox', { name: 'Octave' })).toBeChecked()
     expect(
@@ -111,9 +112,9 @@ describe('intervals screen', () => {
     const { user } = openMenu()
     await goTo(user, 'Intervals')
 
-    await user.click(screen.getByRole('checkbox', { name: 'Unison' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Minor 9th' }))
     await waitFor(() =>
-      expect(intervalSettingsStore.read().intervals).toContain(0),
+      expect(intervalSettingsStore.read().intervals).toContain(13),
     )
 
     await user.click(screen.getByRole('checkbox', { name: 'Minor 2nd' }))
@@ -138,7 +139,6 @@ describe('intervals screen', () => {
     await goTo(user, 'Intervals')
 
     expect(screen.getByRole('checkbox', { name: 'Minor 9th' })).toBeDisabled()
-    expect(screen.getByRole('checkbox', { name: 'Unison' })).toBeDisabled()
     expect(screen.getByRole('checkbox', { name: 'Octave' })).toBeEnabled()
   })
 
@@ -313,7 +313,7 @@ describe('navigation', () => {
   it('reflects a change made on a sub-screen back on Customize', async () => {
     const { user } = openMenu()
     await goTo(user, 'Intervals')
-    await user.click(screen.getByRole('checkbox', { name: 'Unison' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Minor 9th' }))
     await user.click(screen.getByRole('button', { name: 'Back' }))
 
     await waitFor(() =>

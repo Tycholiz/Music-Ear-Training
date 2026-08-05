@@ -44,9 +44,8 @@ describe('defaults', () => {
     ])
   })
 
-  it('leaves Unison and the compound intervals off by default', () => {
+  it('leaves the compound intervals off by default', () => {
     const { intervals } = intervalSettingsStore.read()
-    expect(intervals).not.toContain(0)
     expect(intervals).not.toContain(13)
     expect(intervals).not.toContain(24)
   })
@@ -112,6 +111,21 @@ describe('sanitising interval settings', () => {
   it('drops intervals that are not in the table', () => {
     poison(key, { ...DEFAULT_INTERVAL_SETTINGS, intervals: [3, 99, -1, 7] })
     expect(intervalSettingsStore.read().intervals).toEqual([3, 7])
+  })
+
+  it('drops a stored Unison, which the table no longer has', () => {
+    // What every existing user who had switched it on is holding. It is
+    // filtered on read rather than migrated, since the sanitiser already knows
+    // which ids are real and there is nothing to convert it into.
+    poison(key, { ...DEFAULT_INTERVAL_SETTINGS, intervals: [0, 3, 7] })
+    expect(intervalSettingsStore.read().intervals).toEqual([3, 7])
+  })
+
+  it('falls back when the Unison was the only interval stored', () => {
+    poison(key, { ...DEFAULT_INTERVAL_SETTINGS, intervals: [0] })
+    expect(intervalSettingsStore.read().intervals).toEqual(
+      DEFAULT_INTERVAL_SETTINGS.intervals,
+    )
   })
 
   it('falls back when every stored interval is unknown', () => {

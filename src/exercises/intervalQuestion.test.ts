@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nameToMidi } from '../theory'
+import { INTERVALS, nameToMidi } from '../theory'
 import type { IntervalPlayMode, IntervalSettings } from '../settings'
 import { DEFAULT_INTERVAL_SETTINGS } from '../settings'
 import {
@@ -25,6 +25,8 @@ function fixedRandom(...values: number[]) {
   let i = 0
   return () => values[i++ % values.length]
 }
+
+const ALL_INTERVAL_IDS = INTERVALS.map((interval) => interval.semitones)
 
 const ALL_MODES: IntervalPlayMode[] = [
   'ascending',
@@ -76,9 +78,18 @@ describe('answerFor — the descending naming rule', () => {
     expect(answerFor(C4, nameToMidi('G4'), 'harmonic')).toBe(7)
   })
 
-  it('calls two identical notes a Unison in any mode', () => {
-    for (const mode of ALL_MODES) {
-      expect(answerFor(C4, C4, mode), mode).toBe(0)
+  it('never has to name two identical notes, because none are generated', () => {
+    // The `first === second` case existed only to call that a Unison. Every
+    // generated gap comes from an interval in the table and none of them is
+    // zero, so the input cannot arrive — asserted here rather than handled.
+    const config = settings({
+      intervals: ALL_INTERVAL_IDS,
+      playModes: ALL_MODES,
+      range: { low: 36, high: 84 },
+    })
+    for (let i = 0; i < 500; i++) {
+      const { notes } = generateIntervalQuestion(config)
+      expect(notes[0]).not.toBe(notes[1])
     }
   })
 })
@@ -124,19 +135,15 @@ describe('candidateAnswers', () => {
     expect(result).toEqual([1, 12])
   })
 
-  it('drops Unison descending, where it would read as an octave', () => {
-    expect(
-      candidateAnswers('descending', settings({ intervals: [0, 5] })),
-    ).toEqual([5])
-  })
-
-  it('keeps Unison ascending and harmonic', () => {
-    expect(
-      candidateAnswers('ascending', settings({ intervals: [0, 5] })),
-    ).toEqual([0, 5])
-    expect(
-      candidateAnswers('harmonic', settings({ intervals: [0, 5] })),
-    ).toEqual([0, 5])
+  it('offers nothing for an interval the table no longer has', () => {
+    // Unison is gone, so a stored setting still naming it produces no
+    // question rather than a special case to exclude it in.
+    for (const mode of ALL_MODES) {
+      expect(
+        candidateAnswers(mode, settings({ intervals: [0] })),
+        mode,
+      ).toEqual([])
+    }
   })
 
   it('drops intervals wider than the range', () => {
@@ -255,7 +262,7 @@ describe('generateIntervalQuestion', () => {
 
   it('agrees with answerFor on every question it generates', () => {
     const config = settings({
-      intervals: [0, 1, 5, 11, 12, 13, 24],
+      intervals: [1, 5, 11, 12, 13, 24],
       playModes: ALL_MODES,
       range: { low: 36, high: 84 },
     })
@@ -365,10 +372,6 @@ describe('previewNotes', () => {
     expect(previewNotes(descending, 11)).toEqual([60, 59])
     expect(previewNotes(descending, 1)).toEqual([60, 49])
     expect(previewNotes(descending, 12)).toEqual([60, 48])
-  })
-
-  it('handles Unison as both notes the same', () => {
-    expect(previewNotes(ascending, 0)).toEqual([60, 60])
   })
 
   it('returns null when the guess would run off the piano', () => {

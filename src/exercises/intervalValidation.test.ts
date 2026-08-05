@@ -50,13 +50,12 @@ describe('isIntervalUsable', () => {
     expect(isIntervalUsable(13, config)).toBe(true)
   })
 
-  it('rejects Unison descending but keeps it ascending', () => {
-    expect(isIntervalUsable(0, settings({ playModes: ['descending'] }))).toBe(
-      false,
-    )
-    expect(isIntervalUsable(0, settings({ playModes: ['ascending'] }))).toBe(
-      true,
-    )
+  it('rejects the Unison in every play mode, since it no longer exists', () => {
+    for (const mode of ['ascending', 'descending', 'harmonic'] as const) {
+      expect(isIntervalUsable(0, settings({ playModes: [mode] })), mode).toBe(
+        false,
+      )
+    }
   })
 
   it('measures the gap, not the answer, for descending intervals', () => {

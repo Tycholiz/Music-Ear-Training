@@ -7,19 +7,28 @@ import {
   intervalBySemitones,
   intervalName,
   isCompound,
+  isKnownInterval,
 } from './intervals'
 
 describe('INTERVALS', () => {
-  it('covers Unison through Double Octave with no gaps', () => {
-    expect(INTERVALS).toHaveLength(MAX_INTERVAL + 1)
+  it('covers the Minor 2nd through the Double Octave with no gaps', () => {
+    // No Unison: two notes at the same pitch are not something anyone has to
+    // identify, and it cost a special case in every direction-aware path.
+    expect(INTERVALS).toHaveLength(MAX_INTERVAL)
     INTERVALS.forEach((interval, i) => {
-      expect(interval.semitones).toBe(i)
+      expect(interval.semitones).toBe(i + 1)
     })
+  })
+
+  it('has no entry at zero semitones', () => {
+    expect(INTERVALS.some((i) => i.semitones === 0)).toBe(false)
+    expect(isKnownInterval(0)).toBe(false)
+    expect(isKnownInterval(1)).toBe(true)
+    expect(() => intervalName(0)).toThrow(RangeError)
   })
 
   it('names every interval exactly as the exercise buttons do', () => {
     expect(INTERVALS.map((i) => i.name)).toEqual([
-      'Unison',
       'Minor 2nd',
       'Major 2nd',
       'Minor 3rd',
@@ -55,8 +64,9 @@ describe('INTERVALS', () => {
 
 describe('simple vs compound', () => {
   it('splits at the octave', () => {
-    expect(SIMPLE_INTERVALS).toHaveLength(13)
+    expect(SIMPLE_INTERVALS).toHaveLength(12)
     expect(COMPOUND_INTERVALS).toHaveLength(12)
+    expect(SIMPLE_INTERVALS[0].name).toBe('Minor 2nd')
     expect(SIMPLE_INTERVALS.at(-1)?.name).toBe('Octave')
     expect(COMPOUND_INTERVALS[0].name).toBe('Minor 9th')
   })

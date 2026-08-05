@@ -5,6 +5,7 @@ import {
   simultaneous,
   type NoteGroup,
 } from '../audio'
+import { isKnownInterval } from '../theory'
 import type {
   ExerciseStats,
   IntervalPlayMode,
@@ -33,8 +34,10 @@ import { intervalKey, pickAdaptive } from './adaptive'
  *   - The generated note is never more than an octave below the reference, so
  *     what the ear hears and what the answer says stay consistent.
  *
- * Unison is offered in ascending and harmonic modes only. Descending, a gap of
- * zero would be indistinguishable from an octave under the rule above.
+ * The `|| 12` in that rule is the only place a gap of zero is still reasoned
+ * about, and it is about the octave rather than the unison: twelve semitones
+ * down is zero mod twelve, and reads as an octave because that is what it is.
+ * There is no Unison in the table to exclude any more (issue #116).
  */
 
 export interface IntervalQuestion {
@@ -100,7 +103,11 @@ export function answerFor(
   second: number,
   mode: IntervalPlayMode,
 ): number {
-  if (first === second) return 0
+  // There was a `first === second` guard here returning 0, and its only job was
+  // to name a Unison. With the Unison gone it named an answer that does not
+  // exist, and the exercise cannot produce two identical notes anyway — every
+  // generated gap comes from an interval in the table, and none of them is
+  // zero. Removed rather than kept as a case for an input that cannot arrive.
   if (!isDescending(mode)) return Math.abs(second - first)
   return (((second - first) % 12) + 12) % 12 || MAX_DESCENDING_ANSWER
 }
@@ -117,8 +124,12 @@ export function candidateAnswers(
   const descending = isDescending(mode)
 
   return settings.intervals.filter((answer) => {
-    // Unison has no meaning descending: a gap of zero would read as an octave.
-    if (descending && answer === 0) return false
+    // The table first. This filtered only by range and direction, which was
+    // survivable while every id in a settings blob was also in the table —
+    // and stopped being so the moment one was removed. A settings object still
+    // naming the Unison would have generated a question with no button on the
+    // pad to answer it, since the pad is built from the same table.
+    if (!isKnownInterval(answer)) return false
     if (descending && answer > MAX_DESCENDING_ANSWER) return false
     return gapForAnswer(answer, descending) <= span
   })
