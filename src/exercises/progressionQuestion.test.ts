@@ -555,7 +555,9 @@ describe('harmonic shape', () => {
       'bVII>bVI',
       'II>V',
       'III>vi',
+      'III>VI',
       'VI>ii',
+      'VI>II',
       'bII>I',
       'bII>V',
     ])
@@ -572,7 +574,17 @@ describe('harmonic shape', () => {
     }
   })
 
-  it('resolves a secondary dominant to the chord it points at', () => {
+  it('resolves a secondary dominant, or hands on down the circle', () => {
+    // One successor each is the rule for a secondary dominant heard on its
+    // own, and not the rule for a chain of them. `III VI II V I` is E7 A7 D7
+    // G7 C — every chord the dominant of the next — and under the old rule it
+    // could not be generated at all.
+    const resolves: Record<string, readonly string[]> = {
+      II: ['V'],
+      III: ['vi', 'VI'],
+      VI: ['ii', 'II'],
+    }
+
     for (const [from, to] of pairs(
       settingsWith({
         numerals: ALL_NUMERALS,
@@ -581,10 +593,29 @@ describe('harmonic shape', () => {
       }),
       200,
     )) {
-      if (from === 'II') expect(to).toBe('V')
-      if (from === 'III') expect(to).toBe('vi')
-      if (from === 'VI') expect(to).toBe('ii')
+      const allowed = resolves[from]
+      if (allowed) expect(allowed, `${from} → ${to}`).toContain(to)
     }
+  })
+
+  it('still resolves a secondary dominant most of the time', () => {
+    // Handing on is the exception that makes the chain possible, not the new
+    // normal — a dominant that rarely resolved would stop teaching the sound
+    // of the resolution, which is the thing it is there for.
+    const moves = pairs(
+      settingsWith({
+        numerals: ALL_NUMERALS,
+        cadences: [...CADENCES],
+        length: 8,
+      }),
+      400,
+    ).filter(([from]) => from === 'III' || from === 'VI')
+
+    const resolved = moves.filter(
+      ([from, to]) =>
+        (from === 'III' && to === 'vi') || (from === 'VI' && to === 'ii'),
+    )
+    expect(resolved.length / moves.length).toBeGreaterThan(0.2)
   })
 
   it('opens on more than one chord, without abandoning the tonic', () => {
@@ -683,6 +714,39 @@ describe('the circle of fifths', () => {
       const ending = cadenceNumerals(question.cadence)
       expect(question.numerals.slice(-ending.length)).toEqual([...ending])
     }
+  })
+
+  it('builds the chain of dominants, not just the diatonic circle', () => {
+    // `III VI II V I` is E7 A7 D7 G7 C: every chord the dominant of the next.
+    // It is the circle-of-fifths progression a musician means when they say
+    // the words, and until each secondary dominant could hand on to the next
+    // one instead of resolving, the generator could not produce a note of it.
+    const dominants = settingsWith({
+      numerals: ['III', 'VI', 'II', 'V', 'I'],
+      cadences: ['authentic'],
+      length: 5,
+    })
+
+    const shapes = sample(dominants, 600).map((q) => q.numerals.join(' '))
+    expect(shapes).toContain('III VI II V I')
+    // And the whole selection is a run around the circle, so most questions
+    // are some part of it rather than the one shape over and over.
+    expect(shareWithRun(dominants, 3)).toBeGreaterThan(0.2)
+  })
+
+  it('lets a shorter dominant chain stand on its own', () => {
+    // What the user asked for after finding `VI` unreachable: `VI II V I`,
+    // three falling fifths without needing `III` switched on as well.
+    const shapes = sample(
+      settingsWith({
+        numerals: ['VI', 'II', 'V', 'I'],
+        cadences: ['authentic'],
+        length: 4,
+      }),
+      600,
+    ).map((q) => q.numerals.join(' '))
+
+    expect(shapes).toContain('VI II V I')
   })
 
   it('favours the circle without needing every chord switched on', () => {

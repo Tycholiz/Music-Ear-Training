@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1285 tests across 47 files.** All of `npm run lint`, `npm run build`,
+**1288 tests across 47 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -478,6 +478,23 @@ it was an ordinary chord in a walk and became a fault the moment it was an
 approach chord, since every such progression then ended `I III vi` and a
 three-chord one had exactly one possible answer. `IV` and `vi` now lead to it
 too. **A chord that is a cadence's approach needs more than one way in.**
+
+#### A secondary dominant resolves, or hands on down the circle
+
+Each one used to have a single successor — the chord it is the dominant of —
+which is the rule for a secondary dominant heard on its own and not the rule for
+a _chain_ of them. `III VI II V I` is E7 A7 D7 G7 C: every chord the dominant of
+the next, every root falling a fifth, and one of the most worn grooves in tonal
+music. Under one-successor-each the generator could not produce a note of it,
+because `III` could only go to `vi` and `VI` only to `ii`.
+
+So `III` also leads to `VI`, and `VI` to `II`. Each still resolves the ordinary
+way, so nothing that could be generated before is lost — what changes is that a
+dominant may delay its resolution by pointing at the next dominant instead,
+which is what makes the chain a chain. Two additions and no more: `II` needs
+none, since the chord a fifth below it is `V`, which it already leads to. A test
+pins that resolving stays the common case, because a dominant that rarely
+resolved would stop teaching the sound it is there for.
 
 #### The walk is weighted toward the circle of fifths
 

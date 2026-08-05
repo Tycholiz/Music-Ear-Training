@@ -63,8 +63,25 @@ import type { Random } from './intervalQuestion'
  *
  * Functional harmony, kept deliberately small: these are the moves that sound
  * like moves, not every pair that is theoretically defensible. `I` is the hub
- * and can go almost anywhere; the secondary dominants exist to point at one
- * chord each and so have a single successor.
+ * and can go almost anywhere.
+ *
+ * ## A secondary dominant resolves, or hands on down the circle
+ *
+ * Each one used to have a single successor — the chord it is the dominant of —
+ * which is the rule for a secondary dominant heard on its own. It is not the
+ * rule for a *chain* of them. `III VI II V I` is E7 A7 D7 G7 C: every chord the
+ * dominant of the next, every root falling a fifth, and one of the most worn
+ * grooves in tonal music. Under one-successor-each it could not be generated at
+ * all, because `III` could only go to `vi` and `VI` only to `ii`.
+ *
+ * So `III` also leads to `VI`, and `VI` to `II`. Each still resolves the
+ * ordinary way as well, so nothing that could be generated before is lost —
+ * what changes is that a dominant may now delay its resolution by pointing at
+ * the next dominant instead, which is exactly what makes the chain a chain.
+ *
+ * These are still the only two additions, and both are the same move: the
+ * circle continuing. `II` gets no new successor, because the chord a fifth
+ * below `II` is `V`, which it already leads to.
  *
  * ## A chord needs more than one way in, not just one way out
  *
@@ -108,10 +125,12 @@ const SUCCESSORS: Record<string, readonly string[]> = {
   bIII: ['bVI', 'bVII', 'IV', 'I'],
   bVI: ['bVII', 'IV', 'V', 'I'],
   bVII: ['I', 'IV', 'bVI'],
-  // Secondary dominants: each points at the chord it is the dominant of.
+  // Secondary dominants: each resolves to the chord it is the dominant of, or
+  // hands on to the next dominant round the circle. `II` needs no second
+  // successor — the chord a fifth below it is `V`, which it already leads to.
   II: ['V'],
-  III: ['vi'],
-  VI: ['ii'],
+  III: ['vi', 'VI'],
+  VI: ['ii', 'II'],
   bII: ['I', 'V'],
 }
 
