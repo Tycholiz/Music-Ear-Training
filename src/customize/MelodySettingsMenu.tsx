@@ -199,7 +199,6 @@ function ScaleScreen() {
               checked={checked}
               // Nothing selected can generate nothing. The exercise says so,
               // but stopping it here means it never has to.
-              disabled={checked && settings.scaleIds.length === 1}
               onChange={(next) => toggle(scale.id, next)}
             />
           )

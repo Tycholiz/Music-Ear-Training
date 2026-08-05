@@ -36,7 +36,8 @@ import {
 } from '../exercises'
 import { RangeScreen } from './RangeScreen'
 import { StatisticsScreen } from './StatisticsScreen'
-import { afterGroupToggle, groupDisabled, groupState } from './bulkSelect'
+import { afterGroupToggle, groupCanToggle, groupIsFull } from './bulkSelect'
+import { SelectAll } from './SelectAll'
 
 /**
  * Hamburger menu for the chord progression exercise, and the Customize screen
@@ -222,28 +223,30 @@ function NumeralsScreen() {
 
   const toggleGroup = (numerals: readonly RomanNumeral[]) => {
     const next = afterGroupToggle(selectable(numerals), settings.numerals)
-    if (next) setSettings({ ...settings, numerals: inOrder(next) })
+    setSettings({ ...settings, numerals: inOrder(next) })
   }
 
-  const groupRow = (label: string, numerals: readonly RomanNumeral[]) => (
-    <CheckRow
-      label={label}
-      checked={groupState(selectable(numerals))}
-      disabled={groupDisabled(selectable(numerals), settings.numerals)}
-      onChange={() => toggleGroup(numerals)}
+  const selectAll = (numerals: readonly RomanNumeral[], of?: string) => (
+    <SelectAll
+      of={of}
+      full={groupIsFull(selectable(numerals))}
+      disabled={!groupCanToggle(selectable(numerals))}
+      onToggle={() => toggleGroup(numerals)}
     />
   )
 
   return (
     <div className="flex flex-col gap-6 p-4">
-      <ListCard>{groupRow('All chords', numeralsInCustomizeOrder())}</ListCard>
+      <div className="flex justify-end px-4">
+        {selectAll(numeralsInCustomizeOrder(), 'chords')}
+      </div>
 
       {NUMERAL_SECTIONS.map((section) => (
-        <ListCard key={section.category} title={section.title}>
-          {groupRow(
-            `All ${section.title.toLowerCase()}`,
-            numeralsInCategory(section.category),
-          )}
+        <ListCard
+          key={section.category}
+          title={section.title}
+          action={selectAll(numeralsInCategory(section.category))}
+        >
           {numeralsInCategory(section.category).map((numeral) => {
             const checked = chosen.has(numeral.id)
             const warning = checked
@@ -292,7 +295,6 @@ function NumeralsScreen() {
 function CadencesScreen() {
   const [settings, setSettings] = usePersisted(progressionSettingsStore)
   const chosen = new Set(settings.cadences)
-  const usable = usableCadences(settings)
 
   const toggle = (cadence: Cadence, checked: boolean) => {
     const cadences = checked
@@ -326,9 +328,11 @@ function CadencesScreen() {
                 </>
               }
               checked={checked}
-              // Either its chords are switched off, or it is the last one that
-              // works and a progression would have no way to end without it.
-              disabled={!available || (checked && usable.length === 1)}
+              // Only its chords being switched off blocks it. The last
+              // working cadence can go too; the exercise then says it cannot
+              // build a progression, which it already says for a range too
+              // narrow to voice one in.
+              disabled={!available}
               onChange={(next) => toggle(cadence, next)}
             />
           )
@@ -420,7 +424,6 @@ function InversionsScreen() {
               key={inversion}
               label={INVERSION_NAMES[inversion]}
               checked={checked}
-              disabled={checked && settings.inversions.length === 1}
               onChange={(next) => toggle(inversion, next)}
             />
           )

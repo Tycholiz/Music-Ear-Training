@@ -156,9 +156,18 @@ describe('sanitizeSelection', () => {
     expect(sanitizeSelection(['c', 'a'], allowed, allowed)).toEqual(['a', 'c'])
   })
 
-  it('falls back when nothing survives, since empty cannot generate', () => {
+  it('falls back when values were stored but none is recognised', () => {
+    // A stale blob — settings written before an option was removed. The
+    // defaults are the only sensible answer, since the alternative is
+    // silently switching the exercise off for something the user never did.
     expect(sanitizeSelection(['zzz'], allowed, ['b'])).toEqual(['b'])
-    expect(sanitizeSelection([], allowed, ['b'])).toEqual(['b'])
+  })
+
+  it('keeps a deliberately empty selection', () => {
+    // Not the same as the case above, and telling them apart is the point:
+    // an empty array is someone choosing nothing. Replacing it filled the
+    // screen back in with settings they had never chosen.
+    expect(sanitizeSelection([], allowed, ['b'])).toEqual([])
   })
 
   it('falls back when the stored value is not an array', () => {

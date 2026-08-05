@@ -160,12 +160,20 @@ describe('chords screen', () => {
     expect(screen.getByRole('checkbox', { name: 'Major 7th' })).toBeEnabled()
   })
 
-  it('pins the last remaining chord', async () => {
+  it('lets the last remaining chord go', async () => {
+    // Switching off the last one is allowed now. The exercise says it has
+    // nothing to ask — a state it already shows for a range too narrow to
+    // play in — rather than the screen refusing the tap, which made the
+    // section "select all" work on one list and silently not on another.
     write({ chords: ['major'], range: WIDE })
     const { user } = openMenu()
     await goTo(user, 'Chords')
 
-    expect(screen.getByRole('checkbox', { name: 'Major Triad' })).toBeDisabled()
+    const only = screen.getByRole('checkbox', { name: 'Major Triad' })
+    expect(only).toBeEnabled()
+
+    await user.click(only)
+    await waitFor(() => expect(chordSettingsStore.read().chords).toEqual([]))
   })
 
   it('still allows switching off a chord that has become unplayable', async () => {
@@ -242,13 +250,13 @@ describe('inversions screen', () => {
     ).toBeEnabled()
   })
 
-  it('pins the last remaining inversion', async () => {
+  it('lets the last remaining inversion go', async () => {
     const { user } = openMenu()
     await goTo(user, 'Inversions')
 
     expect(
       screen.getByRole('checkbox', { name: 'Root position' }),
-    ).toBeDisabled()
+    ).toBeEnabled()
   })
 
   it('keeps the stored order canonical', async () => {
@@ -274,11 +282,11 @@ describe('play mode screen', () => {
     ).not.toBeChecked()
   })
 
-  it('pins the last remaining mode', async () => {
+  it('lets the last remaining mode go', async () => {
     const { user } = openMenu()
     await goTo(user, 'Play Mode')
 
-    expect(screen.getByRole('checkbox', { name: 'Block' })).toBeDisabled()
+    expect(screen.getByRole('checkbox', { name: 'Block' })).toBeEnabled()
   })
 
   it('persists a toggle', async () => {
@@ -403,88 +411,47 @@ describe('focusing on weak spots', () => {
   })
 })
 
-describe('checking a whole group at once', () => {
-  it('takes every chord from the row at the top', async () => {
+describe('selecting a whole group at once', () => {
+  const sectionOf = (title: string) => {
+    const found = screen.getByText(title).closest('section')
+    if (!found) throw new Error(`no section titled ${title}`)
+    return found as HTMLElement
+  }
+
+  const control = (title?: string) =>
+    title
+      ? within(sectionOf(title)).getByRole('button', { name: /select all/i })
+      : screen.getByRole('button', { name: /select all chords/i })
+
+  it('takes every chord from the control at the top', async () => {
     write({ range: WIDE, inversions: [0, 1, 2, 3] })
     const { user } = openMenu()
     await goTo(user, 'Chords')
 
-    await user.click(screen.getByRole('checkbox', { name: 'All chords' }))
+    await user.click(control())
 
     await waitFor(() =>
       expect(chordSettingsStore.read().chords).toHaveLength(CHORDS.length),
     )
   })
 
-  it('takes only its own section', async () => {
-    write({ range: WIDE, inversions: [0, 1, 2, 3], chords: ['major'] })
+  it('gives them all back on the second press', async () => {
+    // The complaint about the first version: it filled and then would not
+    // clear, because clearing was blocked whenever it would empty the screen.
+    write({ range: WIDE, inversions: [0, 1, 2, 3] })
     const { user } = openMenu()
     await goTo(user, 'Chords')
 
-    await user.click(screen.getByRole('checkbox', { name: 'All sixths' }))
+    await user.click(control())
+    await waitFor(() => expect(control()).toHaveTextContent('Deselect all'))
 
-    await waitFor(() => {
-      const chosen = chordSettingsStore.read().chords
-      // The triad it started with survives, and nothing outside Sixths joined.
-      expect(chosen).toContain('major')
-      const sixths = CHORDS.filter((c) => c.category === 'Sixths')
-      for (const chord of sixths) expect(chosen).toContain(chord.id)
-      expect(chosen).toHaveLength(1 + sixths.length)
-    })
+    await user.click(control())
+    await waitFor(() => expect(chordSettingsStore.read().chords).toEqual([]))
   })
 
-  it('reads as partly checked while a section is half chosen', async () => {
-    // The state a plain checkbox cannot express, and the one that says "some
-    // of these" rather than lying in either direction.
-    write({ range: WIDE, inversions: [0, 1, 2, 3], chords: ['major'] })
-    const { user } = openMenu()
-    await goTo(user, 'Chords')
-
-    expect(
-      screen.getByRole('checkbox', { name: 'All triads' }),
-    ).toHaveAttribute('aria-checked', 'mixed')
-  })
-
-  it('goes from partly checked to all, never to none', async () => {
-    // A tap on a partial group means "I want these". The user who wants none
-    // of them is one more tap away.
-    write({ range: WIDE, inversions: [0, 1, 2, 3], chords: ['major'] })
-    const { user } = openMenu()
-    await goTo(user, 'Chords')
-
-    await user.click(screen.getByRole('checkbox', { name: 'All triads' }))
-
-    await waitFor(() => {
-      const chosen = chordSettingsStore.read().chords
-      for (const chord of CHORDS.filter((c) => c.category === 'Triads')) {
-        expect(chosen).toContain(chord.id)
-      }
-    })
-  })
-
-  it('gives a section back when it is already whole', async () => {
-    const triads = CHORDS.filter((c) => c.category === 'Triads').map(
-      (c) => c.id,
-    )
-    write({
-      range: WIDE,
-      inversions: [0, 1, 2, 3],
-      chords: [...triads, 'major-7th'],
-    })
-    const { user } = openMenu()
-    await goTo(user, 'Chords')
-
-    await user.click(screen.getByRole('checkbox', { name: 'All triads' }))
-
-    await waitFor(() =>
-      expect(chordSettingsStore.read().chords).toEqual(['major-7th']),
-    )
-  })
-
-  it('will not empty the screen', async () => {
-    // `sanitizeSelection` reads an empty selection as corrupt and hands back
-    // the defaults, so a bulk uncheck that emptied the list would look like
-    // the screen resetting itself to something the user never chose.
+  it('clears a section even when nothing else is selected', async () => {
+    // The inconsistency the user hit: this worked on one list and silently did
+    // nothing on another, depending on what happened to be on elsewhere.
     const triads = CHORDS.filter((c) => c.category === 'Triads').map(
       (c) => c.id,
     )
@@ -492,22 +459,48 @@ describe('checking a whole group at once', () => {
     const { user } = openMenu()
     await goTo(user, 'Chords')
 
-    expect(screen.getByRole('checkbox', { name: 'All triads' })).toBeDisabled()
+    await user.click(control('Triads'))
+
+    await waitFor(() => expect(chordSettingsStore.read().chords).toEqual([]))
+  })
+
+  it('takes only its own section', async () => {
+    write({ range: WIDE, inversions: [0, 1, 2, 3], chords: ['major'] })
+    const { user } = openMenu()
+    await goTo(user, 'Chords')
+
+    await user.click(control('Sixths'))
+
+    await waitFor(() => {
+      const chosen = chordSettingsStore.read().chords
+      expect(chosen).toContain('major')
+      const sixths = CHORDS.filter((c) => c.category === 'Sixths')
+      for (const chord of sixths) expect(chosen).toContain(chord.id)
+      expect(chosen).toHaveLength(1 + sixths.length)
+    })
+  })
+
+  it('offers to select while a section is only half chosen', async () => {
+    // The label says what the tap does rather than what the group is, so a
+    // partial group needs no third state to be readable.
+    write({ range: WIDE, inversions: [0, 1, 2, 3], chords: ['major'] })
+    const { user } = openMenu()
+    await goTo(user, 'Chords')
+
+    expect(control('Triads')).toHaveTextContent('Select all')
   })
 
   it('does not switch on a chord the range cannot build', async () => {
-    // The rule the individual rows already follow. A group checkbox that could
+    // The rule the individual rows already follow. A group control that could
     // reach past it would be the way round it.
     //
     // A range where *some* chords fit and some do not, deliberately: with none
-    // available the group checkbox is disabled and the tap proves nothing,
-    // which is how an earlier version of this test passed while ignoring the
-    // rule entirely.
+    // available the control is disabled and the tap proves nothing.
     write({ range: { low: 48, high: 63 }, inversions: [0], chords: ['major'] })
     const { user } = openMenu()
     await goTo(user, 'Chords')
 
-    await user.click(screen.getByRole('checkbox', { name: 'All chords' }))
+    await user.click(control())
 
     await waitFor(() =>
       expect(chordSettingsStore.read().chords.length).toBeGreaterThan(1),

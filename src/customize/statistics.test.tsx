@@ -38,10 +38,18 @@ async function openStatistics(
   await user.click(screen.getByRole('button', { name: /^Statistics/ }))
 }
 
-/** The card under a given section heading. */
+/**
+ * The card or block under a given heading.
+ *
+ * Two shapes reach this. A `ListCard` title now sits in a header *row*, so a
+ * section control can stand beside it, which puts the card one further up. A
+ * statistics section heading sits directly in the block holding its cards.
+ */
 function cardUnder(title: string) {
   const heading = screen.getByRole('heading', { name: title })
-  const card = heading.parentElement
+  const parent = heading.parentElement
+  const card =
+    parent?.parentElement?.tagName === 'SECTION' ? parent.parentElement : parent
   if (!card) throw new Error(`no card for ${title}`)
   return within(card)
 }

@@ -35,6 +35,13 @@ function settingsWith(
 }
 
 /** The checkbox row whose label starts with this text. */
+/** The `<section>` a ListCard renders, found by its title. */
+function sectionOf(title: string) {
+  const found = screen.getByText(title).closest('section')
+  if (!found) throw new Error(`no section titled ${title}`)
+  return found as HTMLElement
+}
+
 function row(text: string) {
   const found = screen
     .getAllByRole('checkbox')
@@ -355,11 +362,13 @@ describe('choosing cadences', () => {
     )
   })
 
-  it('will not let the last usable one go', async () => {
+  it('lets the last usable cadence go', async () => {
+    // The exercise then says it cannot build a progression, which it already
+    // says for a range too narrow to voice one in.
     const { user } = openMenu()
     await openScreen(user, 'Cadences')
 
-    expect(row('Authentic')).toBeDisabled()
+    expect(row('Authentic')).toBeEnabled()
   })
 
   it('disables a cadence whose chords are switched off', async () => {
@@ -492,12 +501,12 @@ describe('inversions', () => {
     )
   })
 
-  it('will not let the last one go', async () => {
+  it('lets the last one go', async () => {
     progressionSettingsStore.write(settingsWith({ inversions: [0] }))
     const { user } = openMenu()
     await openScreen(user, 'Inversions')
 
-    expect(row('Root position')).toBeDisabled()
+    expect(row('Root position')).toBeEnabled()
   })
 })
 
@@ -522,13 +531,15 @@ describe('warnings', () => {
   })
 })
 
-describe('checking a whole group of chords at once', () => {
+describe('selecting a whole group of chords at once', () => {
   it('takes a section without disturbing the rest', async () => {
     const { user } = openMenu()
     await openScreen(user, 'Chords')
 
     await user.click(
-      screen.getByRole('checkbox', { name: 'All secondary dominants' }),
+      within(sectionOf('Secondary dominants')).getByRole('button', {
+        name: 'Select all',
+      }),
     )
 
     await waitFor(() => {
@@ -539,25 +550,43 @@ describe('checking a whole group of chords at once', () => {
     })
   })
 
-  it('leaves a chord an enabled cadence depends on switched on', async () => {
-    // The whole risk of a bulk uncheck. `I` and `V` are what an authentic
-    // cadence is made of, and switching them off would break the setting the
-    // lock exists to protect — so the group has to stop exactly where a single
-    // tap on that row already stops.
-    //
-    // A borrowed chord is switched on first so that emptying the diatonic
-    // section would still leave *something* selected. Without it the refusal
-    // to empty the list does the work and the lock is never tested — which is
-    // how an earlier version of this test passed while ignoring locks.
-    progressionSettingsStore.write({
-      ...DEFAULT_PROGRESSION_SETTINGS,
-      numerals: ['I', 'IV', 'V', 'bVII'],
-    })
+  it('gives a full section back on the second press', async () => {
+    // The complaint about the first version: it filled and then would not
+    // clear, and whether it cleared depended on what was on elsewhere.
     const { user } = openMenu()
     await openScreen(user, 'Chords')
 
-    await user.click(screen.getByRole('checkbox', { name: 'All diatonic' }))
-    await user.click(screen.getByRole('checkbox', { name: 'All diatonic' }))
+    const control = () =>
+      within(sectionOf('Secondary dominants')).getByRole('button', {
+        name: /select all/i,
+      })
+
+    await user.click(control())
+    await waitFor(() => expect(control()).toHaveTextContent('Deselect all'))
+
+    await user.click(control())
+    await waitFor(() => {
+      const chosen = progressionSettingsStore.read().numerals
+      for (const id of ['II', 'III', 'VI']) expect(chosen).not.toContain(id)
+    })
+  })
+
+  it('leaves a chord an enabled cadence depends on switched on', async () => {
+    // The whole risk of a bulk clear. `I` and `V` are what an authentic
+    // cadence is made of, and switching them off would break the setting the
+    // lock exists to protect — so the group has to stop exactly where a single
+    // tap on that row already stops.
+    const { user } = openMenu()
+    await openScreen(user, 'Chords')
+
+    const control = () =>
+      within(sectionOf('Diatonic')).getByRole('button', {
+        name: /select all/i,
+      })
+
+    await user.click(control())
+    await waitFor(() => expect(control()).toHaveTextContent('Deselect all'))
+    await user.click(control())
 
     await waitFor(() => {
       const chosen = progressionSettingsStore.read().numerals
@@ -573,18 +602,18 @@ describe('checking a whole group of chords at once', () => {
     const { user } = openMenu()
     await openScreen(user, 'Chords')
 
-    await user.click(screen.getByRole('checkbox', { name: 'All chords' }))
+    await user.click(screen.getByRole('button', { name: 'Select all chords' }))
 
     await waitFor(() => expect(row('I')).toBeDisabled())
     expect(row('V')).toBeDisabled()
   })
 
-  it('reads as partly checked when only the defaults are on', async () => {
+  it('offers to select rather than deselect while anything is off', async () => {
     const { user } = openMenu()
     await openScreen(user, 'Chords')
 
     expect(
-      screen.getByRole('checkbox', { name: 'All chords' }),
-    ).toHaveAttribute('aria-checked', 'mixed')
+      screen.getByRole('button', { name: 'Select all chords' }),
+    ).toBeVisible()
   })
 })

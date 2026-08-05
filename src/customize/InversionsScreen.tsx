@@ -56,10 +56,7 @@ export function InversionsScreen({
                 </span>
               }
               checked={checked}
-              disabled={
-                (!checked && !usable) ||
-                (checked && settings.inversions.length === 1)
-              }
+              disabled={!checked && !usable}
               onChange={(next) => toggle(inversion, next)}
             />
           )

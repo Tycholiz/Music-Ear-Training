@@ -7,7 +7,8 @@ import {
 } from '../theory'
 import { intervalSettingsStore, usePersisted } from '../settings'
 import { intervalsWarning, isIntervalUsable } from '../exercises'
-import { afterGroupToggle, groupDisabled, groupState } from './bulkSelect'
+import { afterGroupToggle, groupCanToggle, groupIsFull } from './bulkSelect'
+import { SelectAll } from './SelectAll'
 
 /**
  * Which intervals the user wants to be tested on.
@@ -37,9 +38,7 @@ export function IntervalsScreen() {
       id: String(interval.semitones),
       checked: enabled.has(interval.semitones),
       canEnable: isIntervalUsable(interval.semitones, settings),
-      // The last remaining interval is pinned, so the exercise always has
-      // something to ask.
-      canDisable: settings.intervals.length > 1,
+      canDisable: true,
     }))
 
   const toggleGroup = (intervals: readonly Interval[]) => {
@@ -47,23 +46,18 @@ export function IntervalsScreen() {
       selectable(intervals),
       settings.intervals.map(String),
     )
-    if (next) {
-      setSettings({
-        ...settings,
-        intervals: next.map(Number).sort((a, b) => a - b),
-      })
-    }
+    setSettings({
+      ...settings,
+      intervals: next.map(Number).sort((a, b) => a - b),
+    })
   }
 
-  const groupRow = (label: string, intervals: readonly Interval[]) => (
-    <CheckRow
-      label={label}
-      checked={groupState(selectable(intervals))}
-      disabled={groupDisabled(
-        selectable(intervals),
-        settings.intervals.map(String),
-      )}
-      onChange={() => toggleGroup(intervals)}
+  const selectAll = (intervals: readonly Interval[], of?: string) => (
+    <SelectAll
+      of={of}
+      full={groupIsFull(selectable(intervals))}
+      disabled={!groupCanToggle(selectable(intervals))}
+      onToggle={() => toggleGroup(intervals)}
     />
   )
 
@@ -80,12 +74,10 @@ export function IntervalsScreen() {
           </span>
         }
         checked={checked}
-        // An unreachable interval can still be switched off — only turning one
-        // on is blocked. The last remaining interval is pinned so the exercise
-        // always has something to ask.
-        disabled={
-          (!checked && !usable) || (checked && settings.intervals.length === 1)
-        }
+        // An unreachable interval can still be switched off — only turning
+        // one on is blocked. Switching off the last one is allowed; the
+        // exercise then says it has nothing to ask.
+        disabled={!checked && !usable}
         onChange={(next) => toggle(interval.semitones, next)}
       />
     )
@@ -94,21 +86,26 @@ export function IntervalsScreen() {
   return (
     <div className="flex flex-col gap-6 p-4">
       {/*
-        The whole list first. Twenty-four rows is a long way to tap to a large
+        The whole screen first. Twenty-four rows is a long way to tap to a large
         selection, and the shortest route to one is to take them all and put a
         few back.
       */}
-      <ListCard>{groupRow('All intervals', INTERVALS)}</ListCard>
+      <div className="flex justify-end px-4">
+        {selectAll(INTERVALS, 'intervals')}
+      </div>
 
-      <ListCard title="Simple" footer={warning}>
-        {groupRow('All simple intervals', SIMPLE_INTERVALS)}
+      <ListCard
+        title="Simple"
+        action={selectAll(SIMPLE_INTERVALS)}
+        footer={warning}
+      >
         {SIMPLE_INTERVALS.map(row)}
       </ListCard>
       <ListCard
         title="Compound"
+        action={selectAll(COMPOUND_INTERVALS)}
         footer="Compound intervals are only offered ascending and harmonic — descending always resolves within an octave."
       >
-        {groupRow('All compound intervals', COMPOUND_INTERVALS)}
         {COMPOUND_INTERVALS.map(row)}
       </ListCard>
     </div>

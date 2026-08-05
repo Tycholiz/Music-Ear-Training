@@ -48,12 +48,10 @@ export function PlayModeScreen() {
                 </span>
               }
               checked={checked}
-              // A mode that can't produce anything can still be switched off,
-              // and the last remaining mode is pinned.
-              disabled={
-                (!checked && !usable) ||
-                (checked && settings.playModes.length === 1)
-              }
+              // A mode that can't produce anything can still be switched
+              // off, and so can the last one — the exercise then says it has
+              // nothing to ask rather than the screen refusing the tap.
+              disabled={!checked && !usable}
               onChange={(next) => toggle(mode, next)}
             />
           )
