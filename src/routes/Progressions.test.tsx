@@ -804,12 +804,27 @@ describe('what goes into the statistics', () => {
 
     const stats = progressionStatsStore.read()
     // I to IV is up a fourth; IV to V is up a whole step.
-    expect(stats['movement:root-up-fourth'].correct).toBe(1)
-    expect(stats['movement:root-up-whole-step'].correct).toBe(1)
-    // The same transitions recorded as the ear meets them.
-    expect(
-      Object.keys(stats).some((key) => key.startsWith('movement:bass-')),
-    ).toBe(true)
+    expect(stats['root-movement:up-fourth'].correct).toBe(1)
+    expect(stats['root-movement:up-whole-step'].correct).toBe(1)
+  })
+
+  it('records bass movement under its own namespace, not beside the root', async () => {
+    // They are separate sections on the statistics screen because they are
+    // separate skills — and they disagree exactly when an inversion has put
+    // something other than the root underneath. One namespace with a prefix
+    // in the value made that a list the reader had to sort by hand.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await tap(user, 'I', 'IV', 'V')
+
+    const namespaces = Object.keys(progressionStatsStore.read()).map(
+      (key) => key.split(':')[0],
+    )
+    expect(namespaces).toContain('root-movement')
+    expect(namespaces).toContain('bass-movement')
+    expect(namespaces).not.toContain('movement')
   })
 
   it('does not call a quality mistake a bass mistake', async () => {

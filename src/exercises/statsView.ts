@@ -233,32 +233,43 @@ export const MELODY_STATS_VIEW: StatsView = {
   ],
 }
 
-const MOVEMENT_NAMES: Record<string, string> = {
-  // Roots are pitch classes, so the far half of the circle is named by its
-  // descending complement — which is how these moves are spoken about. `I` to
-  // `vi` is nine semitones up and every musician calls it down a third.
-  'root-same': 'Root stays, quality changes',
-  'root-up-half-step': 'Root moves up a half step',
-  'root-up-whole-step': 'Root moves up a whole step',
-  'root-up-third': 'Root moves up a third',
-  'root-up-fourth': 'Root moves up a fourth',
-  'root-tritone': 'Root moves by a tritone',
-  'root-up-fifth': 'Root moves up a fifth',
-  'root-down-third': 'Root moves down a third',
-  'root-down-whole-step': 'Root moves down a whole step',
-  'root-down-half-step': 'Root moves down a half step',
+/**
+ * How the root moved, as analysed.
+ *
+ * Roots are pitch classes, so the far half of the circle is named by its
+ * descending complement — which is how these moves are spoken about. `I` to
+ * `vi` is nine semitones up and every musician calls it down a third.
+ */
+const ROOT_MOVEMENT_NAMES: Record<string, string> = {
+  same: 'Root stays, quality changes',
+  'up-half-step': 'Root moves up a half step',
+  'up-whole-step': 'Root moves up a whole step',
+  'up-third': 'Root moves up a third',
+  'up-fourth': 'Root moves up a fourth',
+  tritone: 'Root moves by a tritone',
+  'up-fifth': 'Root moves up a fifth',
+  'down-third': 'Root moves down a third',
+  'down-whole-step': 'Root moves down a whole step',
+  'down-half-step': 'Root moves down a half step',
+}
 
-  // The same transitions as heard rather than analysed. Where the two lists
-  // disagree is where an inversion has put something other than the root
-  // underneath, which is the hardest case in this exercise.
-  'bass-same': 'Bass stays put',
-  'bass-half-step': 'Bass moves by a half step',
-  'bass-whole-step': 'Bass moves by a whole step',
-  'bass-third': 'Bass moves by a third',
-  'bass-fourth': 'Bass moves by a fourth',
-  'bass-tritone': 'Bass moves by a tritone',
-  'bass-fifth': 'Bass moves by a fifth',
-  'bass-sixth-or-more': 'Bass moves by a sixth or more',
+/**
+ * The same transitions as heard rather than analysed.
+ *
+ * Undirected, unlike the root: the bass is a sounding note, so a fourth up and
+ * a fourth down are the same distance travelled and the ear meets them as one
+ * move. The root is a pitch class and its direction is a fact about the
+ * harmony, which is why that list is directed and this one is not.
+ */
+const BASS_MOVEMENT_NAMES: Record<string, string> = {
+  same: 'Bass stays put',
+  'half-step': 'Bass moves by a half step',
+  'whole-step': 'Bass moves by a whole step',
+  third: 'Bass moves by a third',
+  fourth: 'Bass moves by a fourth',
+  tritone: 'Bass moves by a tritone',
+  fifth: 'Bass moves by a fifth',
+  'sixth-or-more': 'Bass moves by a sixth or more',
 }
 
 /** Names a numeral, or the bass-reading failure that wears a numeral's clothes. */
@@ -268,13 +279,27 @@ const numeralLabel = (id: string) =>
     : safely((value) => numeralById(value).label)(id)
 
 /**
- * Four questions about a progression, each with a different answer.
+ * Five questions about a progression, each with a different answer.
  *
  * *Which chord opened it* comes first. *Which chord was that, once the
  * progression is under way* is the bucketed measure. *How the harmony moved* is
- * the ear's actual work in between, given twice — once by root and once by
- * bass, since an inversion makes those two disagree. *How it ended* is the
- * cadence.
+ * the ear's actual work in between, asked twice — once by root and once by
+ * bass. *How it ended* is the cadence.
+ *
+ * ## Root movement and bass movement are two sections, not one
+ *
+ * They were one list called "By root and bass movement", which is two findings
+ * wearing one heading. Analysing where the harmony went and hearing where the
+ * bottom note went are different skills, and they only *disagree* when an
+ * inversion has put something other than the root underneath — which is the
+ * hardest case in this exercise and the one worth being able to see on its own.
+ * Interleaved worst-first, the two sets of rows also had to be read prefix by
+ * prefix to work out which measure each belonged to.
+ *
+ * Split by namespace rather than by filtering one list in the view, so the
+ * store groups them the way the screen shows them and `statsRows` needs to know
+ * nothing about it. The direction prefix that used to live in the value —
+ * `movement:root-up-fourth` — is now the namespace, `root-movement:up-fourth`.
  *
  * ## The first chord leads, and is not in the buckets
  *
@@ -292,10 +317,13 @@ const numeralLabel = (id: string) =>
  * their title that they start from the second chord. The recording side agrees:
  * `numeral` is written only from index 1 on (`routes/Progressions.tsx`).
  *
- * Records written before that split still have openings folded into `numeral`.
- * Nothing migrates them — the rolling window is twenty attempts deep and clears
- * itself within a session or two of practice, and rewriting history to satisfy
- * a heading would be inventing attempts that were never separately measured.
+ * Records written before that split still have openings folded into `numeral`,
+ * and records written before the movement split sit under a `movement`
+ * namespace nothing reads any more. Neither is migrated. The rolling window is
+ * twenty attempts deep and clears itself within a session or two of practice;
+ * rewriting history to satisfy a heading would be inventing attempts that were
+ * never separately measured, and the orphaned `movement:` keys are a few
+ * hundred bytes that no section can surface.
  *
  * ## No breakdown by position
  *
@@ -326,9 +354,14 @@ export const PROGRESSION_STATS_VIEW: StatsView = {
       showsConfusions: true,
     },
     {
-      namespace: 'movement',
-      title: 'By root and bass movement',
-      label: (value) => MOVEMENT_NAMES[value] ?? value,
+      namespace: 'root-movement',
+      title: 'By root movement',
+      label: (value) => ROOT_MOVEMENT_NAMES[value] ?? value,
+    },
+    {
+      namespace: 'bass-movement',
+      title: 'By bass movement',
+      label: (value) => BASS_MOVEMENT_NAMES[value] ?? value,
     },
     {
       namespace: 'cadence',

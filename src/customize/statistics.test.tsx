@@ -365,6 +365,57 @@ describe('sections and the buckets inside them', () => {
     expect(buckets.getByText('IV')).toBeVisible()
     expect(buckets.queryByText('V')).toBeNull()
   })
+
+  it('reads root and bass movement as two sections, each holding only its own', async () => {
+    // One list called "By root and bass movement" was two findings under one
+    // heading. Worst-first interleaves them, so a reader had to check each row's
+    // prefix to know which measure it belonged to.
+    recordInStore(progressionStatsStore, [
+      ...times('root-movement:up-fourth', true, 10),
+      ...times('bass-movement:third', false, 10),
+    ])
+    render(
+      <StatisticsScreen
+        store={progressionStatsStore}
+        view={PROGRESSION_STATS_VIEW}
+        onReset={vi.fn()}
+      />,
+    )
+
+    const root = cardUnder('By root movement')
+    expect(root.getByText('Root moves up a fourth')).toBeVisible()
+    expect(root.queryByText(/^Bass/)).toBeNull()
+
+    const bass = cardUnder('By bass movement')
+    expect(bass.getByText('Bass moves by a third')).toBeVisible()
+    expect(bass.queryByText(/^Root/)).toBeNull()
+  })
+
+  it('says nothing at all about movement records written before the split', async () => {
+    // `movement:root-up-fourth` is what this looked like beforehand. No section
+    // reads that namespace now, so the rows are simply gone rather than
+    // surfacing under a heading that no longer describes them — and the screen
+    // still renders the sections it does have data for.
+    recordInStore(progressionStatsStore, [
+      ...times('movement:root-up-fourth', true, 10),
+      ...times('movement:bass-third', false, 10),
+      ...times('numeral:IV', true, 10),
+    ])
+    render(
+      <StatisticsScreen
+        store={progressionStatsStore}
+        view={PROGRESSION_STATS_VIEW}
+        onReset={vi.fn()}
+      />,
+    )
+
+    expect(headings()).not.toContain('By root movement')
+    expect(headings()).not.toContain('By bass movement')
+    expect(screen.queryByText(/Root moves up a fourth/)).toBeNull()
+    expect(
+      cardUnder('Naming each chord after the first').getByText('IV'),
+    ).toBeVisible()
+  })
 })
 
 describe('resetting', () => {

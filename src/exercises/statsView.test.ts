@@ -75,19 +75,39 @@ describe('labels', () => {
   })
 
   it('names root movements by how far the root travels', () => {
-    const movement = sectionOf(PROGRESSION_STATS_VIEW, 'movement')
+    const root = sectionOf(PROGRESSION_STATS_VIEW, 'root-movement')
     // A fourth and a fifth are separate moves — one arrives, one departs —
     // and interval class used to report them as the same thing.
-    expect(movement.label('root-up-fourth')).toBe('Root moves up a fourth')
-    expect(movement.label('root-up-fifth')).toBe('Root moves up a fifth')
+    expect(root.label('up-fourth')).toBe('Root moves up a fourth')
+    expect(root.label('up-fifth')).toBe('Root moves up a fifth')
     // A sixth up is a third down, named the way it is spoken about.
-    expect(movement.label('root-down-third')).toBe('Root moves down a third')
+    expect(root.label('down-third')).toBe('Root moves down a third')
     // Nothing is ever merely "a step".
-    expect(movement.label('root-up-half-step')).toBe(
-      'Root moves up a half step',
-    )
-    expect(movement.label('bass-half-step')).toBe('Bass moves by a half step')
-    expect(movement.label('bass-whole-step')).toBe('Bass moves by a whole step')
+    expect(root.label('up-half-step')).toBe('Root moves up a half step')
+  })
+
+  it('names bass movements by distance alone, with no direction', () => {
+    // The bass is a sounding note, so a fourth up and a fourth down are the
+    // same distance travelled. The root is a pitch class and its direction is
+    // a fact about the harmony, which is why only that list is directed.
+    const bass = sectionOf(PROGRESSION_STATS_VIEW, 'bass-movement')
+    expect(bass.label('half-step')).toBe('Bass moves by a half step')
+    expect(bass.label('whole-step')).toBe('Bass moves by a whole step')
+    expect(bass.label('sixth-or-more')).toBe('Bass moves by a sixth or more')
+  })
+
+  it('keeps the two movement measures in separate sections', () => {
+    // One list called "By root and bass movement" was two findings under one
+    // heading, and interleaved worst-first the rows had to be read prefix by
+    // prefix to work out which measure each belonged to.
+    const root = sectionOf(PROGRESSION_STATS_VIEW, 'root-movement')
+    const bass = sectionOf(PROGRESSION_STATS_VIEW, 'bass-movement')
+
+    expect(root.title).toBe('By root movement')
+    expect(bass.title).toBe('By bass movement')
+    // Both label `tritone`, and each has to say whose tritone it is.
+    expect(root.label('tritone')).toBe('Root moves by a tritone')
+    expect(bass.label('tritone')).toBe('Bass moves by a tritone')
   })
 
   it('falls back to the raw id rather than throwing on a stale record', () => {
@@ -136,7 +156,8 @@ describe('what each exercise measures, and in what order', () => {
     expect(PROGRESSION_STATS_VIEW.sections.map((s) => s.namespace)).toEqual([
       'opening',
       'numeral',
-      'movement',
+      'root-movement',
+      'bass-movement',
       'cadence',
       'inversion',
     ])

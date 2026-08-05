@@ -283,15 +283,21 @@ export default function Progressions() {
                 correct: wasRight,
                 answered,
               },
+              // Two namespaces rather than one with a prefix in the value.
+              // Analysing where the harmony went and hearing where the bottom
+              // note went are separate skills, and they disagree exactly when
+              // an inversion has put something other than the root underneath
+              // — the hardest case here, and one worth reading on its own
+              // rather than out of an interleaved list.
               {
                 item: itemId(
-                  'movement',
-                  `root-${rootMovement(round.question, index)}`,
+                  'root-movement',
+                  rootMovement(round.question, index),
                 ),
                 correct: wasRight,
               },
               {
-                item: itemId('movement', `bass-${bassMovement(voiced, index)}`),
+                item: itemId('bass-movement', bassMovement(voiced, index)),
                 correct: wasRight,
               },
             ]),
