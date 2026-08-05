@@ -63,8 +63,25 @@ import type { Random } from './intervalQuestion'
  *
  * Functional harmony, kept deliberately small: these are the moves that sound
  * like moves, not every pair that is theoretically defensible. `I` is the hub
- * and can go almost anywhere; the secondary dominants exist to point at one
- * chord each and so have a single successor.
+ * and can go almost anywhere.
+ *
+ * ## A secondary dominant resolves, or hands on down the circle
+ *
+ * Each one used to have a single successor — the chord it is the dominant of —
+ * which is the rule for a secondary dominant heard on its own. It is not the
+ * rule for a *chain* of them. `III VI II V I` is E7 A7 D7 G7 C: every chord the
+ * dominant of the next, every root falling a fifth, and one of the most worn
+ * grooves in tonal music. Under one-successor-each it could not be generated at
+ * all, because `III` could only go to `vi` and `VI` only to `ii`.
+ *
+ * So `III` also leads to `VI`, and `VI` to `II`. Each still resolves the
+ * ordinary way as well, so nothing that could be generated before is lost —
+ * what changes is that a dominant may now delay its resolution by pointing at
+ * the next dominant instead, which is exactly what makes the chain a chain.
+ *
+ * These are still the only two additions, and both are the same move: the
+ * circle continuing. `II` gets no new successor, because the chord a fifth
+ * below `II` is `V`, which it already leads to.
  *
  * ## A chord needs more than one way in, not just one way out
  *
@@ -108,10 +125,12 @@ const SUCCESSORS: Record<string, readonly string[]> = {
   bIII: ['bVI', 'bVII', 'IV', 'I'],
   bVI: ['bVII', 'IV', 'V', 'I'],
   bVII: ['I', 'IV', 'bVI'],
-  // Secondary dominants: each points at the chord it is the dominant of.
+  // Secondary dominants: each resolves to the chord it is the dominant of, or
+  // hands on to the next dominant round the circle. `II` needs no second
+  // successor — the chord a fifth below it is `V`, which it already leads to.
   II: ['V'],
-  III: ['vi'],
-  VI: ['ii'],
+  III: ['vi', 'VI'],
+  VI: ['ii', 'II'],
   bII: ['I', 'V'],
 }
 
@@ -123,6 +142,56 @@ const SUCCESSORS: Record<string, readonly string[]> = {
  * can find the tonic, so the opening chord does not have to.
  */
 const TONIC_OPENING_WEIGHT = 4
+
+/**
+ * How much more likely the walk is to continue around the circle of fifths.
+ *
+ * A root falling a fifth is the strongest move in tonal harmony and the shape
+ * behind an enormous amount of real music — `vi ii V I`, `iii vi ii V I`, the
+ * whole sequence a jazz tune runs on. Left to an unweighted walk it turned up
+ * only by accident: the successor table offers each of these moves alongside
+ * three or four others, so the chance of taking two in a row was small and of
+ * taking three smaller again. A user could practise for a long time without
+ * ever being asked to hear a fifths sequence as a sequence.
+ *
+ * Weighted rather than built as a pattern of its own. A dedicated
+ * circle-of-fifths generator would need its own reachability arithmetic to
+ * guarantee it could still arrive at the chosen cadence, and could dead-end
+ * when the chords it wanted were switched off — the exact failure that
+ * `viablePositions` exists to make impossible. Weighting reorders choices the
+ * walk was already free to make, so every invariant holds by construction:
+ * enabled chords only, no chord twice in a row, and the cadence still reachable
+ * from wherever the chain leaves off.
+ *
+ * Four, matching the tonic weighting. Raising it does almost nothing, which is
+ * how the shape of this was found: at 4 a run-up produces a three-chord fifths
+ * run in 39% of progressions, and at 12 in 35% — the same, inside the noise.
+ * See `aroundTheCircle` for why, and for what the weight is applied *to*.
+ */
+const CIRCLE_OF_FIFTHS_WEIGHT = 4
+
+/** Longest fifths run worth chasing. Past this the weighting has said enough. */
+const MAX_CIRCLE_LOOKAHEAD = 3
+
+/**
+ * Whether the root falls a fifth — the circle-of-fifths move.
+ *
+ * Measured up a fourth rather than down a fifth because roots are pitch
+ * classes: `V` to `I` is seven semitones down or five up, and five up is the
+ * one that does not depend on which octave anything landed in. Deliberately the
+ * same arithmetic `rootMovement` calls `up-fourth`, so what the walk favours
+ * and what the statistics screen reports are the same move rather than two
+ * definitions that could drift apart.
+ *
+ * Note this excludes `IV` to `vii°`, the one step of the diatonic circle that
+ * is a tritone rather than a perfect fourth. That is correct: it is the place
+ * the diatonic circle audibly is not a circle, and the successor table does not
+ * lead out of `vii°` into `iii` anyway.
+ */
+function fallsAFifth(from: string, to: string): boolean {
+  const root = (id: string) => numeralById(id).root
+  return (((root(to) - root(from)) % 12) + 12) % 12 === 5
+}
 
 export interface ProgressionQuestion {
   /** The answer: numeral ids in the order they sound. */
@@ -302,6 +371,11 @@ function walkTo(
   if (runUp === 0) return [...ending]
 
   const viable = viablePositions(cadence, enabled, runUp)
+  // The cadence as positions too, one chord wide each. The lookahead in
+  // `aroundTheCircle` has to see past the run-up: `ii` in the last run-up slot
+  // is only worth favouring because `V I` follows it, and `ii V I` is the
+  // fifths sequence more music is built on than any other.
+  const positions = [...viable, ...ending.map((id) => [id])]
   const chords: string[] = [openingChord(viable[0], random)]
 
   for (let i = 1; i < runUp; i++) {
@@ -310,7 +384,7 @@ function walkTo(
     // held longer, so a progression containing them would ask something the
     // sound cannot answer.
     const options = viable[i].filter((id) => canLeadTo(from, id))
-    chords.push(pick(options, random))
+    chords.push(pick(aroundTheCircle(from, options, positions, i + 1), random))
   }
 
   return [...chords, ...ending]
@@ -318,6 +392,82 @@ function walkTo(
 
 function canLeadTo(from: string, to: string): boolean {
   return from !== to && (SUCCESSORS[from] ?? []).includes(to)
+}
+
+/**
+ * How many falling fifths in a row are still available from here.
+ *
+ * Greedy — it takes the first fifth it finds at each position rather than
+ * searching for the longest possible chain. It is deciding how much to favour
+ * an option, not planning the progression, and a wrong answer costs a slightly
+ * misplaced weight rather than a broken walk.
+ */
+function fifthsRunFrom(
+  id: string,
+  positions: readonly (readonly string[])[],
+  at: number,
+): number {
+  let count = 0
+  let current = id
+
+  for (let i = at; i < positions.length && count < MAX_CIRCLE_LOOKAHEAD; i++) {
+    const next = positions[i].find(
+      (candidate) =>
+        canLeadTo(current, candidate) && fallsAFifth(current, candidate),
+    )
+    if (!next) break
+    count++
+    current = next
+  }
+
+  return count
+}
+
+/**
+ * The same options, weighted toward the ones that get onto the circle.
+ *
+ * **Weighted by where a move leads, not by whether the move itself is a
+ * fifth.** That was the first attempt and it barely worked — three-chord fifths
+ * runs went from 17% of progressions to 29%, and raising the weight from 4 to
+ * 12 moved it no further. The plateau was the clue: the bottleneck was never
+ * *continuing* a chain, which a plain weight already made likely, but *getting
+ * onto* one.
+ *
+ * The reason is specific to where the diatonic circle runs. From `I` the fifth
+ * move is `I IV`, and it dead-ends immediately — the next step round would be
+ * `IV vii°`, which is the tritone the diatonic circle is broken at, and the
+ * successor table does not lead out of `vii°` to `iii` in any case. The
+ * productive run is the other side, `iii vi ii V I`, and the way onto it from
+ * the tonic is `I vi` — which is a *third*, so a weight on fifths moves ignored
+ * it while favouring the dead end.
+ *
+ * So an option is scored by how long a fifths run remains from it, counting the
+ * cadence, and a move onto the circle is favoured as much as a move along it.
+ * That doubled the rate again, to 39%.
+ *
+ * Repetition rather than a real weighted pick, matching `openingChord`: the
+ * lists are a handful of strings long, and one weighting mechanism the reader
+ * has already met beats a second, cleverer one.
+ *
+ * Every option keeps a base weight of 1, so nothing is ever *only* a fifths
+ * chain. A hard rule would run every chain to its end and the exercise would
+ * become one sequence in different keys — the user would learn the shape rather
+ * than the sound, which is the failure the melody generator shipped with when
+ * every melody ended on a chord tone.
+ */
+function aroundTheCircle(
+  from: string,
+  options: readonly string[],
+  positions: readonly (readonly string[])[],
+  next: number,
+): readonly string[] {
+  return options.flatMap((id) => {
+    const run =
+      (fallsAFifth(from, id) ? 1 : 0) + fifthsRunFrom(id, positions, next)
+    const weight =
+      1 + CIRCLE_OF_FIFTHS_WEIGHT * Math.min(run, MAX_CIRCLE_LOOKAHEAD)
+    return Array.from({ length: weight }, () => id)
+  })
 }
 
 /** Weighted towards the tonic, which is how most progressions open. */

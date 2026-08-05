@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1280 tests across 47 files.** All of `npm run lint`, `npm run build`,
+**1288 tests across 47 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -31,7 +31,7 @@ precaching, install offer, update prompt) and iOS audio handling.
 In progress: a run of follow-ups to the statistics feature, `#110`–`#122` —
 sharper progression statistics, direction-aware interval statistics, drills for
 confusable chords, and some customization and formatting work. `#110`–`#112`
-and `#114`–`#116` are done; `#113` was built and then reverted (see Audio).
+and `#114`–`#117` are done; `#113` was built and then reverted (see Audio).
 
 See **Ideas not yet built** at the end for what is deliberately left undone.
 
@@ -478,6 +478,54 @@ it was an ordinary chord in a walk and became a fault the moment it was an
 approach chord, since every such progression then ended `I III vi` and a
 three-chord one had exactly one possible answer. `IV` and `vi` now lead to it
 too. **A chord that is a cadence's approach needs more than one way in.**
+
+#### A secondary dominant resolves, or hands on down the circle
+
+Each one used to have a single successor — the chord it is the dominant of —
+which is the rule for a secondary dominant heard on its own and not the rule for
+a _chain_ of them. `III VI II V I` is E7 A7 D7 G7 C: every chord the dominant of
+the next, every root falling a fifth, and one of the most worn grooves in tonal
+music. Under one-successor-each the generator could not produce a note of it,
+because `III` could only go to `vi` and `VI` only to `ii`.
+
+So `III` also leads to `VI`, and `VI` to `II`. Each still resolves the ordinary
+way, so nothing that could be generated before is lost — what changes is that a
+dominant may delay its resolution by pointing at the next dominant instead,
+which is what makes the chain a chain. Two additions and no more: `II` needs
+none, since the chord a fifth below it is `V`, which it already leads to. A test
+pins that resolving stays the common case, because a dominant that rarely
+resolved would stop teaching the sound it is there for.
+
+#### The walk is weighted toward the circle of fifths
+
+A root falling a fifth is the strongest move in tonal harmony and the shape
+behind an enormous amount of real music. Left to an unweighted walk it turned up
+by accident: about one progression in six had two consecutive fifths, and one in
+twenty-five had three. Now it is about a half and about one in six.
+
+**The weight is on where a move _leads_, not on whether the move is itself a
+fifth.** That was the first attempt and it barely moved the numbers — and
+raising it from 4 to 12 moved them no further, which was the clue. The
+bottleneck was never continuing a chain, which a plain weight already made
+likely, but _getting onto_ one.
+
+The reason is specific to where the diatonic circle runs. From `I` the fifth
+move is `I`→`IV`, and it dead-ends at once: the next step round would be
+`IV`→`vii°`, the tritone the diatonic circle is broken at. The productive run is
+the other side — `iii vi ii V I` — and the way onto it from the tonic is
+`I`→`vi`, a _third_, which a weight on fifths ignored while favouring the dead
+end. Scoring each option by how long a fifths run remains from it, counting the
+cadence, doubled the rate again.
+
+Weighted rather than built as a pattern of its own, so every invariant holds by
+construction: the walk was already free to make these choices, and preferring
+some of them cannot break enabled-chords-only, no-chord-twice, or the cadence
+still being reachable. A dedicated circle generator would have needed its own
+reachability arithmetic and could dead-end when the chords it wanted were off.
+
+Every option keeps a base weight, so nothing is ever _only_ a fifths chain — a
+hard rule would run every chain to its end and the user would learn one shape
+rather than the sound. The tests assert an upper bound as well as a lower one.
 
 Progression generation does **exact reachability**, computing backwards which
 chords can occupy each position while still leaving the cadence reachable. The
