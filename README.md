@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1276 tests across 47 files.** All of `npm run lint`, `npm run build`,
+**1280 tests across 47 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -355,20 +355,32 @@ successor arrives and a run of them pulses instead of joining up. Melody notes
 were 520ms against a 460ms onset and sounded choppy for exactly this reason.
 Tests assert the relationship, not the numbers.
 
-**The progression's key chord runs on the opposite rule**, and is the one place
+**The progression's key frame runs on the opposite rule**, and is the one place
 in the app where silence is the point. Without a tonic the answer is not well
 defined — `I V I V` and `IV I IV I` are the same four sounds, differing only in
 where home is — so a user hearing the second reading was not wrong, and the
-exercise charged them anyway. The tonic is now struck, released, and followed by
+exercise charged them anyway. The tonic is now sounded, released, and followed by
 real silence before the progression begins.
 
-The silence is what makes it a separate utterance, and it has to be silence
-rather than a release fade: the key chord is voiced exactly as the Key button
-plays it, which is also how a progression opening on `I` voices its first chord,
-so the two can be the identical sound and only the gap tells them apart. The
-lead-in is nearly twice the gap between chords. **Replay includes it** — a
-replay is when a user who has lost the tonic asks to hear the question again,
-and stripping it there would drop it exactly when it is needed most.
+**The frame is the tonic note, not the tonic chord.** One note says where home
+is, which is all a frame is for; the quality of the tonic triad was never in
+question, since `I` is major in every key this exercise builds. It also removes
+a collision: `keyChord` and a progression's opening chord are placed by the same
+centre-register rule, so a progression opening on `I` began with _exactly_ the
+sound of its own frame, and only the gap said which was which. A single note
+against a triad cannot be mistaken for it however short the gap. `keyNote` takes
+the tonic out of the voiced chord rather than from `question.tonic`, so it sits
+in the register the progression will use — and looks for the tonic's pitch class
+rather than taking the chord's lowest note, which inversions make unreliable.
+
+The Key button still plays the full chord. That is a reference the user asks
+for, not a frame.
+
+The silence still matters: it is what makes the frame a separate utterance
+rather than a pickup into chord one, so `keyGapMs` clears `RELEASE_MS` on its
+own. **Replay includes the frame** — a replay is when a user who has lost the
+tonic asks to hear the question again, and stripping it there would drop it
+exactly when it is needed most.
 
 Deliberately not a setting. Turning it off does not make the exercise harder, it
 makes the answer ambiguous again, and an option that restores a correctness bug

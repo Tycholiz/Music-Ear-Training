@@ -235,6 +235,34 @@ export function keyChord(
 }
 
 /**
+ * The tonic on its own, for the frame played before a progression.
+ *
+ * A single note rather than the chord. The frame exists to say where home is,
+ * and one note says it — the quality of the tonic triad is not in question and
+ * never was, since `I` is major in every key this exercise builds.
+ *
+ * It also removes a collision the chord had. The Key button's voicing and a
+ * progression's opening chord are placed by the same centre-register rule, so a
+ * progression opening on `I` began with *exactly* the sound of its own frame,
+ * and only the silence between them said which was which. A single note against
+ * a triad cannot be mistaken for it however short the gap.
+ *
+ * Taken from the voiced chord rather than from `question.tonic` directly: the
+ * raw tonic is a pitch class placed wherever the key landed, and the frame
+ * should sound in the register the progression is actually going to use. The
+ * chord's own root is not reliable for this — the voicing picks inversions, so
+ * its lowest note is often the third or the fifth.
+ */
+export function keyNote(
+  question: ProgressionQuestion,
+  settings: ProgressionSettings,
+): number {
+  const wanted = ((question.tonic % 12) + 12) % 12
+  const voiced = keyChord(question, settings)
+  return voiced.find((note) => ((note % 12) + 12) % 12 === wanted) ?? voiced[0]
+}
+
+/**
  * Which inversion a voiced chord ended up in, read back off its bass note.
  *
  * The voicing chooses inversions for smoothness rather than announcing them,

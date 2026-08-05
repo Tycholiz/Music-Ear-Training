@@ -117,6 +117,7 @@ export type {
 } from './progressionQuestion'
 export {
   keyChord,
+  keyNote,
   BASS_AS_ROOT,
   bassMovement,
   inversionOf,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   keyChord,
+  keyNote,
   voiceGuess,
   voiceMovement,
   voiceProgression,
@@ -368,6 +369,44 @@ describe('keyChord', () => {
         expect(note).toBeLessThanOrEqual(range.high)
         expect(isPlayable(note)).toBe(true)
       }
+    }
+  })
+})
+
+describe('keyNote', () => {
+  const question: ProgressionQuestion = {
+    numerals: ['I', 'V', 'I'],
+    tonic: 60,
+    cadence: 'authentic',
+  }
+
+  it('is the tonic itself, not whichever note the chord starts on', () => {
+    // The voicing picks inversions, so the chord's lowest note is often the
+    // third or the fifth. A frame that sounded one of those would be naming
+    // the wrong home.
+    for (const tonic of [48, 55, 60, 61, 67, 71]) {
+      const note = keyNote({ ...question, tonic }, settingsWith())
+      expect(pitchClass(note), `tonic ${tonic}`).toBe(pitchClass(tonic))
+    }
+  })
+
+  it('is one of the notes the tonic chord is voiced from', () => {
+    // Which is what puts it in the register the progression will use, rather
+    // than wherever the key happened to be named from.
+    for (const tonic of [48, 55, 60, 67]) {
+      const settings = settingsWith()
+      const note = keyNote({ ...question, tonic }, settings)
+      expect(keyChord({ ...question, tonic }, settings)).toContain(note)
+    }
+  })
+
+  it('stays inside the range and on the piano', () => {
+    const range = { low: 48, high: 79 }
+    for (const tonic of [48, 55, 60, 67]) {
+      const note = keyNote({ ...question, tonic }, settingsWith({ range }))
+      expect(note).toBeGreaterThanOrEqual(range.low)
+      expect(note).toBeLessThanOrEqual(range.high)
+      expect(isPlayable(note)).toBe(true)
     }
   })
 })

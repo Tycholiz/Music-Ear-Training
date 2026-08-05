@@ -19,7 +19,7 @@ import {
   progressionStatsStore,
 } from '../settings'
 import * as exercises from '../exercises'
-import { keyChord } from '../exercises'
+import { keyChord, keyNote } from '../exercises'
 import type { ProgressionQuestion } from '../exercises'
 
 /** I IV V I in C: an authentic cadence with a run-up, and I appearing twice. */
@@ -109,17 +109,23 @@ describe('starting', () => {
     await waitFor(() => expect(piano.playSchedule).toHaveBeenCalledOnce())
     const scheduled = vi.mocked(piano.playSchedule).mock.calls[0][0]
 
-    // The key chord, then four chords struck at four different times, three
+    // The tonic note, then four chords struck at four different times, three
     // notes each.
     const onsets = [...new Set(scheduled.map((n) => n.startMs))]
     expect(onsets).toHaveLength(5)
-    expect(scheduled).toHaveLength(15)
+    expect(scheduled).toHaveLength(13)
   })
 
-  it('establishes the key before the progression, and only once', async () => {
+  it('frames the progression with the tonic note, not the tonic chord', async () => {
     // Without a tonic the answer is not well defined: I V I V and IV I IV I
     // are the same four sounds and differ only in where home is. A user who
     // heard the second reading was not wrong, and was charged for it anyway.
+    //
+    // One note is all the frame has to say. It also cannot be mistaken for the
+    // first chord, which the tonic *chord* could be: the Key button's voicing
+    // and a progression's opening chord are placed by the same centre-register
+    // rule, so a progression opening on I began with exactly the sound of its
+    // own frame.
     const user = userEvent.setup()
     renderExercise()
     await start(user)
@@ -130,16 +136,31 @@ describe('starting', () => {
       (a, b) => a - b,
     )
 
-    // The same tonic chord the Key button plays. One sound means home.
     const anchor = scheduled.filter((n) => n.startMs === onsets[0])
-    expect(anchor.map((n) => n.midi)).toEqual(
-      keyChord(PROGRESSION, DEFAULT_PROGRESSION_SETTINGS),
+    expect(anchor).toHaveLength(1)
+    expect(anchor[0].midi).toBe(
+      keyNote(PROGRESSION, DEFAULT_PROGRESSION_SETTINGS),
     )
+    // The tonic itself, not some other note of the tonic chord.
+    expect(anchor[0].midi % 12).toBe(PROGRESSION.tonic % 12)
 
-    // It stops, with real silence, before the progression starts — the gap is
-    // what keeps it from being heard as chord one.
+    // It stops, with real silence, before the progression starts.
     const anchorEnds = onsets[0] + anchor[0].durationMs
     expect(onsets[1]).toBeGreaterThan(anchorEnds)
+  })
+
+  it('keeps the Key button on the full chord, since that is a reference', async () => {
+    // The frame says where home is and then gets out of the way. The Key
+    // button is something the user asks for, and a chord answers it better.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await user.click(screen.getByRole('button', { name: 'Play the key' }))
+
+    expect(piano.strike).toHaveBeenCalledWith(
+      keyChord(PROGRESSION, DEFAULT_PROGRESSION_SETTINGS),
+    )
   })
 
   it('explains itself when nothing can be generated', () => {
