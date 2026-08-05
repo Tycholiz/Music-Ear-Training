@@ -46,6 +46,21 @@ function cardUnder(title: string) {
   return within(card)
 }
 
+/**
+ * The names listed under a row, in order.
+ *
+ * Confusions are lines under the label now rather than a clause inside it, so
+ * they are read off the row's own element rather than matched as a sentence.
+ */
+function confusionsUnder(label: string): string[] {
+  const row = screen.getByText(label).closest('div')
+  if (!row) throw new Error(`no row for ${label}`)
+  const lead = within(row).getByText('often mistaken for:')
+  return [...(lead.parentElement?.children ?? [])]
+    .slice(1)
+    .map((node) => node.textContent ?? '')
+}
+
 function times(item: string, correct: boolean, n: number, answered?: string) {
   return Array.from({ length: n }, () => ({ item, correct, answered }))
 }
@@ -111,7 +126,8 @@ describe('what am I bad at', () => {
     const user = openMenu()
     await openStatistics(user)
 
-    expect(screen.getByText(/Often mistaken for Minor Triad/)).toBeVisible()
+    expect(screen.getByText('often mistaken for:')).toBeVisible()
+    expect(confusionsUnder('Diminished Triad')).toEqual(['Minor Triad'])
   })
 
   it('shows the confusion on the row it belongs to, not in a list of its own', async () => {
@@ -119,7 +135,7 @@ describe('what am I bad at', () => {
     await openStatistics(user)
 
     expect(
-      cardUnder('Needs work').getByText(/Often mistaken for Minor Triad/),
+      cardUnder('Needs work').getByText('often mistaken for:'),
     ).toBeVisible()
   })
 
@@ -151,9 +167,14 @@ describe('several ways to get one thing wrong', () => {
     const user = openMenu()
     await openStatistics(user)
 
-    expect(
-      screen.getByText(/Often mistaken for Minor Triad and Augmented Triad/),
-    ).toBeVisible()
+    // One per line rather than joined into a clause, so a third name costs a
+    // line instead of making the sentence unreadable.
+    expect(confusionsUnder('Major Triad')).toEqual([
+      'Minor Triad',
+      'Augmented Triad',
+    ])
+    // Not "Minor Triad and Augmented Triad" in one run of text.
+    expect(screen.queryByText(/Minor Triad and/)).toBeNull()
   })
 
   it('stays silent about a mistake that is not a habit', async () => {
@@ -165,7 +186,7 @@ describe('several ways to get one thing wrong', () => {
     const user = openMenu()
     await openStatistics(user)
 
-    expect(screen.getByText(/Often mistaken for Minor Triad$/)).toBeVisible()
+    expect(confusionsUnder('Major Triad')).toEqual(['Minor Triad'])
     expect(screen.queryByText(/Augmented/)).toBeNull()
   })
 })
@@ -282,7 +303,7 @@ describe('the breakdowns', () => {
     await openStatistics(user)
 
     expect(screen.getByText('Major Triad')).toBeVisible()
-    expect(screen.queryByText(/Often mistaken for/)).toBeNull()
+    expect(screen.queryByText('often mistaken for:')).toBeNull()
   })
 })
 
@@ -339,9 +360,8 @@ describe('sections and the buckets inside them', () => {
       />,
     )
 
-    expect(
-      cardUnder('First chord recognition').getByText(/Often mistaken for I$/),
-    ).toBeVisible()
+    expect(cardUnder('First chord recognition').getByText('I')).toBeVisible()
+    expect(confusionsUnder('V')).toEqual(['I'])
   })
 
   it('keeps the opening chord out of the buckets', async () => {

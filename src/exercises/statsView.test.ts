@@ -532,7 +532,11 @@ describe('confusions', () => {
     expect(namedFor(stats)).toEqual(['Minor Triad'])
   })
 
-  it('names at most two, however many ways it goes wrong', () => {
+  it('names every habit, not just the two commonest', () => {
+    // Truncating at two was a fix for the sentence they used to be rendered as.
+    // Set one per line there is nothing to truncate for, and the count itself
+    // says something: one mistake is a systematic confusion, three is a user
+    // guessing, and a cap made those look the same.
     const stats = record(
       ...repeat('chord:diminished', false, 5).map((a) => ({
         ...a,
@@ -549,7 +553,21 @@ describe('confusions', () => {
       ...repeat('chord:diminished', true, 5),
     )
 
-    expect(namedFor(stats)).toHaveLength(2)
+    expect(namedFor(stats)).toHaveLength(3)
+  })
+
+  it('is still bounded, because the threshold is a share of attempts', () => {
+    // No cap, but no runaway list either: an answer has to be 15% of attempts,
+    // so at most a handful can ever qualify — and they compete for the share
+    // that went wrong at all.
+    const stats = record(
+      ...repeat('chord:diminished', true, 17),
+      ...['a', 'b', 'c'].flatMap((answered) =>
+        repeat('chord:diminished', false, 1).map((a) => ({ ...a, answered })),
+      ),
+    )
+
+    expect(namedFor(stats)).toEqual([])
   })
 
   it('forgets a mistake once it falls out of the window', () => {
