@@ -391,6 +391,33 @@ describe('sections and the buckets inside them', () => {
     expect(bass.queryByText(/^Root/)).toBeNull()
   })
 
+  it('lists cadences the way the Customize screen does, whatever the accuracy', async () => {
+    // A user who has just chosen four cadences on one screen should not meet
+    // them shuffled on the next. Seeded worst-to-best in reverse of the
+    // canonical order, so accuracy sorting would produce the exact opposite.
+    recordInStore(progressionStatsStore, [
+      ...times('cadence:deceptive', false, 10),
+      ...times('cadence:half', true, 5),
+      ...times('cadence:half', false, 5),
+      ...times('cadence:plagal', true, 8),
+      ...times('cadence:plagal', false, 2),
+      ...times('cadence:authentic', true, 10),
+    ])
+    render(
+      <StatisticsScreen
+        store={progressionStatsStore}
+        view={PROGRESSION_STATS_VIEW}
+        onReset={vi.fn()}
+      />,
+    )
+
+    const rows = cardUnder('By cadence')
+      .getAllByText(/^(Authentic|Plagal|Half|Deceptive|Secondary)$/)
+      .map((node) => node.textContent)
+
+    expect(rows).toEqual(['Authentic', 'Plagal', 'Half', 'Deceptive'])
+  })
+
   it('says nothing at all about movement records written before the split', async () => {
     // `movement:root-up-fourth` is what this looked like beforehand. No section
     // reads that namespace now, so the rows are simply gone rather than

@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1261 tests across 47 files.** All of `npm run lint`, `npm run build`,
+**1267 tests across 47 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -30,8 +30,8 @@ precaching, install offer, update prompt) and iOS audio handling.
 
 In progress: a run of follow-ups to the statistics feature, `#110`–`#122` —
 sharper progression statistics, direction-aware interval statistics, drills for
-confusable chords, and some customization and formatting work. `#110` and `#111`
-are done.
+confusable chords, and some customization and formatting work. `#110`, `#111`
+and `#112` are done.
 
 See **Ideas not yet built** at the end for what is deliberately left undone.
 
@@ -279,9 +279,30 @@ far half of the circle is named by its descending complement, which is how
 these moves are spoken about: `I`→`vi` is nine semitones up and every musician
 calls it down a third.
 
-Inversion lists are ordered **root position first**, not worst first — the
-sequence is one the reader already has, and the numbers falling off as the bass
-climbs is a shape only visible in order.
+#### A list the user already knows keeps its order
+
+Rows are worst-first by default, because the point of the screen is what to work
+on next. Inversions were the first exception — root position, 1st, 2nd is a
+sequence the reader already has, and the numbers falling off as the bass climbs
+is a shape only visible in order — and it generalises into a rule:
+
+**Where a statistic corresponds to a list a Customize screen shows, the two
+appear in the same order.** A user who has just chosen four cadences on one
+screen should not meet them shuffled on the next. So cadences read Authentic,
+Plagal, Half, Deceptive, Secondary; play modes, scales and the first-chord
+numerals each follow their own screen; and the order comes from the same table
+the screen reads rather than a copy of it, so the two cannot drift.
+
+`order` on a section is an explicit array for those, `'natural'` where the value
+_is_ its own order (inversion `0 1 2`, scale degree `0…11` — writing those out
+would be restating the number line), and absent for worst-first. A value missing
+from a canonical array sorts **after** everything in it, worst-first among
+whatever else is unlisted: a record from a removed cadence is an anomaly, and
+leading with an anomaly reads as a finding about the user.
+
+Root and bass movement are the sections that stay worst-first. No Customize
+screen offers movements — they are a property of the progression that comes out,
+not something switched on — so there is no order to mirror.
 
 ### Adaptive difficulty: same pool, different frequency
 

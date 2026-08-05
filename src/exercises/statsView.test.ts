@@ -12,14 +12,22 @@ import {
   mastery,
   reportableRows,
   statsRows,
+  type StatsSection,
   type StatsView,
 } from './statsView'
 import {
+  CHORD_PLAY_MODES,
+  INTERVAL_PLAY_MODES,
   RECENT_WINDOW,
   recordAttempts,
   type Attempt,
   type ExerciseStats,
 } from '../settings'
+import {
+  CADENCES,
+  numeralsInCustomizeOrder,
+  scalesByDifficulty,
+} from '../theory'
 
 const ALL_VIEWS: StatsView[] = [
   INTERVAL_STATS_VIEW,
@@ -311,6 +319,80 @@ describe('ordering', () => {
     expect(statsRows(stats, inversions).map((row) => row.id)).toEqual([
       '2',
       '10',
+    ])
+  })
+
+  it('lists cadences the way the Customize screen does, not worst first', () => {
+    // Seeded so that worst-first would produce the exact reverse, which is
+    // what makes this fail if the canonical order is dropped rather than
+    // passing on a coincidence.
+    const stats = record(
+      ...repeat('cadence:secondary', false, 20),
+      ...repeat('cadence:deceptive', false, 15),
+      ...repeat('cadence:deceptive', true, 5),
+      ...repeat('cadence:half', true, 10),
+      ...repeat('cadence:half', false, 10),
+      ...repeat('cadence:plagal', true, 15),
+      ...repeat('cadence:plagal', false, 5),
+      ...repeat('cadence:authentic', true, 20),
+    )
+    const cadences = sectionOf(PROGRESSION_STATS_VIEW, 'cadence')
+
+    expect(statsRows(stats, cadences).map((row) => row.id)).toEqual([
+      ...CADENCES,
+    ])
+  })
+
+  it('puts a value missing from the canonical order last, not first', () => {
+    // A record from a cadence since removed, or a hand-edited blob. Leading
+    // with an anomaly reads as a finding about the user.
+    const stats = record(
+      ...repeat('cadence:no-such-cadence', false, 20),
+      ...repeat('cadence:authentic', true, 20),
+    )
+    const cadences = sectionOf(PROGRESSION_STATS_VIEW, 'cadence')
+
+    expect(statsRows(stats, cadences).map((row) => row.id)).toEqual([
+      'authentic',
+      'no-such-cadence',
+    ])
+  })
+
+  it('orders every section that mirrors a Customize screen by that screen', () => {
+    // The general rule, checked against the tables the screens themselves
+    // read rather than against a copy of them written out here.
+    const mirrors: [StatsSection, readonly string[]][] = [
+      [sectionOf(PROGRESSION_STATS_VIEW, 'cadence'), CADENCES],
+      [sectionOf(INTERVAL_STATS_VIEW, 'mode'), INTERVAL_PLAY_MODES],
+      [sectionOf(CHORD_STATS_VIEW, 'mode'), CHORD_PLAY_MODES],
+      [
+        sectionOf(MELODY_STATS_VIEW, 'scale'),
+        scalesByDifficulty().map((scale) => scale.id),
+      ],
+      [
+        sectionOf(PROGRESSION_STATS_VIEW, 'opening'),
+        numeralsInCustomizeOrder().map((numeral) => numeral.id),
+      ],
+    ]
+
+    for (const [section, expected] of mirrors) {
+      expect(section.order).toEqual(expected)
+    }
+  })
+
+  it('leaves movement worst-first, since no Customize screen offers it', () => {
+    // Movements are a property of the progression that comes out, not
+    // something switched on, so there is no order to mirror.
+    const stats = record(
+      ...repeat('root-movement:up-fourth', true, 20),
+      ...repeat('root-movement:tritone', false, 20),
+    )
+    const root = sectionOf(PROGRESSION_STATS_VIEW, 'root-movement')
+
+    expect(root.order).toBeUndefined()
+    expect(statsRows(stats, root).map((row) => row.id)).toEqual([
+      'tritone',
+      'up-fourth',
     ])
   })
 
