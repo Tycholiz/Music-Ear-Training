@@ -4,6 +4,7 @@ import {
   NUMERAL_SECTIONS,
   numeralById,
   numeralsInCategory,
+  numeralsInCustomizeOrder,
   numeralChord,
   numeralNotes,
   numeralRoot,
@@ -176,6 +177,19 @@ describe('the sections', () => {
 
     expect(grouped).toHaveLength(NUMERALS.length)
     expect(new Set(grouped)).toEqual(new Set(NUMERALS.map((n) => n.id)))
+  })
+
+  it('flattens to the same sequence the Customize screen renders', () => {
+    // `numeralsInCustomizeOrder` exists so a screen showing numerals *without*
+    // section headings — the progression statistics' first-chord list — can use
+    // the sequence a user of this app already has. If it ever stopped matching
+    // what the sections produce, that screen would quietly invent a second
+    // order for the same list.
+    expect(numeralsInCustomizeOrder().map((numeral) => numeral.id)).toEqual(
+      NUMERAL_SECTIONS.flatMap((section) =>
+        numeralsInCategory(section.category).map((numeral) => numeral.id),
+      ),
+    )
   })
 
   it('offers the secondary dominants directly after the diatonic chords', () => {

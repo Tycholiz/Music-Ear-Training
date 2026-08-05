@@ -1,12 +1,17 @@
 import {
+  CADENCES,
   chordById,
   degreeLabel,
   intervalName,
   numeralById,
+  numeralsInCustomizeOrder,
   scaleById,
+  scalesByDifficulty,
   type Degree,
 } from '../theory'
 import {
+  CHORD_PLAY_MODES,
+  INTERVAL_PLAY_MODES,
   itemsInNamespace,
   type ExerciseStats,
   type ItemStats,
@@ -85,14 +90,29 @@ export interface StatsSection {
   /**
    * How the rows are ordered.
    *
-   * Worst-first everywhere by default, because the point of the screen is what
-   * to work on next. Inversions are the exception: root position, 1st, 2nd is
-   * an order the reader already has in their head, and shuffling it by
-   * accuracy makes a three-row list something you have to parse rather than
-   * scan. The ordering carries meaning of its own — the numbers usually fall
-   * off as the bass climbs, and that shape is only visible in sequence.
+   * `'worst-first'` by default, because the point of the screen is what to work
+   * on next.
+   *
+   * **A list the user already knows in a fixed order is shown in that order
+   * instead.** Inversions were the first of these — root position, 1st, 2nd is
+   * a sequence the reader has in their head, and shuffling it by accuracy makes
+   * a three-row list something you parse rather than scan. It generalises: where
+   * a statistic corresponds to a list a Customize screen shows, the two agree,
+   * so a user who has just chosen four cadences does not then meet them shuffled.
+   * The sequence also carries meaning worst-first destroys — inversion accuracy
+   * usually falls off as the bass climbs, and that shape is only visible in
+   * order.
+   *
+   * An explicit array is the canonical sequence, taken from wherever the
+   * Customize screen gets its own. Values missing from it sort after everything
+   * in it, worst-first among themselves — a record from a removed cadence or a
+   * hand-edited blob ends up last rather than silently first.
+   *
+   * `'natural'` is numeric-then-lexicographic, for values that *are* their own
+   * order: inversion `0 1 2`, scale degree `0…11`. Writing those out as an array
+   * would be restating the number line.
    */
-  order?: 'worst-first' | 'natural'
+  order?: 'worst-first' | 'natural' | readonly string[]
 }
 
 export interface StatsView {
@@ -148,6 +168,7 @@ export const INTERVAL_STATS_VIEW: StatsView = {
       // Descending is a different skill from ascending, and one figure across
       // both hides which of the two is the problem.
       label: (value) => PLAY_MODE_NAMES[value as 'ascending'] ?? value,
+      order: INTERVAL_PLAY_MODES,
     },
   ],
 }
@@ -160,6 +181,7 @@ export const CHORD_STATS_VIEW: StatsView = {
       namespace: 'mode',
       title: 'By play mode',
       label: (value) => CHORD_PLAY_MODE_NAMES[value] ?? value,
+      order: CHORD_PLAY_MODES,
     },
   ],
 }
@@ -224,11 +246,16 @@ export const MELODY_STATS_VIEW: StatsView = {
       namespace: 'degree',
       title: 'First note, by degree',
       label: safely((value) => degreeLabel(Number(value) as Degree)),
+      // Degrees are semitones from the tonic, so counting up *is* the ladder
+      // the Featured Degrees screen offers them on. An explicit array here
+      // would be restating the number line.
+      order: 'natural',
     },
     {
       namespace: 'scale',
       title: 'By scale',
       label: safely((id) => scaleById(id).name),
+      order: scalesByDifficulty().map((scale) => scale.id),
     },
   ],
 }
@@ -301,6 +328,12 @@ const numeralLabel = (id: string) =>
  * nothing about it. The direction prefix that used to live in the value —
  * `movement:root-up-fourth` — is now the namespace, `root-movement:up-fourth`.
  *
+ * These two are the only sections here still ordered worst-first. No Customize
+ * screen offers movements — they are a property of the progression that comes
+ * out of it, not something switched on — so there is no order to mirror, and
+ * nothing like the inversion list's falling-off shape that a fixed sequence
+ * would preserve. What to work on next is the useful order.
+ *
  * ## The first chord leads, and is not in the buckets
  *
  * These are two skills, and one figure across both describes neither. The first
@@ -343,6 +376,10 @@ export const PROGRESSION_STATS_VIEW: StatsView = {
       // useful line on this screen, and it belongs to the section that fills
       // one record per progression rather than one per chord.
       showsConfusions: true,
+      // The Customize screen's order, flattened out of its section headings.
+      // Which chord is worst at opening is what the confusion lines say; where
+      // a numeral *is* in the list is what the user needs to find it.
+      order: numeralsInCustomizeOrder().map((numeral) => numeral.id),
     },
     {
       namespace: 'numeral',
@@ -367,6 +404,7 @@ export const PROGRESSION_STATS_VIEW: StatsView = {
       namespace: 'cadence',
       title: 'By cadence',
       label: (value) => CADENCE_NAMES[value as 'authentic'] ?? value,
+      order: CADENCES,
     },
     // Heard but never answered — `I⁶` is still `I` — so this is the one
     // dimension a user cannot see going wrong from the pad alone. Shared with
@@ -442,11 +480,21 @@ export function statsRows(
         accuracy: seen >= MIN_ATTEMPTS_TO_REPORT ? right / seen : null,
       }
     })
-    .sort((a, b) =>
-      section.order === 'natural'
-        ? naturally(a.id, b.id)
-        : smoothedAccuracy(a.item) - smoothedAccuracy(b.item),
-    )
+    .sort((a, b) => compare(a, b, section.order))
+}
+
+function compare(
+  a: StatsRow,
+  b: StatsRow,
+  order: StatsSection['order'],
+): number {
+  if (order === 'natural') return naturally(a.id, b.id)
+  if (Array.isArray(order)) return canonically(a, b, order)
+  return worstFirst(a, b)
+}
+
+function worstFirst(a: StatsRow, b: StatsRow): number {
+  return smoothedAccuracy(a.item) - smoothedAccuracy(b.item)
 }
 
 /**
@@ -460,6 +508,29 @@ function naturally(a: string, b: string): number {
   const right = Number(b)
   const numeric = !Number.isNaN(left) && !Number.isNaN(right)
   return numeric ? left - right : a.localeCompare(b)
+}
+
+/**
+ * Position in a canonical sequence, with anything unlisted pushed to the end.
+ *
+ * Unlisted values sort worst-first among themselves rather than in whatever
+ * order the store happened to yield them, so the fallback is the same rule the
+ * rest of the screen uses. They go *after* rather than before because they are
+ * the anomalies — a record from a cadence since removed, or a hand-edited
+ * blob — and leading with an anomaly reads as a finding about the user.
+ */
+function canonically(
+  a: StatsRow,
+  b: StatsRow,
+  order: readonly string[],
+): number {
+  const left = order.indexOf(a.id)
+  const right = order.indexOf(b.id)
+
+  if (left === -1 && right === -1) return worstFirst(a, b)
+  if (left === -1) return 1
+  if (right === -1) return -1
+  return left - right
 }
 
 /**

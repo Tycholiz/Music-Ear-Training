@@ -279,6 +279,21 @@ export function numeralsInCategory(category: NumeralCategory): RomanNumeral[] {
   )
 }
 
+/**
+ * Every numeral in the order the Customize screen lists them.
+ *
+ * Sections in `NUMERAL_SECTIONS` order, ladder order within each — the same
+ * two rules the screen renders by, flattened. It exists so a screen that shows
+ * numerals *without* the section headings can still put them in the sequence a
+ * user of this app already has, rather than inventing a second order for the
+ * same list.
+ */
+export function numeralsInCustomizeOrder(): RomanNumeral[] {
+  return NUMERAL_SECTIONS.flatMap((section) =>
+    numeralsInCategory(section.category),
+  )
+}
+
 /** The chord a numeral builds, as a `CHORDS` entry. */
 export function numeralChord(numeral: RomanNumeral): Chord {
   return chordById(CHORD_FOR_QUALITY[numeral.quality])
