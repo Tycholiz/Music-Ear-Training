@@ -6,11 +6,13 @@ import {
   MIN_ATTEMPTS_TO_REPORT,
   PROGRESSION_STATS_VIEW,
   ROOT_STATS_VIEW,
+  bucketedSection,
   confusionsFor,
   hasAnyStats,
   mastery,
   reportableRows,
   statsRows,
+  type StatsView,
 } from './statsView'
 import {
   RECENT_WINDOW,
@@ -18,6 +20,21 @@ import {
   type Attempt,
   type ExerciseStats,
 } from '../settings'
+
+const ALL_VIEWS: StatsView[] = [
+  INTERVAL_STATS_VIEW,
+  CHORD_STATS_VIEW,
+  ROOT_STATS_VIEW,
+  MELODY_STATS_VIEW,
+  PROGRESSION_STATS_VIEW,
+]
+
+/** The section under a namespace, for asserting about one in particular. */
+function sectionOf(view: StatsView, namespace: string) {
+  const found = view.sections.find((s) => s.namespace === namespace)
+  if (!found) throw new Error(`no ${namespace} section`)
+  return found
+}
 
 function record(...attempts: Attempt[]): ExerciseStats {
   return recordAttempts({}, attempts, 1)
@@ -29,81 +46,125 @@ function repeat(item: string, correct: boolean, times: number): Attempt[] {
 
 describe('labels', () => {
   it('turns each namespace back into something a musician reads', () => {
-    expect(INTERVAL_STATS_VIEW.answer.label('7')).toBe('Perfect 5th')
-    expect(CHORD_STATS_VIEW.answer.label('major-7th')).toBe('Major 7th')
-    expect(PROGRESSION_STATS_VIEW.answer.label('vii-dim')).toBe('vii°')
+    expect(bucketedSection(INTERVAL_STATS_VIEW).label('7')).toBe('Perfect 5th')
+    expect(bucketedSection(CHORD_STATS_VIEW).label('major-7th')).toBe(
+      'Major 7th',
+    )
+    expect(bucketedSection(PROGRESSION_STATS_VIEW).label('vii-dim')).toBe(
+      'vii°',
+    )
     // Not a numeral: the reserved id for hearing the bass as the root.
-    expect(PROGRESSION_STATS_VIEW.answer.label('bass-as-root')).toBe(
+    expect(bucketedSection(PROGRESSION_STATS_VIEW).label('bass-as-root')).toBe(
       'the chord on the bass note',
     )
-    expect(MELODY_STATS_VIEW.answer.label('leap-down')).toBe('Leap down')
-    expect(MELODY_STATS_VIEW.answer.label('opening')).toBe('First note')
+    expect(bucketedSection(MELODY_STATS_VIEW).label('leap-down')).toBe(
+      'Leap down',
+    )
+    expect(bucketedSection(MELODY_STATS_VIEW).label('opening')).toBe(
+      'First note',
+    )
+  })
+
+  it('names the first chord of a progression the same way as any other', () => {
+    // Same numerals, and the same bass-reading failure can happen on chord one
+    // as on chord four — so the two sections share a label function rather
+    // than each writing out the roman numerals separately.
+    const opening = sectionOf(PROGRESSION_STATS_VIEW, 'opening')
+    expect(opening.label('vii-dim')).toBe('vii°')
+    expect(opening.label('bass-as-root')).toBe('the chord on the bass note')
   })
 
   it('names root movements by how far the root travels', () => {
-    const movement = PROGRESSION_STATS_VIEW.breakdowns.find(
-      (s) => s.namespace === 'movement',
-    )
+    const movement = sectionOf(PROGRESSION_STATS_VIEW, 'movement')
     // A fourth and a fifth are separate moves — one arrives, one departs —
     // and interval class used to report them as the same thing.
-    expect(movement?.label('root-up-fourth')).toBe('Root moves up a fourth')
-    expect(movement?.label('root-up-fifth')).toBe('Root moves up a fifth')
+    expect(movement.label('root-up-fourth')).toBe('Root moves up a fourth')
+    expect(movement.label('root-up-fifth')).toBe('Root moves up a fifth')
     // A sixth up is a third down, named the way it is spoken about.
-    expect(movement?.label('root-down-third')).toBe('Root moves down a third')
+    expect(movement.label('root-down-third')).toBe('Root moves down a third')
     // Nothing is ever merely "a step".
-    expect(movement?.label('root-up-half-step')).toBe(
+    expect(movement.label('root-up-half-step')).toBe(
       'Root moves up a half step',
     )
-    expect(movement?.label('bass-half-step')).toBe('Bass moves by a half step')
-    expect(movement?.label('bass-whole-step')).toBe(
-      'Bass moves by a whole step',
-    )
+    expect(movement.label('bass-half-step')).toBe('Bass moves by a half step')
+    expect(movement.label('bass-whole-step')).toBe('Bass moves by a whole step')
   })
 
   it('falls back to the raw id rather than throwing on a stale record', () => {
     // A chord removed from the table would otherwise take the whole screen
     // down, and a statistics screen is the last place worth crashing.
-    expect(CHORD_STATS_VIEW.answer.label('no-such-chord')).toBe('no-such-chord')
-    expect(INTERVAL_STATS_VIEW.answer.label('nonsense')).toBe('nonsense')
+    expect(bucketedSection(CHORD_STATS_VIEW).label('no-such-chord')).toBe(
+      'no-such-chord',
+    )
+    expect(bucketedSection(INTERVAL_STATS_VIEW).label('nonsense')).toBe(
+      'nonsense',
+    )
   })
 })
 
-describe('what each exercise breaks down by', () => {
-  it('leads chord root with inversion, which is its whole difficulty', () => {
-    expect(ROOT_STATS_VIEW.breakdowns[0].namespace).toBe('inversion')
+describe('what each exercise measures, and in what order', () => {
+  it('gives every view exactly one bucketed section', () => {
+    // Two would put two sets of needs work / getting there / solid on one
+    // screen with nothing to say which was which; none would lead with a list
+    // and never name what the user is bad at.
+    for (const view of ALL_VIEWS) {
+      expect(view.sections.filter((s) => s.bucketed)).toHaveLength(1)
+    }
   })
 
-  it('breaks intervals down by play mode, since descending is its own skill', () => {
-    expect(INTERVAL_STATS_VIEW.breakdowns.map((s) => s.namespace)).toContain(
-      'mode',
-    )
-  })
-
-  it('breaks progressions down by movement, cadence and inversion', () => {
-    // Position is gone: a wrong press ends the attempt, so later positions
-    // only existed in the record for progressions already going well, and
-    // "Chord 4: 90%" was close to a tautology.
-    expect(PROGRESSION_STATS_VIEW.breakdowns.map((s) => s.namespace)).toEqual([
-      'opening',
-      'movement',
-      'cadence',
+  it('leads chord root with its buckets, then inversion — its whole difficulty', () => {
+    expect(ROOT_STATS_VIEW.sections.map((s) => s.namespace)).toEqual([
+      'chord',
       'inversion',
     ])
   })
 
-  it('never lists a breakdown under the answer namespace', () => {
+  it('breaks intervals down by play mode, since descending is its own skill', () => {
+    expect(INTERVAL_STATS_VIEW.sections.map((s) => s.namespace)).toContain(
+      'mode',
+    )
+  })
+
+  it('leads progressions with the first chord, then the rest of them', () => {
+    // The first chord is heard against the key alone; every later chord has
+    // the one before it as a landmark. Different skills, and the harder one
+    // used to sit below a bucketed figure that was averaging it in.
+    //
+    // Position is not here at all: a wrong press ends the attempt, so later
+    // positions only existed in the record for progressions already going
+    // well, and "Chord 4: 90%" was close to a tautology.
+    expect(PROGRESSION_STATS_VIEW.sections.map((s) => s.namespace)).toEqual([
+      'opening',
+      'numeral',
+      'movement',
+      'cadence',
+      'inversion',
+    ])
+    expect(bucketedSection(PROGRESSION_STATS_VIEW).namespace).toBe('numeral')
+  })
+
+  it('says in the heading that the buckets start from the second chord', () => {
+    // The recording side stopped writing openings to `numeral`, so a heading
+    // promising "each chord" would contradict its own contents.
+    expect(bucketedSection(PROGRESSION_STATS_VIEW).title).toBe(
+      'Naming each chord after the first',
+    )
+  })
+
+  it('diagnoses the first chord even though it is not bucketed', () => {
+    // Bucketing is not what earns confusions. "You hear the opening V as I" is
+    // the most useful line on this screen and belongs to a plain list.
+    expect(sectionOf(PROGRESSION_STATS_VIEW, 'opening').showsConfusions).toBe(
+      true,
+    )
+  })
+
+  it('never lists two sections under one namespace', () => {
     // They would double-count: the same items shown twice, once bucketed and
     // once flat, reading as two different findings.
-    for (const view of [
-      INTERVAL_STATS_VIEW,
-      CHORD_STATS_VIEW,
-      ROOT_STATS_VIEW,
-      MELODY_STATS_VIEW,
-      PROGRESSION_STATS_VIEW,
-    ]) {
-      for (const breakdown of view.breakdowns) {
-        expect(breakdown.namespace).not.toBe(view.answer.namespace)
-      }
+    for (const view of ALL_VIEWS) {
+      const namespaces = view.sections.map((s) => s.namespace)
+      expect(new Set(namespaces).size).toBe(namespaces.length)
     }
   })
 })
@@ -118,7 +179,7 @@ describe('statsRows', () => {
     )
 
     expect(
-      statsRows(stats, CHORD_STATS_VIEW.answer).map((row) => row.id),
+      statsRows(stats, bucketedSection(CHORD_STATS_VIEW)).map((row) => row.id),
     ).toEqual(['bad', 'mixed', 'good'])
   })
 
@@ -126,7 +187,7 @@ describe('statsRows', () => {
     // Two out of three is not 67%, and a screen that says so is worse than one
     // that says nothing, because the user acts on it.
     const stats = record(...repeat('chord:major', true, 2))
-    const [row] = statsRows(stats, CHORD_STATS_VIEW.answer)
+    const [row] = statsRows(stats, bucketedSection(CHORD_STATS_VIEW))
 
     expect(row.accuracy).toBeNull()
     expect(reportableRows([row])).toEqual([])
@@ -137,7 +198,7 @@ describe('statsRows', () => {
       ...repeat('chord:major', true, MIN_ATTEMPTS_TO_REPORT - 1),
       ...repeat('chord:major', false, 1),
     )
-    const [row] = statsRows(stats, CHORD_STATS_VIEW.answer)
+    const [row] = statsRows(stats, bucketedSection(CHORD_STATS_VIEW))
 
     expect(reportableRows([row])).toHaveLength(1)
     expect(row.accuracy).toBeCloseTo(
@@ -151,7 +212,7 @@ describe('statsRows', () => {
     // there" while its percentage abstained — a verdict on evidence the same
     // screen was refusing to summarise.
     const stats = record({ item: 'chord:major', correct: true })
-    const [row] = statsRows(stats, CHORD_STATS_VIEW.answer)
+    const [row] = statsRows(stats, bucketedSection(CHORD_STATS_VIEW))
 
     expect(mastery(row.item)).toBe('practising')
     expect(reportableRows([row])).toEqual([])
@@ -165,7 +226,7 @@ describe('statsRows', () => {
       ...repeat('chord:major', false, 30),
       ...repeat('chord:major', true, 20),
     )
-    const [row] = statsRows(stats, CHORD_STATS_VIEW.answer)
+    const [row] = statsRows(stats, bucketedSection(CHORD_STATS_VIEW))
 
     expect(row.item.attempts).toBe(50)
     // Lifetime is 40%; the last twenty were all correct.
@@ -179,7 +240,7 @@ describe('statsRows', () => {
       ...repeat('chord:fixed', false, 30),
       ...repeat('chord:fixed', true, 20),
     )
-    const [row] = statsRows(stats, CHORD_STATS_VIEW.answer)
+    const [row] = statsRows(stats, bucketedSection(CHORD_STATS_VIEW))
 
     expect(mastery(row.item)).toBe('solid')
     expect(row.accuracy).toBeGreaterThan(0.85)
@@ -192,7 +253,7 @@ describe('statsRows', () => {
     )
 
     expect(
-      statsRows(stats, CHORD_STATS_VIEW.answer).map((row) => row.id),
+      statsRows(stats, bucketedSection(CHORD_STATS_VIEW)).map((row) => row.id),
     ).toEqual(['major'])
   })
 })
@@ -210,9 +271,7 @@ describe('ordering', () => {
       ...repeat('inversion:1', true, 10),
       ...repeat('inversion:1', false, 10),
     )
-    const inversions = CHORD_STATS_VIEW.breakdowns.find(
-      (section) => section.namespace === 'inversion',
-    )!
+    const inversions = sectionOf(CHORD_STATS_VIEW, 'inversion')
 
     expect(statsRows(stats, inversions).map((row) => row.id)).toEqual([
       '0',
@@ -226,9 +285,7 @@ describe('ordering', () => {
       ...repeat('inversion:10', true, 5),
       ...repeat('inversion:2', true, 5),
     )
-    const inversions = CHORD_STATS_VIEW.breakdowns.find(
-      (section) => section.namespace === 'inversion',
-    )!
+    const inversions = sectionOf(CHORD_STATS_VIEW, 'inversion')
 
     expect(statsRows(stats, inversions).map((row) => row.id)).toEqual([
       '2',
@@ -243,7 +300,7 @@ describe('ordering', () => {
     )
 
     expect(
-      statsRows(stats, CHORD_STATS_VIEW.answer).map((row) => row.id),
+      statsRows(stats, bucketedSection(CHORD_STATS_VIEW)).map((row) => row.id),
     ).toEqual(['bad', 'good'])
   })
 })
@@ -287,8 +344,8 @@ describe('confusions', () => {
 
   const namedFor = (stats: ExerciseStats) =>
     confusionsFor(
-      statsRows(stats, CHORD_STATS_VIEW.answer)[0],
-      CHORD_STATS_VIEW.answer,
+      statsRows(stats, bucketedSection(CHORD_STATS_VIEW))[0],
+      bucketedSection(CHORD_STATS_VIEW),
     )
 
   it('names what was heard instead, commonest first', () => {
@@ -370,9 +427,7 @@ describe('confusions', () => {
       ...repeat('degree:3', false, 10).map((a) => ({ ...a, answered: '2' })),
       ...repeat('degree:3', true, 10),
     )
-    const degrees = MELODY_STATS_VIEW.breakdowns.find(
-      (s) => s.namespace === 'degree',
-    )!
+    const degrees = sectionOf(MELODY_STATS_VIEW, 'degree')
     const [row] = statsRows(stats, degrees)
 
     // The stale answers really are in the record...
@@ -390,17 +445,17 @@ describe('confusions', () => {
         answered: 'minor',
       })),
     )
-    const [row] = statsRows(stats, ROOT_STATS_VIEW.answer)
+    const [row] = statsRows(stats, bucketedSection(ROOT_STATS_VIEW))
 
-    expect(confusionsFor(row, ROOT_STATS_VIEW.answer)).toEqual([])
+    expect(confusionsFor(row, bucketedSection(ROOT_STATS_VIEW))).toEqual([])
   })
 
   it('has none for a self-graded exercise', () => {
     // Chord root records no answer, because there is none to record.
     const stats = record(...repeat('chord:major', false, 5))
-    const [row] = statsRows(stats, ROOT_STATS_VIEW.answer)
+    const [row] = statsRows(stats, bucketedSection(ROOT_STATS_VIEW))
 
-    expect(confusionsFor(row, ROOT_STATS_VIEW.answer)).toEqual([])
+    expect(confusionsFor(row, bucketedSection(ROOT_STATS_VIEW))).toEqual([])
   })
 })
 

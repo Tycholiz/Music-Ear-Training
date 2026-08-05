@@ -26,24 +26,35 @@ import { CADENCE_NAMES } from './progressionValidation'
  * direction, is knowledge about the exercise. It lives here so the screen can
  * be one component rather than five.
  *
- * ## Two tiers, because they answer different questions
+ * ## One flat list of sections, in the order they are shown
  *
- * The **answer** is the measure an exercise leads with, bucketed into learning
- * / practising / solid. Usually that is the thing the user names — the chord,
- * the interval, the numeral — but melody leads with *how a note arrived*
- * instead, because which degree it was matters less there than whether it was
- * a step or a leap.
+ * Sections used to come in two tiers — a single `answer` that was always first,
+ * then the breakdowns after it — and the tier decided the order. That held
+ * until progressions needed the *first chord* above the per-chord buckets: the
+ * lead measure there is not the bucketed one, and no amount of reordering
+ * within a tier can say so.
  *
- * A **breakdown** is a condition the question was asked under: which inversion,
- * which play mode, which cadence, how far the root moved. These say *why* an
- * answer figure looks the way it does — "root position 88%, second inversion
- * 41%" is the whole difficulty of chord root in one line — but bucketing them
- * as though the user were learning "2nd inversion" would be nonsense, so they
- * are a plain list.
+ * So order is explicit and the tiers are now one flag. `bucketed` marks the
+ * measure worth splitting into learning / practising / solid — the thing the
+ * user names, usually, though melody marks *how a note arrived* instead,
+ * because which degree it was matters less there than whether it was a step or
+ * a leap. Every other section is a condition the question was asked under:
+ * which inversion, which play mode, which cadence, how far the root moved.
+ * Those say *why* a bucketed figure looks the way it does — "root position 88%,
+ * second inversion 41%" is the whole difficulty of chord root in one line — but
+ * bucketing them as though the user were learning "2nd inversion" would be
+ * nonsense, so they stay a plain list.
  *
- * Whether a section diagnoses — "often mistaken for …" — is a third, separate
- * question, and one each section answers for itself with `showsConfusions`.
- * Neither tier implies it.
+ * **Exactly one section per view is bucketed**, asserted by test rather than by
+ * the type. Two bucketed sections would put two sets of needs work / getting
+ * there / solid on one screen with nothing to say which was which, and a screen
+ * with none would lead with a list and never name what the user is bad at.
+ *
+ * Whether a section diagnoses — "often mistaken for …" — is a separate question
+ * again, and one each section answers for itself with `showsConfusions`.
+ * Bucketing does not imply it, and a plain list can still want it: the first
+ * chord of a progression is a list, and what it gets mistaken for is the most
+ * useful thing on the screen.
  */
 
 export interface StatsSection {
@@ -52,6 +63,12 @@ export interface StatsSection {
   title: string
   /** Turns the value after the colon into something a musician reads. */
   label: (value: string) => string
+  /**
+   * Split into learning / practising / solid rather than listed flat.
+   *
+   * One section per view, and the one the screen is really about.
+   */
+  bucketed?: boolean
   /**
    * Whether "often mistaken for …" is worth showing here.
    *
@@ -79,10 +96,15 @@ export interface StatsSection {
 }
 
 export interface StatsView {
-  /** The measure this exercise leads with. Bucketed into mastery. */
-  answer: StatsSection
-  /** Conditions the question was asked under. Plain lists. */
-  breakdowns: StatsSection[]
+  /** Every section, in the order the screen shows them. */
+  sections: StatsSection[]
+}
+
+/** The one bucketed section — what this screen is really measuring. */
+export function bucketedSection(view: StatsView): StatsSection {
+  const found = view.sections.find((section) => section.bucketed)
+  if (!found) throw new Error('a stats view needs a bucketed section')
+  return found
 }
 
 /** Falls back to the raw id rather than throwing on a stale record. */
@@ -100,6 +122,7 @@ const chordAnswer: StatsSection = {
   namespace: 'chord',
   title: 'Naming each chord',
   label: safely((id) => chordById(id).name),
+  bucketed: true,
   showsConfusions: true,
 }
 
@@ -111,13 +134,14 @@ const inversionBreakdown: StatsSection = {
 }
 
 export const INTERVAL_STATS_VIEW: StatsView = {
-  answer: {
-    namespace: 'interval',
-    title: 'Naming each interval',
-    label: safely((value) => intervalName(Number(value))),
-    showsConfusions: true,
-  },
-  breakdowns: [
+  sections: [
+    {
+      namespace: 'interval',
+      title: 'Naming each interval',
+      label: safely((value) => intervalName(Number(value))),
+      bucketed: true,
+      showsConfusions: true,
+    },
     {
       namespace: 'mode',
       title: 'By play mode',
@@ -129,8 +153,8 @@ export const INTERVAL_STATS_VIEW: StatsView = {
 }
 
 export const CHORD_STATS_VIEW: StatsView = {
-  answer: chordAnswer,
-  breakdowns: [
+  sections: [
+    chordAnswer,
     inversionBreakdown,
     {
       namespace: 'mode',
@@ -149,11 +173,13 @@ export const CHORD_STATS_VIEW: StatsView = {
  * barely the same task.
  */
 export const ROOT_STATS_VIEW: StatsView = {
-  // Not `chordAnswer`: same namespace and label, but this exercise is
-  // self-graded, so there is no wrong answer and nothing to diagnose. Sharing
-  // the object would have it opting into a confusion it can never have.
-  answer: { ...chordAnswer, showsConfusions: false },
-  breakdowns: [inversionBreakdown],
+  sections: [
+    // Not `chordAnswer`: same namespace and label, but this exercise is
+    // self-graded, so there is no wrong answer and nothing to diagnose. Sharing
+    // the object would have it opting into a confusion it can never have.
+    { ...chordAnswer, showsConfusions: false },
+    inversionBreakdown,
+  ],
 }
 
 const MOTION_NAMES: Record<string, string> = {
@@ -186,13 +212,14 @@ const MOTION_NAMES: Record<string, string> = {
  * thing about every user.
  */
 export const MELODY_STATS_VIEW: StatsView = {
-  answer: {
-    namespace: 'motion',
-    title: 'How each note arrives',
-    label: (value) => MOTION_NAMES[value] ?? value,
-    showsConfusions: true,
-  },
-  breakdowns: [
+  sections: [
+    {
+      namespace: 'motion',
+      title: 'How each note arrives',
+      label: (value) => MOTION_NAMES[value] ?? value,
+      bucketed: true,
+      showsConfusions: true,
+    },
     {
       namespace: 'degree',
       title: 'First note, by degree',
@@ -234,41 +261,69 @@ const MOVEMENT_NAMES: Record<string, string> = {
   'bass-sixth-or-more': 'Bass moves by a sixth or more',
 }
 
+/** Names a numeral, or the bass-reading failure that wears a numeral's clothes. */
+const numeralLabel = (id: string) =>
+  id === BASS_AS_ROOT
+    ? 'the chord on the bass note'
+    : safely((value) => numeralById(value).label)(id)
+
 /**
  * Four questions about a progression, each with a different answer.
  *
- * *Which chord was that* is the headline, and the only one carrying
- * confusions. *Which chord opened it* is separated out because there is
- * nothing before the first chord to measure against. *How the harmony moved*
- * is the ear's actual work once a progression is under way, given twice —
- * once by root and once by bass, since an inversion makes those two disagree.
- * *How it ended* is the cadence.
+ * *Which chord opened it* comes first. *Which chord was that, once the
+ * progression is under way* is the bucketed measure. *How the harmony moved* is
+ * the ear's actual work in between, given twice — once by root and once by
+ * bass, since an inversion makes those two disagree. *How it ended* is the
+ * cadence.
  *
- * There is deliberately no breakdown by position. A wrong press ends the
- * attempt, so chord four would only ever be recorded on progressions where one
- * to three had already gone right, and "Chord 4: 90%" would mean "when I had
- * already got the first three, I usually got the fourth" — a tautology wearing
- * the clothes of a finding.
+ * ## The first chord leads, and is not in the buckets
+ *
+ * These are two skills, and one figure across both describes neither. The first
+ * chord has nothing before it, so it is heard by its function against the key
+ * alone. Every later chord can lean on the one before it as a landmark, which
+ * is a different task with a different fix — mistaking `V` for `I` when it
+ * opens is a lost tonic; mistaking `vi` for `I` in the middle is two chords
+ * that both sound like home; mistaking `ii` for `IV` is two chords sharing two
+ * notes and a function.
+ *
+ * The first chord was already separated out, as a breakdown *below* the
+ * buckets — which put the harder, more diagnostic measure underneath a bucketed
+ * figure that was quietly averaging it in. Now it leads, and the buckets say in
+ * their title that they start from the second chord. The recording side agrees:
+ * `numeral` is written only from index 1 on (`routes/Progressions.tsx`).
+ *
+ * Records written before that split still have openings folded into `numeral`.
+ * Nothing migrates them — the rolling window is twenty attempts deep and clears
+ * itself within a session or two of practice, and rewriting history to satisfy
+ * a heading would be inventing attempts that were never separately measured.
+ *
+ * ## No breakdown by position
+ *
+ * Deliberately. A wrong press ends the attempt, so chord four would only ever
+ * be recorded on progressions where one to three had already gone right, and
+ * "Chord 4: 90%" would mean "when I had already got the first three, I usually
+ * got the fourth" — a tautology wearing the clothes of a finding.
  */
 export const PROGRESSION_STATS_VIEW: StatsView = {
-  answer: {
-    namespace: 'numeral',
-    title: 'Naming each chord',
-    label: (id) =>
-      id === BASS_AS_ROOT
-        ? 'the chord on the bass note'
-        : safely((value) => numeralById(value).label)(id),
-    showsConfusions: true,
-  },
-  breakdowns: [
+  sections: [
     {
-      // Its own section rather than a row in the movement list: there is
-      // nothing before the first chord, so it is heard by its function
-      // against the key. Every later chord can use the one before it as a
-      // landmark, which is a different skill and a different fix.
       namespace: 'opening',
-      title: 'First chord',
-      label: safely((id) => numeralById(id).label),
+      title: 'First chord recognition',
+      label: numeralLabel,
+      // A plain list that diagnoses. Bucketing is not what makes confusions
+      // worth showing — "you hear the opening `V` as `I`" is the single most
+      // useful line on this screen, and it belongs to the section that fills
+      // one record per progression rather than one per chord.
+      showsConfusions: true,
+    },
+    {
+      namespace: 'numeral',
+      // Says which chords it covers. "Naming each chord" over a list that
+      // excludes the opening is a heading that contradicts its own contents.
+      title: 'Naming each chord after the first',
+      label: numeralLabel,
+      bucketed: true,
+      showsConfusions: true,
     },
     {
       namespace: 'movement',

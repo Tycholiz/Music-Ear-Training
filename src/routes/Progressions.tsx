@@ -248,29 +248,41 @@ export default function Progressions() {
         !wasRight &&
         isBassMistakenForRoot(round.question, index, numeralId, voiced)
 
+      // Two failures wear the same name and want different practice. Answering
+      // `vi` for `V` is a misjudged *function*. Answering `III` for an inverted
+      // `I` is not — the bass was E, and the ear took it for the root.
+      // Reporting both as "mistaken for III" is true and tells the user nothing
+      // about which mistake they made.
+      const answered = heardBassAsRoot ? BASS_AS_ROOT : numeralId
+
       recordInStore(progressionStatsStore, [
-        {
-          item: itemId('numeral', round.question.numerals[index]),
-          correct: wasRight,
-          // Two failures wear the same name and want different practice.
-          // Answering `vi` for `V` is a misjudged *function*. Answering `III`
-          // for an inverted `I` is not — the bass was E, and the ear took it
-          // for the root. Reporting both as "mistaken for III" is true and
-          // tells the user nothing about which mistake they made.
-          answered: heardBassAsRoot ? BASS_AS_ROOT : numeralId,
-        },
-        // Which chord opens a progression is a different skill from how the
-        // harmony moves: there is nothing before it, so it has to be heard by
-        // its function against the key rather than by a distance travelled.
-        // Every later chord can lean on the one before it as a landmark.
+        // The opening chord and every chord after it are recorded under
+        // *different* namespaces rather than both under `numeral`, because they
+        // are different skills and one figure across the two describes neither.
+        // There is nothing before the first chord, so it is heard by its
+        // function against the key alone; every later chord can lean on the one
+        // before it as a landmark.
+        //
+        // They were both written to `numeral`, with `opening` a copy alongside.
+        // That made the buckets a blend — a user solid on openings and lost
+        // once the harmony started moving read as mediocre at both, and the
+        // section promising to name each chord could not say which of the two
+        // it meant. The screen leads with `opening` now and titles the buckets
+        // "after the first"; this is what makes that title true.
         ...(index === 0
           ? [
               {
                 item: itemId('opening', round.question.numerals[index]),
                 correct: wasRight,
+                answered,
               },
             ]
           : [
+              {
+                item: itemId('numeral', round.question.numerals[index]),
+                correct: wasRight,
+                answered,
+              },
               {
                 item: itemId(
                   'movement',
