@@ -73,6 +73,21 @@ describe('labels', () => {
     )
   })
 
+  it('names an interval with the direction it was heard in', () => {
+    // A descending minor 7th and an ascending one are two skills, so they are
+    // two rows and each has to say which it is.
+    const intervals = bucketedSection(INTERVAL_STATS_VIEW)
+    expect(intervals.label('10-asc')).toBe('Minor 7th (asc)')
+    expect(intervals.label('10-desc')).toBe('Minor 7th (desc)')
+    expect(intervals.label('10-harmonic')).toBe('Minor 7th (harmonic)')
+  })
+
+  it('names a bare interval without inventing a direction for it', () => {
+    // Confusions are recorded without one, deliberately: the row above has
+    // already said which direction it is, so repeating it would be noise.
+    expect(bucketedSection(INTERVAL_STATS_VIEW).label('9')).toBe('Major 6th')
+  })
+
   it('names the first chord of a progression the same way as any other', () => {
     // Same numerals, and the same bass-reading failure can happen on chord one
     // as on chord four — so the two sections share a label function rather
@@ -273,6 +288,36 @@ describe('statsRows', () => {
 
     expect(mastery(row.item)).toBe('solid')
     expect(row.accuracy).toBeGreaterThan(0.85)
+  })
+
+  it('leaves out interval records written before direction was part of them', () => {
+    // `interval:7` is an average of ascending and descending, and there is no
+    // way now to say which it was. Shown, it would sit beside the two rows
+    // that replaced it and read as a third finding about a third skill.
+    const stats = record(
+      ...repeat('interval:7', true, 20),
+      ...repeat('interval:7-asc', false, 20),
+    )
+
+    expect(
+      statsRows(stats, bucketedSection(INTERVAL_STATS_VIEW)).map((r) => r.id),
+    ).toEqual(['7-asc'])
+  })
+
+  it('buckets one interval two ways when the two directions differ', () => {
+    // The finding, not a contradiction: solid one way and lost the other is
+    // exactly what a pooled figure could never say.
+    const stats = record(
+      ...repeat('interval:10-desc', true, 20),
+      ...repeat('interval:10-asc', false, 20),
+    )
+    const rows = statsRows(stats, bucketedSection(INTERVAL_STATS_VIEW))
+
+    expect(rows.map((r) => r.label)).toEqual([
+      'Minor 7th (asc)',
+      'Minor 7th (desc)',
+    ])
+    expect(rows.map((r) => mastery(r.item))).toEqual(['learning', 'solid'])
   })
 
   it("keeps one namespace out of another one's section", () => {

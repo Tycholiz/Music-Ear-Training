@@ -21,9 +21,11 @@ import {
 import {
   buildCells,
   canGenerate,
+  directionOf,
   generateIntervalQuestion,
   groupsForAnswerPreview,
   groupsForQuestion,
+  intervalKey,
   isCorrect,
   type IntervalQuestion,
 } from '../exercises'
@@ -136,13 +138,27 @@ export default function Intervals() {
       measured.current = true
       recordInStore(intervalStatsStore, [
         {
-          item: itemId('interval', round.question.answer),
+          // Direction is part of what is being named, not a condition it was
+          // named under. A descending minor 7th and an ascending one are two
+          // skills, and someone can be solid at one and lost at the other —
+          // pooled, the figure described neither.
+          //
+          // Through `intervalKey` rather than `itemId` directly, so this and
+          // adaptive difficulty cannot end up keying the same record two ways.
+          item: intervalKey(
+            round.question.answer,
+            directionOf(round.question.playMode),
+          ),
           correct,
+          // The bare interval, with no direction on it. A confusion is shown
+          // beneath a row that has already said which direction it is, so
+          // repeating it there would be noise — "Minor 7th (asc), often
+          // mistaken for Major 6th" reads the way a musician would say it.
           answered: String(semitones),
         },
-        // The same interval descending is a different skill from ascending,
-        // and harmonic is a third. Recorded separately so the breakdown can
-        // say which.
+        // Still recorded, and still earning its place. Direction now lives in
+        // the row above, but the play mode says something that cannot: whether
+        // the harmonic confirmation after an ascending pair is doing any work.
         { item: itemId('mode', round.question.playMode), correct },
       ])
     }

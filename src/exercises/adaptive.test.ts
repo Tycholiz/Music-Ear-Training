@@ -177,7 +177,15 @@ describe('item keys', () => {
   it('matches what the exercises record under', () => {
     // If these drift, weighting reads an empty record and silently does
     // nothing at all — the worst kind of broken, since everything still works.
-    expect(intervalKey(7)).toBe('interval:7')
+    expect(intervalKey(7, 'asc')).toBe('interval:7-asc')
     expect(chordKey('major-7th')).toBe('chord:major-7th')
+  })
+
+  it('keeps an interval apart from the same interval the other way', () => {
+    // The two are different skills, so they have to be different records —
+    // otherwise weighting averages them and asks more of both when only one
+    // is going badly.
+    expect(intervalKey(10, 'asc')).not.toBe(intervalKey(10, 'desc'))
+    expect(intervalKey(10, 'harmonic')).not.toBe(intervalKey(10, 'asc'))
   })
 })

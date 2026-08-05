@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1276 tests across 47 files.** All of `npm run lint`, `npm run build`,
+**1288 tests across 47 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -30,7 +30,7 @@ precaching, install offer, update prompt) and iOS audio handling.
 
 In progress: a run of follow-ups to the statistics feature, `#110`–`#122` —
 sharper progression statistics, direction-aware interval statistics, drills for
-confusable chords, and some customization and formatting work. `#110`–`#113`
+confusable chords, and some customization and formatting work. `#110`–`#114`
 are done.
 
 See **Ideas not yet built** at the end for what is deliberately left undone.
@@ -226,13 +226,35 @@ the thing the user taps:
 
 | Exercise    | Buckets                        | And also lists                                                          |
 | ----------- | ------------------------------ | ----------------------------------------------------------------------- |
-| Intervals   | the interval                   | play mode                                                               |
+| Intervals   | the interval **and direction** | play mode                                                               |
 | Chords      | the chord                      | inversion, play mode                                                    |
 | Chord root  | the chord                      | inversion — its whole difficulty                                        |
 | Melody      | how a note arrives             | opening degree, scale                                                   |
 | Progression | the chord, **after the first** | first chord _(leads)_, root movement, bass movement, cadence, inversion |
 
-Three of those are worth the detail.
+Four of those are worth the detail.
+
+**Intervals bucket the interval _and the direction it was heard in_.** A
+descending minor 7th and an ascending one are two skills — someone can name one
+every time and lose the other — and the pooled figure described neither, while
+the play-mode breakdown could say ascending was going badly without saying which
+interval was the problem in it. So the buckets can now disagree with themselves
+about one interval, and should: "Minor 7th (desc)" under Solid and "Minor 7th
+(asc)" under Needs work is the finding.
+
+Direction is three values against five play modes. `ascending-harmonic` plays the
+notes up and then together, so its melodic work is plain ascending with a chord
+as confirmation, and the two share a direction; `harmonic` is not a direction at
+all and gets its own value, since both notes arrive at once and the interval is
+heard as a sonority rather than a move. The play-mode breakdown stays because
+what is left of it is a real question — whether the harmonic confirmation is
+doing any work — and nothing above it can answer that.
+
+Records written before direction was part of the identity are an average of two
+skills with no way to say now which they were, so `recognises` leaves them off
+rather than showing them beside the rows that replaced them. Only rows are
+filtered: a confusion naming a bare interval is still fine, since naming what was
+pressed claims nothing about direction.
 
 **Progressions lead with the first chord, and keep it out of the buckets.**
 There is nothing before chord one, so it is heard by its function against the
@@ -332,10 +354,23 @@ toward a cadence or a shape, and forcing a weak chord into a progression can
 make the cadence unreachable — breaking exact reachability to bias a
 distribution is a bad trade. They stay uniform until that gets its own design.
 
-Weighting is on the **answer** — the interval, the chord — not on inversion or
-play mode. Those are how a question is presented rather than what it asks, and
-weighting several dimensions at once needs a joint record the stats do not
-keep. Worth revisiting for chord root, where inversion _is_ the difficulty.
+Weighting is on the **answer** — the chord, the interval-and-direction — not on
+inversion or play mode. Those are how a question is presented rather than what
+it asks, and weighting several dimensions at once needs a joint record the stats
+do not keep. Worth revisiting for chord root, where inversion _is_ the
+difficulty.
+
+Intervals are the one place where a presentation detail was promoted into the
+answer, because it turned out not to be one: `intervalKey` takes a direction, so
+a user solid on descending 7ths and lost on ascending ones meets the ascending
+ones more often. The play mode is still picked first and stays uniform — its
+direction is simply known by the time the answer is chosen.
+
+**`intervalKey` and what the exercise records have to stay the same key**, which
+is why the route records through `intervalKey` rather than building the id
+itself. Changing one without the other is the worst kind of broken: every lookup
+misses, every item reads as having no record, and adaptive difficulty switches
+itself off with nothing failing to say so.
 
 ### Audio: the engine knows nothing about music
 
@@ -355,20 +390,32 @@ successor arrives and a run of them pulses instead of joining up. Melody notes
 were 520ms against a 460ms onset and sounded choppy for exactly this reason.
 Tests assert the relationship, not the numbers.
 
-**The progression's key chord runs on the opposite rule**, and is the one place
+**The progression's key frame runs on the opposite rule**, and is the one place
 in the app where silence is the point. Without a tonic the answer is not well
 defined — `I V I V` and `IV I IV I` are the same four sounds, differing only in
 where home is — so a user hearing the second reading was not wrong, and the
-exercise charged them anyway. The tonic is now struck, released, and followed by
+exercise charged them anyway. The tonic is now sounded, released, and followed by
 real silence before the progression begins.
 
-The silence is what makes it a separate utterance, and it has to be silence
-rather than a release fade: the key chord is voiced exactly as the Key button
-plays it, which is also how a progression opening on `I` voices its first chord,
-so the two can be the identical sound and only the gap tells them apart. The
-lead-in is nearly twice the gap between chords. **Replay includes it** — a
-replay is when a user who has lost the tonic asks to hear the question again,
-and stripping it there would drop it exactly when it is needed most.
+**The frame is the tonic note, not the tonic chord.** One note says where home
+is, which is all a frame is for; the quality of the tonic triad was never in
+question, since `I` is major in every key this exercise builds. It also removes
+a collision: `keyChord` and a progression's opening chord are placed by the same
+centre-register rule, so a progression opening on `I` began with _exactly_ the
+sound of its own frame, and only the gap said which was which. A single note
+against a triad cannot be mistaken for it however short the gap. `keyNote` takes
+the tonic out of the voiced chord rather than from `question.tonic`, so it sits
+in the register the progression will use — and looks for the tonic's pitch class
+rather than taking the chord's lowest note, which inversions make unreliable.
+
+The Key button still plays the full chord. That is a reference the user asks
+for, not a frame.
+
+The silence still matters: it is what makes the frame a separate utterance
+rather than a pickup into chord one, so `keyGapMs` clears `RELEASE_MS` on its
+own. **Replay includes the frame** — a replay is when a user who has lost the
+tonic asks to hear the question again, and stripping it there would drop it
+exactly when it is needed most.
 
 Deliberately not a setting. Turning it off does not make the exercise harder, it
 makes the answer ambiguous again, and an option that restores a correctness bug

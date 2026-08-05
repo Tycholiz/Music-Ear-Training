@@ -353,7 +353,10 @@ describe('what goes into the statistics', () => {
     await press(user, 'Perfect 5th')
 
     const stats = intervalStatsStore.read()
-    expect(stats['interval:7']).toMatchObject({ attempts: 1, correct: 1 })
+    // Direction is part of what is being named: a descending perfect 5th is a
+    // different skill, and pooled the figure described neither.
+    expect(stats['interval:7-asc']).toMatchObject({ attempts: 1, correct: 1 })
+    expect(stats['interval:7']).toBeUndefined()
     expect(stats['mode:ascending']).toMatchObject({ attempts: 1, correct: 1 })
   })
 
@@ -364,7 +367,9 @@ describe('what goes into the statistics', () => {
 
     await press(user, 'Perfect 4th')
 
-    expect(intervalStatsStore.read()['interval:7']).toMatchObject({
+    // The confusion carries no direction of its own. It is shown beneath a row
+    // that has already said which direction it is.
+    expect(intervalStatsStore.read()['interval:7-asc']).toMatchObject({
       attempts: 1,
       correct: 0,
       recent: [{ correct: false, answered: '5' }],
@@ -387,9 +392,68 @@ describe('what goes into the statistics', () => {
     await press(user, 'Perfect 5th')
 
     expect(screen.getByLabelText('Score')).toHaveTextContent('1/3')
-    expect(intervalStatsStore.read()['interval:7']).toMatchObject({
+    expect(intervalStatsStore.read()['interval:7-asc']).toMatchObject({
       attempts: 1,
       correct: 0,
     })
+  })
+
+  it('keeps the same interval apart by the direction it was heard in', async () => {
+    // The whole point: someone can name a descending perfect 5th every time
+    // and lose the ascending one, so the two cannot share a record.
+    vi.mocked(exercises.generateIntervalQuestion).mockReturnValue({
+      notes: [67, 60],
+      playMode: 'descending',
+      answer: 7,
+    })
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await press(user, 'Perfect 5th')
+
+    const stats = intervalStatsStore.read()
+    expect(stats['interval:7-desc']).toMatchObject({ attempts: 1, correct: 1 })
+    expect(stats['interval:7-asc']).toBeUndefined()
+  })
+
+  it('files a harmonic interval under neither direction', async () => {
+    // Both notes arrive at once, so there is no motion to follow — it is heard
+    // as a sonority, which is its own skill rather than a third direction.
+    vi.mocked(exercises.generateIntervalQuestion).mockReturnValue({
+      notes: [60, 67],
+      playMode: 'harmonic',
+      answer: 7,
+    })
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await press(user, 'Perfect 5th')
+
+    const stats = intervalStatsStore.read()
+    expect(stats['interval:7-harmonic']).toMatchObject({ attempts: 1 })
+    expect(stats['interval:7-asc']).toBeUndefined()
+  })
+
+  it('groups the harmonic-confirmation modes with their melodic direction', async () => {
+    // `ascending-harmonic` plays the notes up and then together. The melodic
+    // work is the same as plain ascending, with the chord as confirmation —
+    // so the direction is shared, and the play mode is what says whether that
+    // confirmation is doing any work.
+    vi.mocked(exercises.generateIntervalQuestion).mockReturnValue({
+      notes: [60, 67],
+      playMode: 'ascending-harmonic',
+      answer: 7,
+    })
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await press(user, 'Perfect 5th')
+
+    const stats = intervalStatsStore.read()
+    expect(stats['interval:7-asc']).toMatchObject({ attempts: 1 })
+    expect(stats['mode:ascending-harmonic']).toMatchObject({ attempts: 1 })
   })
 })

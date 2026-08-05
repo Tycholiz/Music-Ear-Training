@@ -2,7 +2,6 @@ import {
   CADENCES,
   chordById,
   degreeLabel,
-  intervalName,
   numeralById,
   numeralsInCustomizeOrder,
   scaleById,
@@ -19,7 +18,11 @@ import {
 import { smoothedAccuracy } from './adaptive'
 import { BASS_AS_ROOT } from './progressionVoicing'
 import { CHORD_PLAY_MODE_NAMES, INVERSION_NAMES } from './chordValidation'
-import { PLAY_MODE_NAMES } from './intervalValidation'
+import {
+  PLAY_MODE_NAMES,
+  directedIntervalName,
+  parseIntervalValue,
+} from './intervalValidation'
 import { CADENCE_NAMES } from './progressionValidation'
 
 /**
@@ -74,6 +77,26 @@ export interface StatsSection {
    * One section per view, and the one the screen is really about.
    */
   bucketed?: boolean
+  /**
+   * Whether a stored value still belongs on this screen at all.
+   *
+   * For when the *shape* of a value changes rather than its namespace. A
+   * namespace change orphans old records for free — nothing reads them — but a
+   * value that gains a field cannot do that, because the new records live
+   * alongside the old under the same prefix.
+   *
+   * Intervals are the case: `interval:10` became `interval:10-asc`, and the
+   * bare one is an average of ascending and descending with no way to say now
+   * which it was. Left in, it would sit in a bucket next to the two rows that
+   * replaced it, reading as a third finding about a third skill.
+   *
+   * Only rows are filtered. A confusion naming an old value is still fine —
+   * `label` stays lenient — because naming what was pressed does not claim the
+   * record was about one direction.
+   *
+   * Everything is kept by default.
+   */
+  recognises?: (value: string) => boolean
   /**
    * Whether "often mistaken for …" is worth showing here.
    *
@@ -153,20 +176,40 @@ const inversionBreakdown: StatsSection = {
   order: 'natural',
 }
 
+/**
+ * Intervals lead with the interval *and the direction it was heard in*.
+ *
+ * A descending minor 7th and an ascending one are two skills. Someone can name
+ * one every time and lose the other, and the pooled figure described neither —
+ * while the play-mode breakdown could say ascending was going badly without
+ * saying *which interval* was the problem in it.
+ *
+ * Which means the buckets can now disagree with themselves about one interval,
+ * and should: "Minor 7th (desc)" under Solid and "Minor 7th (asc)" under Needs
+ * work is the finding, not a contradiction.
+ *
+ * The play-mode breakdown stays. Direction is three values — up, down, together
+ * — and the play mode is five, so what it still says is whether the harmonic
+ * confirmation after an ascending pair is doing any work. That is a real
+ * question about how a user hears, and nothing above it can answer.
+ */
 export const INTERVAL_STATS_VIEW: StatsView = {
   sections: [
     {
       namespace: 'interval',
       title: 'Naming each interval',
-      label: safely((value) => intervalName(Number(value))),
+      label: safely(directedIntervalName),
+      // Records written before direction was part of the identity are an
+      // average of two skills. There is no way to say now which one they were,
+      // so they are left off rather than shown beside the rows that replaced
+      // them.
+      recognises: (value) => parseIntervalValue(value).direction !== null,
       bucketed: true,
       showsConfusions: true,
     },
     {
       namespace: 'mode',
       title: 'By play mode',
-      // Descending is a different skill from ascending, and one figure across
-      // both hides which of the two is the problem.
       label: (value) => PLAY_MODE_NAMES[value as 'ascending'] ?? value,
       order: INTERVAL_PLAY_MODES,
     },
@@ -469,6 +512,7 @@ export function statsRows(
   section: StatsSection,
 ): StatsRow[] {
   return Object.entries(itemsInNamespace(stats, section.namespace))
+    .filter(([id]) => section.recognises?.(id) ?? true)
     .map(([id, item]) => {
       const seen = item.recent.length
       const right = item.recent.filter((a) => a.correct).length

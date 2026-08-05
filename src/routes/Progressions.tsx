@@ -30,6 +30,7 @@ import {
   isCadenceChord,
   rootMovement,
   keyChord,
+  keyNote,
   voiceGuess,
   voiceProgression,
   type ProgressionQuestion,
@@ -126,15 +127,19 @@ export default function Progressions() {
    * replay would take the tonic away exactly when a user who has lost it asks
    * to hear the question again, which is when they need it most.
    *
-   * The same voicing the Key button plays, not a second arrangement of the
-   * tonic. One sound means *home*; two would be one more thing to work out.
+   * The frame is the tonic *note*, not the tonic chord. One note says where
+   * home is, which is all the frame is for — and unlike the chord it cannot be
+   * mistaken for the progression's first chord, which is voiced by the same
+   * centre-register rule the Key button uses and so could be the identical
+   * sound. The Key button still plays the chord: that is a reference the user
+   * asks for, not a frame.
    */
   const playProgression = useCallback(
     (question: ProgressionQuestion) => {
       void piano.playSchedule(
         buildProgressionSchedule({
           chords: voiceProgression(question, settings),
-          key: keyChord(question, settings),
+          key: [keyNote(question, settings)],
         }),
       )
     },

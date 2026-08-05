@@ -26,6 +26,7 @@ export {
   answerFor,
   canGenerate,
   candidateAnswers,
+  directionOf,
   gapForAnswer,
   generateIntervalQuestion,
   groupsForQuestion,
@@ -33,7 +34,11 @@ export {
   isDescending,
   usablePlayModes,
 } from './intervalQuestion'
-export type { IntervalQuestion, Random } from './intervalQuestion'
+export type {
+  IntervalDirection,
+  IntervalQuestion,
+  Random,
+} from './intervalQuestion'
 export { buildCells } from './intervalCells'
 export {
   ALL_INTERVAL_ANSWERS,
@@ -117,6 +122,7 @@ export type {
 } from './progressionQuestion'
 export {
   keyChord,
+  keyNote,
   BASS_AS_ROOT,
   bassMovement,
   inversionOf,

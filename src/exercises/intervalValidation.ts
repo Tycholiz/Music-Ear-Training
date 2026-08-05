@@ -6,6 +6,7 @@ import {
   gapForAnswer,
   isDescending,
   usablePlayModes,
+  type IntervalDirection,
 } from './intervalQuestion'
 
 /**
@@ -127,6 +128,46 @@ export const PLAY_MODE_NAMES: Record<IntervalPlayMode, string> = {
 
 export function playModeName(mode: IntervalPlayMode): string {
   return PLAY_MODE_NAMES[mode]
+}
+
+/** How a direction reads beside an interval name. */
+export const DIRECTION_NAMES: Record<IntervalDirection, string> = {
+  asc: 'asc',
+  desc: 'desc',
+  harmonic: 'harmonic',
+}
+
+/**
+ * Read a statistics value back into an interval and the way it was heard.
+ *
+ * Values are `semitones-direction`, e.g. `10-asc`. Records written before
+ * direction was part of the identity are bare semitones, and come back with no
+ * direction — which is the honest answer, since that figure was an average of
+ * two skills and there is no way to say now which of them it was.
+ *
+ * Callers treat that differently by what they are doing with it. Naming one is
+ * fine, so a confusion still reads. Listing one as a *row* is not, so
+ * `INTERVAL_STATS_VIEW` refuses those — see `recognises`.
+ */
+export function parseIntervalValue(value: string): {
+  semitones: number
+  direction: IntervalDirection | null
+} {
+  const [semitones, direction] = value.split('-')
+  return {
+    semitones: Number(semitones),
+    direction:
+      direction && direction in DIRECTION_NAMES
+        ? (direction as IntervalDirection)
+        : null,
+  }
+}
+
+/** How an interval reads on the statistics screen, direction included. */
+export function directedIntervalName(value: string): string {
+  const { semitones, direction } = parseIntervalValue(value)
+  const name = intervalName(semitones)
+  return direction ? `${name} (${DIRECTION_NAMES[direction]})` : name
 }
 
 export const ALL_INTERVAL_ANSWERS = INTERVALS.map(
