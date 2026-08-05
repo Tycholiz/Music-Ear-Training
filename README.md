@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1267 tests across 47 files.** All of `npm run lint`, `npm run build`,
+**1276 tests across 47 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -30,8 +30,8 @@ precaching, install offer, update prompt) and iOS audio handling.
 
 In progress: a run of follow-ups to the statistics feature, `#110`–`#122` —
 sharper progression statistics, direction-aware interval statistics, drills for
-confusable chords, and some customization and formatting work. `#110`, `#111`
-and `#112` are done.
+confusable chords, and some customization and formatting work. `#110`–`#113`
+are done.
 
 See **Ideas not yet built** at the end for what is deliberately left undone.
 
@@ -343,17 +343,36 @@ keep. Worth revisiting for chord root, where inversion _is_ the difficulty.
 progression is. Exercise-specific arrangement lives in `schedule.ts` as separate
 builders, because the layers genuinely differ:
 
-| Builder                    | Sustain rule                                                                                                                                           |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `buildSchedule`            | Everything rings to the end of the phrase, as if the pedal were down. Right for intervals and arpeggios, which are _meant_ to accumulate into a chord. |
-| `buildMelodySchedule`      | Melody notes detached, backing chord sustained. Two opposite rules in one phrase, which is why note groups cannot express it.                          |
-| `buildProgressionSchedule` | Each chord released as the next takes over; the last rings out, because it is the cadence and the arrival is the point.                                |
+| Builder                    | Sustain rule                                                                                                                                                |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `buildSchedule`            | Everything rings to the end of the phrase, as if the pedal were down. Right for intervals and arpeggios, which are _meant_ to accumulate into a chord.      |
+| `buildMelodySchedule`      | Melody notes detached, backing chord sustained. Two opposite rules in one phrase, which is why note groups cannot express it.                               |
+| `buildProgressionSchedule` | Key chord first, then silence, then each chord released as the next takes over; the last rings out, because it is the cadence and the arrival is the point. |
 
 **Legato has a hard constraint worth knowing:** a note's length must clear its
 onset gap by more than `RELEASE_MS` (180ms), or it begins fading before its
 successor arrives and a run of them pulses instead of joining up. Melody notes
 were 520ms against a 460ms onset and sounded choppy for exactly this reason.
 Tests assert the relationship, not the numbers.
+
+**The progression's key chord runs on the opposite rule**, and is the one place
+in the app where silence is the point. Without a tonic the answer is not well
+defined — `I V I V` and `IV I IV I` are the same four sounds, differing only in
+where home is — so a user hearing the second reading was not wrong, and the
+exercise charged them anyway. The tonic is now struck, released, and followed by
+real silence before the progression begins.
+
+The silence is what makes it a separate utterance, and it has to be silence
+rather than a release fade: the key chord is voiced exactly as the Key button
+plays it, which is also how a progression opening on `I` voices its first chord,
+so the two can be the identical sound and only the gap tells them apart. The
+lead-in is nearly twice the gap between chords. **Replay includes it** — a
+replay is when a user who has lost the tonic asks to hear the question again,
+and stripping it there would drop it exactly when it is needed most.
+
+Deliberately not a setting. Turning it off does not make the exercise harder, it
+makes the answer ambiguous again, and an option that restores a correctness bug
+is not a difficulty option.
 
 `piano.strike(notes)` plays and lets the sample decay naturally — for references
 the user asked to hear. `piano.play(groups)` cuts at a scheduled length — for

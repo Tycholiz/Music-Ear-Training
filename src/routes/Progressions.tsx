@@ -113,10 +113,29 @@ export default function Progressions() {
     settings.numerals.includes(numeral.id),
   )
 
+  /**
+   * Play the question: the key, then the progression.
+   *
+   * The tonic comes first because without it the answer is not well defined.
+   * `I V I V` and `IV I IV I` are the same four sounds and only differ in where
+   * home is, so a user hearing the second was not wrong — the exercise simply
+   * had not said. It charged them anyway, and every statistic built on that
+   * press inherited the error.
+   *
+   * Replay goes through here too, and has to. Playing the progression alone on
+   * replay would take the tonic away exactly when a user who has lost it asks
+   * to hear the question again, which is when they need it most.
+   *
+   * The same voicing the Key button plays, not a second arrangement of the
+   * tonic. One sound means *home*; two would be one more thing to work out.
+   */
   const playProgression = useCallback(
     (question: ProgressionQuestion) => {
       void piano.playSchedule(
-        buildProgressionSchedule(voiceProgression(question, settings)),
+        buildProgressionSchedule({
+          chords: voiceProgression(question, settings),
+          key: keyChord(question, settings),
+        }),
       )
     },
     [settings],

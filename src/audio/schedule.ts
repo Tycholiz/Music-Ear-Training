@@ -113,6 +113,10 @@ export interface ProgressionTiming {
   onsetMs: number
   /** How long each chord rings before it is released. */
   chordMs: number
+  /** How long the key chord rings before it is released. */
+  keyMs: number
+  /** Silence between the key chord being released and the progression. */
+  keyGapMs: number
 }
 
 /**
@@ -123,14 +127,40 @@ export interface ProgressionTiming {
  * `chordMs` clears `onsetMs` by more than the engine's release fade for the
  * same reason melody notes do: a chord that began fading before its successor
  * struck would make a run of them pulse rather than move.
+ *
+ * The key chord runs on the opposite rule. It has to *stop* before the
+ * progression starts, with real silence in between and not merely a release
+ * fade, because it is a separate utterance rather than the first chord of the
+ * phrase. `keyGapMs` therefore has to clear `RELEASE_MS` on its own.
  */
 export const PROGRESSION_TIMING: ProgressionTiming = {
   onsetMs: 900,
   chordMs: 1150,
+  keyMs: 1100,
+  keyGapMs: 500,
 }
 
 /**
- * A progression, chord by chord.
+ * What gets played for one progression question.
+ *
+ * A shape rather than a chord list, the same way a melody is `{ melody,
+ * backing }`: both exercises have a grounding layer that is heard but never
+ * answered, and both would otherwise have to smuggle it through a parameter
+ * that reads like part of the phrase.
+ */
+export interface ProgressionPhrase {
+  chords: readonly NoteGroup[]
+  /**
+   * The tonic chord, sounded first to establish the key.
+   *
+   * Optional so that timing can be tested without it. The exercise always
+   * supplies it — see `buildProgressionSchedule` for why it has to.
+   */
+  key?: NoteGroup
+}
+
+/**
+ * A progression, chord by chord, over an established key.
  *
  * Not `buildSchedule`, which holds every note to the end of the phrase — four
  * triads under that rule finish as a twelve-note cluster, and what the user is
@@ -140,20 +170,48 @@ export const PROGRESSION_TIMING: ProgressionTiming = {
  * The last chord is left to ring. It is the cadence: the whole point of it is
  * the arrival, and cutting that off at a scheduled length is the one place in a
  * progression where the sound being taken away is most obvious.
+ *
+ * ## Why the key is sounded first
+ *
+ * Without a tonic the answer is not well defined. `I V I V` and `IV I IV I` are
+ * the same four sounds; which reading is "right" depends entirely on where home
+ * is, and nothing in the audio said. A user hearing the second one was not
+ * wrong, but the exercise charged them for it — and every statistic built on
+ * that press inherited the error.
+ *
+ * So the tonic is struck, released, and followed by silence before the
+ * progression begins. **The silence is what makes it a separate utterance.**
+ * A release fade alone would not: the key chord is voiced exactly as the Key
+ * button plays it, which is also how a progression opening on `I` voices its
+ * first chord, so the two can be the identical sound and only the gap
+ * distinguishes them. It is nearly twice the gap between chords, which is what
+ * a listener reads as "that was the frame, this is the picture".
  */
 export function buildProgressionSchedule(
-  chords: readonly NoteGroup[],
+  phrase: ProgressionPhrase,
   timing: ProgressionTiming = PROGRESSION_TIMING,
 ): ScheduledNote[] {
-  return chords.flatMap((chord, index) => {
-    const last = index === chords.length - 1
-    return chord.map((midi) => ({
-      midi,
-      startMs: index * timing.onsetMs,
-      durationMs: last ? RING_OUT_MS : timing.chordMs,
-      ringOut: last,
-    }))
-  })
+  const { chords, key } = phrase
+  if (chords.length === 0) return []
+
+  const startMs = key ? timing.keyMs + timing.keyGapMs : 0
+
+  const anchor: ScheduledNote[] = key
+    ? key.map((midi) => ({ midi, startMs: 0, durationMs: timing.keyMs }))
+    : []
+
+  return [
+    ...anchor,
+    ...chords.flatMap((chord, index) => {
+      const last = index === chords.length - 1
+      return chord.map((midi) => ({
+        midi,
+        startMs: startMs + index * timing.onsetMs,
+        durationMs: last ? RING_OUT_MS : timing.chordMs,
+        ringOut: last,
+      }))
+    }),
+  ]
 }
 
 /** Roughly how long a struck note stays audible. */
