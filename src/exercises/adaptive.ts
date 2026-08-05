@@ -1,5 +1,5 @@
 import { itemId, type ExerciseStats, type ItemStats } from '../settings'
-import type { Random } from './intervalQuestion'
+import type { IntervalDirection, Random } from './intervalQuestion'
 
 /**
  * Spending more of a session on the things going worst.
@@ -104,9 +104,26 @@ export function pickAdaptive<T>(
   return options[options.length - 1]
 }
 
-/** The namespaced key an interval's record lives under. */
-export function intervalKey(semitones: number): string {
-  return itemId('interval', semitones)
+/**
+ * The namespaced key an interval's record lives under.
+ *
+ * Keyed by interval *and* direction, because they are different skills: someone
+ * can name a descending minor 7th every time and lose the ascending one, and a
+ * single figure across both describes neither.
+ *
+ * This is the same key the statistics screen buckets by, and it has to be.
+ * `mastery` and `itemWeight` read the same record, so if the two disagreed
+ * about what an item *is*, the screen would call one thing "needs work" while
+ * the exercise practised another. Changing it here without changing what the
+ * screen writes would be worse than either: every lookup would miss, every item
+ * would read as having no record, and adaptive difficulty would quietly switch
+ * itself off for intervals with nothing failing to say so.
+ */
+export function intervalKey(
+  semitones: number,
+  direction: IntervalDirection,
+): string {
+  return itemId('interval', `${semitones}-${direction}`)
 }
 
 /** The namespaced key a chord's record lives under. */

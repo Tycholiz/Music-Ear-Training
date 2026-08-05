@@ -56,6 +56,30 @@ export function isDescending(mode: IntervalPlayMode): boolean {
   return DESCENDING_MODES.includes(mode)
 }
 
+/**
+ * Which way the ear had to travel, as far as recognising the interval goes.
+ *
+ * Three values rather than five play modes, because this is what the *ear*
+ * distinguishes rather than what the player does. `ascending-harmonic` plays
+ * the notes up and then together: the melodic work is the same as plain
+ * ascending, with the chord as confirmation after it, so the two share a
+ * direction. Descending pairs the same way.
+ *
+ * `harmonic` is not a direction at all and gets its own value. Both notes
+ * arrive at once, so there is no motion to follow — the interval is heard as a
+ * sonority, which is a different skill from hearing it as a move and is why
+ * someone can be reliable at one and lost at the other.
+ *
+ * The play mode is still recorded separately. It says whether the harmonic
+ * confirmation is doing any work, which this cannot.
+ */
+export type IntervalDirection = 'asc' | 'desc' | 'harmonic'
+
+export function directionOf(mode: IntervalPlayMode): IntervalDirection {
+  if (mode === 'harmonic') return 'harmonic'
+  return isDescending(mode) ? 'desc' : 'asc'
+}
+
 /** Largest answer a descending question can have. */
 export const MAX_DESCENDING_ANSWER = 12
 
@@ -138,13 +162,17 @@ export function generateIntervalQuestion(
 
   const playMode = pick(modes, random)
   const descending = isDescending(playMode)
-  // Weighted on the interval, which is the thing the user names. The play
-  // mode and the reference note stay uniform: they are how the question is
-  // presented rather than what it asks, and weighting a compound of several
-  // dimensions at once needs its own thought rather than falling out of this.
+  // Weighted on the interval *in this direction*, which is the thing the user
+  // names and the thing the statistics screen buckets. The play mode is picked
+  // first and stays uniform — it is how the question is presented rather than
+  // what it asks — but its direction is known by the time the answer is
+  // chosen, so the weighting can be about the skill rather than an average of
+  // two. Someone solid on descending 7ths and lost on ascending ones now meets
+  // the ascending ones more often, which the pooled figure could not ask for.
+  const direction = directionOf(playMode)
   const answer = pickAdaptive(
     candidateAnswers(playMode, settings),
-    intervalKey,
+    (semitones) => intervalKey(semitones, direction),
     settings.adaptive ? stats : undefined,
     random,
   )
