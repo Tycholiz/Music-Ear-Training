@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1293 tests across 47 files.** All of `npm run lint`, `npm run build`,
+**1312 tests across 48 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -31,7 +31,7 @@ precaching, install offer, update prompt) and iOS audio handling.
 In progress: a run of follow-ups to the statistics feature, `#110`–`#122` —
 sharper progression statistics, direction-aware interval statistics, drills for
 confusable chords, and some customization and formatting work. `#110`–`#112`,
-`#114`–`#117` and `#122` are done; `#113` was built and then reverted (see Audio).
+`#114`–`#117`, `#121` and `#122` are done; `#113` was built and then reverted (see Audio).
 
 See **Ideas not yet built** at the end for what is deliberately left undone.
 

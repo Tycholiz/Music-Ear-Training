@@ -1,5 +1,7 @@
-import { ListCard, ListRow } from '../components'
+import { ListCard, ListRow, SwipeToReveal } from '../components'
 import {
+  forgetInStore,
+  itemId,
   usePersisted,
   type ExerciseStats,
   type PersistedStore,
@@ -103,7 +105,14 @@ export function StatisticsScreen({
   return (
     <div className="flex flex-col gap-6 p-4">
       {view.sections.map((section) => (
-        <Section key={section.namespace} stats={stats} section={section} />
+        <Section
+          key={section.namespace}
+          stats={stats}
+          section={section}
+          onForget={(row) =>
+            forgetInStore(store, itemId(section.namespace, row.id))
+          }
+        />
       ))}
 
       <ListCard footer="Clears this exercise's record only. Your score is separate, and adaptive difficulty reads this — so resetting it also starts that over.">
@@ -124,18 +133,30 @@ export function StatisticsScreen({
 function Section({
   stats,
   section,
+  onForget,
 }: {
   stats: ExerciseStats
   section: StatsSection
+  onForget: (row: StatsRow) => void
 }) {
   const all = statsRows(stats, section)
   if (all.length === 0) return null
 
   const rows = reportableRows(all)
   const body = section.bucketed ? (
-    <Buckets rows={rows} section={section} thin={all.length - rows.length} />
+    <Buckets
+      rows={rows}
+      section={section}
+      thin={all.length - rows.length}
+      onForget={onForget}
+    />
   ) : (
-    <PlainList rows={rows} section={section} measuring={all.length} />
+    <PlainList
+      rows={rows}
+      section={section}
+      measuring={all.length}
+      onForget={onForget}
+    />
   )
 
   return (
@@ -168,11 +189,13 @@ function Buckets({
   rows,
   section,
   thin,
+  onForget,
 }: {
   rows: readonly StatsRow[]
   section: StatsSection
   /** How many items have data but not enough of it to report. */
   thin: number
+  onForget: (row: StatsRow) => void
 }) {
   return (
     <>
@@ -183,7 +206,12 @@ function Buckets({
         return (
           <ListCard key={bucket} title={BUCKET_TITLES[bucket]}>
             {inBucket.map((row) => (
-              <StatRow key={row.id} row={row} section={section} />
+              <StatRow
+                key={row.id}
+                row={row}
+                section={section}
+                onForget={onForget}
+              />
             ))}
           </ListCard>
         )
@@ -221,11 +249,13 @@ function PlainList({
   rows,
   section,
   measuring,
+  onForget,
 }: {
   rows: readonly StatsRow[]
   section: StatsSection
   /** How many items exist at all, reported while none can be summarised. */
   measuring: number
+  onForget: (row: StatsRow) => void
 }) {
   return (
     <ListCard
@@ -244,7 +274,14 @@ function PlainList({
           }
         />
       ) : (
-        rows.map((row) => <StatRow key={row.id} row={row} section={section} />)
+        rows.map((row) => (
+          <StatRow
+            key={row.id}
+            row={row}
+            section={section}
+            onForget={onForget}
+          />
+        ))
       )}
     </ListCard>
   )
@@ -267,30 +304,56 @@ function PlainList({
  * centred value drifts to the middle of each — so one card's figures sat at
  * three different heights and the accuracy column stopped reading as a column.
  * Aligned to the first line, every figure sits beside the thing it is about.
+ *
+ * ## Every row can be forgotten on its own
+ *
+ * Improvement is per item. Someone who lost every perfect 5th for a month, then
+ * learned a trick and now gets them, had two options: watch twenty questions
+ * roll the window over, or clear the whole exercise and lose everything they
+ * knew about every other interval. Neither is what they meant.
+ *
+ * Breakdown rows swipe too, not only the bucketed ones. There is nothing
+ * special about a chord that makes its record worth clearing while a play mode
+ * or an inversion is not — the same "I have fixed this and the number is
+ * lagging" applies to any of them.
  */
-function StatRow({ row, section }: { row: StatsRow; section: StatsSection }) {
+function StatRow({
+  row,
+  section,
+  onForget,
+}: {
+  row: StatsRow
+  section: StatsSection
+  onForget: (row: StatsRow) => void
+}) {
   const confusions = confusionsFor(row, section)
 
   return (
-    <ListRow
-      alignFirstLine
-      label={
-        <>
-          <span className="block">{row.label}</span>
-          {confusions.length > 0 && (
-            <span className="mt-1 block text-xs leading-snug text-content-muted">
-              <span className="block">often mistaken for:</span>
-              {confusions.map((name) => (
-                <span key={name} className="block pl-3">
-                  {name}
-                </span>
-              ))}
-            </span>
-          )}
-        </>
-      }
-      value={<Accuracy row={row} />}
-    />
+    <SwipeToReveal
+      actionLabel="Reset"
+      actionName={`Reset ${row.label}`}
+      onAction={() => onForget(row)}
+    >
+      <ListRow
+        alignFirstLine
+        label={
+          <>
+            <span className="block">{row.label}</span>
+            {confusions.length > 0 && (
+              <span className="mt-1 block text-xs leading-snug text-content-muted">
+                <span className="block">often mistaken for:</span>
+                {confusions.map((name) => (
+                  <span key={name} className="block pl-3">
+                    {name}
+                  </span>
+                ))}
+              </span>
+            )}
+          </>
+        }
+        value={<Accuracy row={row} />}
+      />
+    </SwipeToReveal>
   )
 }
 
