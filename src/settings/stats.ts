@@ -187,6 +187,40 @@ export function recordInStore(
 }
 
 /**
+ * Forget one item, as though it had never been answered.
+ *
+ * The entry is removed rather than zeroed. An item with a record of no attempts
+ * is not the same as an item with no record: `sanitizeItemStats` throws away
+ * zero-attempt entries on the next read anyway, and every consumer already
+ * knows what to do with an item it has never heard of — the screen leaves it
+ * off, and `itemWeight` gives it the mid weight it gives anything unseen.
+ *
+ * So a forgotten item does not reappear under "needs more practice" either. It
+ * has not been practised too little; it has not been practised at all, which is
+ * exactly where it was before the user first met it.
+ */
+export function forgetItem(stats: ExerciseStats, item: string): ExerciseStats {
+  if (!(item in stats)) return stats
+
+  const remaining = { ...stats }
+  delete remaining[item]
+  return remaining
+}
+
+/**
+ * Forget an item in a store, reading it fresh rather than from a render.
+ *
+ * The same rule as `recordInStore`, for the same reason: a render-time snapshot
+ * loses whatever was written between the render and the tap.
+ */
+export function forgetInStore(
+  store: PersistedStore<ExerciseStats>,
+  item: string,
+): void {
+  store.write(forgetItem(store.read(), item))
+}
+
+/**
  * Build a namespaced item id.
  *
  * A function rather than template literals at each call site, so the separator

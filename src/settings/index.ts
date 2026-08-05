@@ -29,6 +29,8 @@ export type {
 export {
   EMPTY_ITEM_STATS,
   RECENT_WINDOW,
+  forgetInStore,
+  forgetItem,
   itemId,
   itemsInNamespace,
   recordAttempt,

@@ -52,13 +52,15 @@ function cardUnder(title: string) {
  * Confusions are lines under the label now rather than a clause inside it, so
  * they are read off the row's own element rather than matched as a sentence.
  */
-function confusionsUnder(label: string): string[] {
+function confusionElements(label: string): Element[] {
   const row = screen.getByText(label).closest('div')
   if (!row) throw new Error(`no row for ${label}`)
   const lead = within(row).getByText('often mistaken for:')
-  return [...(lead.parentElement?.children ?? [])]
-    .slice(1)
-    .map((node) => node.textContent ?? '')
+  return [...(lead.parentElement?.children ?? [])].slice(1)
+}
+
+function confusionsUnder(label: string): string[] {
+  return confusionElements(label).map((node) => node.textContent ?? '')
 }
 
 function times(item: string, correct: boolean, n: number, answered?: string) {
@@ -175,6 +177,13 @@ describe('several ways to get one thing wrong', () => {
     ])
     // Not "Minor Triad and Augmented Triad" in one run of text.
     expect(screen.queryByText(/Minor Triad and/)).toBeNull()
+    // And genuinely one per *line*. Reading the names off separate elements
+    // says nothing about how they lay out — they were flipped to `inline` by
+    // accident in #132 and every assertion here still passed while the screen
+    // showed them run together on one line.
+    for (const node of confusionElements('Major Triad')) {
+      expect(node.className, node.textContent ?? '').toContain('block')
+    }
   })
 
   it('stays silent about a mistake that is not a habit', async () => {
@@ -506,6 +515,82 @@ describe('sections and the buckets inside them', () => {
     expect(
       cardUnder('Naming each chord after the first').getByText('IV'),
     ).toBeVisible()
+  })
+})
+
+describe('resetting one statistic', () => {
+  it('clears only the item that was reset', async () => {
+    // Improvement is per item. Someone who has fixed one interval should not
+    // have to choose between waiting twenty questions for the window to roll
+    // and throwing away everything they know about every other one.
+    recordInStore(chordStatsStore, [
+      ...times('chord:major', true, 20),
+      ...times('chord:diminished', false, 20, 'minor'),
+    ])
+    const user = openMenu()
+    await openStatistics(user)
+
+    await user.click(
+      screen.getByRole('button', { name: 'Reset Diminished Triad' }),
+    )
+
+    await waitFor(() =>
+      expect(Object.keys(chordStatsStore.read())).toEqual(['chord:major']),
+    )
+  })
+
+  it('takes the row off the screen rather than leaving it at zero', async () => {
+    // The item has not been practised too little, it has not been practised at
+    // all — which is exactly where it was before the user first met it.
+    recordInStore(chordStatsStore, [
+      ...times('chord:major', true, 20),
+      ...times('chord:diminished', false, 20, 'minor'),
+    ])
+    const user = openMenu()
+    await openStatistics(user)
+
+    await user.click(
+      screen.getByRole('button', { name: 'Reset Diminished Triad' }),
+    )
+
+    await waitFor(() =>
+      expect(screen.queryByText('Diminished Triad')).toBeNull(),
+    )
+    expect(screen.getByText('Major Triad')).toBeVisible()
+    expect(screen.queryByText(/1 other needs more practice/)).toBeNull()
+  })
+
+  it('offers the same reset on a breakdown row', async () => {
+    // Nothing makes a chord's record worth clearing while an inversion's is
+    // not — "I have fixed this and the number is lagging" applies to both.
+    recordInStore(rootStatsStore, [
+      ...times('chord:major', true, 20),
+      ...times('inversion:0', true, 20),
+      ...times('inversion:1', false, 20),
+    ])
+    const user = openMenu(ROOT_STATS_VIEW, rootStatsStore)
+    await openStatistics(user)
+
+    await user.click(
+      screen.getByRole('button', { name: 'Reset 1st inversion' }),
+    )
+
+    await waitFor(() =>
+      expect('inversion:1' in rootStatsStore.read()).toBe(false),
+    )
+    expect(rootStatsStore.read()['inversion:0']).toBeDefined()
+  })
+
+  it('leaves the other exercises untouched', async () => {
+    recordInStore(chordStatsStore, times('chord:major', true, 20))
+    recordInStore(rootStatsStore, times('chord:major', true, 20))
+    const user = openMenu()
+    await openStatistics(user)
+
+    await user.click(screen.getByRole('button', { name: 'Reset Major Triad' }))
+
+    await waitFor(() => expect(chordStatsStore.read()).toEqual({}))
+    expect(rootStatsStore.read()['chord:major']).toBeDefined()
   })
 })
 

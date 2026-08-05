@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import {
   EMPTY_ITEM_STATS,
   RECENT_WINDOW,
+  forgetInStore,
+  forgetItem,
   itemId,
   itemsInNamespace,
   recordAttempt,
@@ -261,5 +263,77 @@ describe('item ids', () => {
     )
 
     expect(Object.keys(itemsInNamespace(stats, 'mode'))).toEqual(['block'])
+  })
+})
+
+describe('forgetting one item', () => {
+  it('removes the entry rather than zeroing it', () => {
+    // An item with a record of no attempts is not the same as an item with no
+    // record: the sanitiser throws zero-attempt entries away on the next read
+    // anyway, and every consumer already knows what to do with an item it has
+    // never heard of.
+    const stats = recordAttempts(
+      {},
+      [
+        { item: 'interval:7-asc', correct: true },
+        { item: 'interval:5-asc', correct: false },
+      ],
+      NOW,
+    )
+
+    const after = forgetItem(stats, 'interval:7-asc')
+    expect('interval:7-asc' in after).toBe(false)
+    expect(after['interval:5-asc']).toEqual(stats['interval:5-asc'])
+  })
+
+  it('leaves everything else exactly as it was', () => {
+    const stats = recordAttempts(
+      {},
+      [
+        { item: 'chord:major', correct: true },
+        { item: 'chord:minor', correct: false, answered: 'major' },
+        { item: 'inversion:1', correct: true },
+      ],
+      NOW,
+    )
+
+    expect(forgetItem(stats, 'chord:major')).toEqual({
+      'chord:minor': stats['chord:minor'],
+      'inversion:1': stats['inversion:1'],
+    })
+  })
+
+  it('does not mutate what it was given', () => {
+    const stats = recordAttempts(
+      {},
+      [{ item: 'chord:major', correct: true }],
+      NOW,
+    )
+    forgetItem(stats, 'chord:major')
+    expect('chord:major' in stats).toBe(true)
+  })
+
+  it('says nothing about an item it has never heard of', () => {
+    const stats = recordAttempts(
+      {},
+      [{ item: 'chord:major', correct: true }],
+      NOW,
+    )
+    expect(forgetItem(stats, 'chord:nonesuch')).toEqual(stats)
+  })
+
+  it('reads the store fresh, like recordInStore', () => {
+    // The same rule and the same reason: a render-time snapshot loses whatever
+    // was written between the render and the tap.
+    const store = chordStatsStore
+    store.reset()
+    recordInStore(store, [
+      { item: 'chord:major', correct: true },
+      { item: 'chord:minor', correct: true },
+    ])
+
+    forgetInStore(store, 'chord:major')
+
+    expect(Object.keys(store.read())).toEqual(['chord:minor'])
   })
 })
