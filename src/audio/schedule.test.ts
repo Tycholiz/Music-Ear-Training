@@ -343,16 +343,10 @@ describe('legato', () => {
 })
 
 describe('buildProgressionSchedule', () => {
-  const progressionTiming = {
-    onsetMs: 900,
-    chordMs: 1150,
-    keyMs: 1100,
-    keyGapMs: 500,
-  }
+  const progressionTiming = { onsetMs: 900, chordMs: 1150 }
 
-  /** The progression alone, with no key chord in front of it. */
   const bare = (chords: number[][]) =>
-    buildProgressionSchedule({ chords }, progressionTiming)
+    buildProgressionSchedule(chords, progressionTiming)
 
   const CHORDS = [
     [60, 64, 67],
@@ -428,78 +422,6 @@ describe('buildProgressionSchedule', () => {
       expect(note.ringOut).toBe(true)
     }
   })
-
-  describe('the key sounded in front of it', () => {
-    const KEY = [48, 52, 55]
-    const withKey = () =>
-      buildProgressionSchedule({ chords: CHORDS, key: KEY }, progressionTiming)
-
-    it('strikes the key first, before anything in the progression', () => {
-      // Without it the answer is not well defined: I V I V and IV I IV I are
-      // the same four sounds, differing only in where home is.
-      const notes = withKey()
-      expect(notes.filter((n) => n.startMs === 0).map((n) => n.midi)).toEqual(
-        KEY,
-      )
-    })
-
-    it('leaves real silence before the progression, not just a release fade', () => {
-      // The gap is what makes it a separate utterance. A progression opening on
-      // I voices its first chord exactly as the Key button plays the tonic, so
-      // the two can be the identical sound and only the silence distinguishes
-      // them — asserted as a relationship rather than against the numbers.
-      const notes = withKey()
-      const keyEnds = progressionTiming.keyMs
-      const firstChord = Math.min(
-        ...notes
-          .filter((n) => !KEY.includes(n.midi) || n.startMs > 0)
-          .map((n) => n.startMs),
-      )
-
-      expect(firstChord - (keyEnds + RELEASE_MS)).toBeGreaterThan(0)
-    })
-
-    it('separates the key more clearly than one chord from the next', () => {
-      // Nearly twice the gap between chords, which is what a listener reads as
-      // "that was the frame, this is the picture" rather than "that was chord
-      // one".
-      const notes = withKey()
-      const onsets = [...new Set(notes.map((n) => n.startMs))].sort(
-        (a, b) => a - b,
-      )
-
-      expect(onsets[1] - onsets[0]).toBeGreaterThan(
-        1.5 * progressionTiming.onsetMs,
-      )
-    })
-
-    it('shifts the whole progression rather than overlapping it', () => {
-      const bareOnsets = [...new Set(bare(CHORDS).map((n) => n.startMs))]
-      const keyed = withKey().filter((n) => n.startMs > 0)
-      const lead = progressionTiming.keyMs + progressionTiming.keyGapMs
-
-      expect([...new Set(keyed.map((n) => n.startMs))]).toEqual(
-        bareOnsets.map((onset) => onset + lead),
-      )
-    })
-
-    it('still leaves the cadence ringing, and rings out nothing else', () => {
-      const notes = withKey()
-      const ringing = notes.filter((n) => n.ringOut)
-      const lastOnset = Math.max(...notes.map((n) => n.startMs))
-
-      expect(ringing).toHaveLength(3)
-      for (const note of ringing) expect(note.startMs).toBe(lastOnset)
-    })
-
-    it('plays nothing at all for an empty progression, key included', () => {
-      // The key exists to frame a progression. On its own it would be a chord
-      // the user was never asked anything about.
-      expect(
-        buildProgressionSchedule({ chords: [], key: KEY }, progressionTiming),
-      ).toEqual([])
-    })
-  })
 })
 
 describe('default PROGRESSION_TIMING', () => {
@@ -513,13 +435,6 @@ describe('default PROGRESSION_TIMING', () => {
     expect(PROGRESSION_TIMING.chordMs - RELEASE_MS).toBeGreaterThan(
       PROGRESSION_TIMING.onsetMs,
     )
-  })
-
-  it('gives the key chord a gap that outlasts the release fade', () => {
-    // The opposite rule to the chords. They overlap so a run of them joins up;
-    // the key has to *stop*, with real silence after it, because it is a
-    // separate utterance rather than the first chord of the phrase.
-    expect(PROGRESSION_TIMING.keyGapMs).toBeGreaterThan(RELEASE_MS)
   })
 })
 
