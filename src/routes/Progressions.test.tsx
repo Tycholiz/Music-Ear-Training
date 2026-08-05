@@ -734,16 +734,22 @@ describe('keyboard focus', () => {
 })
 
 describe('what goes into the statistics', () => {
-  it('records the numeral, how its root arrived, and its inversion', async () => {
+  it('records the first chord as an opening, and not as a numeral', async () => {
     // The progression is I IV V I, so the opening chord has nothing before it.
+    //
+    // The two used to be recorded together — `numeral:I` *and* `opening:I` —
+    // which made the bucketed section a blend of two skills. Hearing a chord
+    // against the key alone and hearing it against the chord before it are
+    // different tasks, so the opening is now the only record position zero
+    // writes, and the screen's buckets can honestly say "after the first".
     const user = userEvent.setup()
     renderExercise()
     await start(user)
     await tap(user, 'I')
 
     const stats = progressionStatsStore.read()
-    expect(stats['numeral:I'].correct).toBe(1)
     expect(stats['opening:I'].correct).toBe(1)
+    expect(stats['numeral:I']).toBeUndefined()
     // No movement record for the first chord — there is nothing before it.
     expect(Object.keys(stats).some((key) => key.startsWith('movement:'))).toBe(
       false,
@@ -753,6 +759,21 @@ describe('what goes into the statistics', () => {
     expect(Object.keys(stats).some((key) => key.startsWith('inversion:'))).toBe(
       true,
     )
+  })
+
+  it('records every chord after the first as a numeral', async () => {
+    // The other half of the split: position one onwards is what the buckets
+    // are about, and the opening must not turn up among them.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    await tap(user, 'I', 'IV', 'V')
+
+    const stats = progressionStatsStore.read()
+    expect(stats['numeral:IV'].correct).toBe(1)
+    expect(stats['numeral:V'].correct).toBe(1)
+    expect(stats['numeral:I']).toBeUndefined()
+    expect(stats['opening:IV']).toBeUndefined()
   })
 
   it('records the cadence only on the chords the cadence is made of', async () => {
@@ -825,7 +846,10 @@ describe('what goes into the statistics', () => {
 
     await tap(user, 'V')
 
-    expect(progressionStatsStore.read()['numeral:I']).toMatchObject({
+    // On the opening chord, so the record is the opening's — which carries
+    // confusions for exactly this reason: "you hear the opening I as V" is the
+    // most useful thing the progression statistics can say.
+    expect(progressionStatsStore.read()['opening:I']).toMatchObject({
       attempts: 1,
       correct: 0,
       recent: [{ correct: false, answered: 'V' }],
@@ -853,7 +877,7 @@ describe('what goes into the statistics', () => {
     await tap(user, 'V')
 
     const answered =
-      progressionStatsStore.read()['numeral:I'].recent[0].answered
+      progressionStatsStore.read()['opening:I'].recent[0].answered
     expect(answered).toBe('bass-as-root')
   })
 
@@ -897,14 +921,23 @@ describe('what goes into the statistics', () => {
   })
 
   it('keeps counting across questions rather than starting over', async () => {
+    // Really across questions, now that the opening is the only thing position
+    // zero writes. This used to reach two inside a single progression, because
+    // I IV V I has `I` at both ends and both wrote `numeral:I` — which proved
+    // the store accumulates within a question and said nothing about the next
+    // one starting from the last one's total.
     const user = userEvent.setup()
     renderExercise()
     await start(user)
     await tap(user, 'I', 'IV', 'V', 'I')
 
-    await waitFor(
-      () => expect(progressionStatsStore.read()['numeral:I'].attempts).toBe(2),
-      { timeout: 3000 },
-    )
+    expect(progressionStatsStore.read()['opening:I'].attempts).toBe(1)
+
+    // The completed progression auto-advances; the answer row emptying is the
+    // new question being ready for a press.
+    await waitFor(() => expect(answer()).toBe('····'), { timeout: 3000 })
+    await tap(user, 'I')
+
+    expect(progressionStatsStore.read()['opening:I'].attempts).toBe(2)
   })
 })

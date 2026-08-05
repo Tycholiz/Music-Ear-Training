@@ -40,6 +40,20 @@ import {
  * Chord root shows none and should not: it is self-graded, so there is no
  * wrong answer to name.
  *
+ * ## Every section is a heading with cards under it
+ *
+ * One shape for all of them. The bucketed section used to get a real heading
+ * with `Needs work` / `Getting there` / `Solid` beneath it, while every other
+ * section was a bare card whose only label was the small uppercase strip a
+ * `ListCard` draws — so two things at the same level in the model rendered a
+ * tier apart, and the reader had no way to see that "First chord recognition"
+ * and "Naming each chord after the first" are peers rather than one nested in
+ * the other.
+ *
+ * Now a section is always `<h2>` plus cards. The buckets are cards *within* a
+ * section, which is what they always were, and the `ListCard` strip is free to
+ * mean subsection everywhere it appears.
+ *
  * ## An item with too little evidence is not shown at all
  *
  * Two out of three is not 67%, so nothing is reported below
@@ -84,19 +98,46 @@ export function StatisticsScreen({
 
   return (
     <div className="flex flex-col gap-6 p-4">
-      <AnswerSection stats={stats} section={view.answer} />
-
-      {view.breakdowns.map((section) => (
-        <BreakdownSection
-          key={section.namespace}
-          stats={stats}
-          section={section}
-        />
+      {view.sections.map((section) => (
+        <Section key={section.namespace} stats={stats} section={section} />
       ))}
 
       <ListCard footer="Clears this exercise's record only. Your score is separate, and adaptive difficulty reads this — so resetting it also starts that over.">
         <ListRow label="Reset Statistics" destructive onClick={onReset} />
       </ListCard>
+    </div>
+  )
+}
+
+/**
+ * One section: a heading, then either mastery buckets or a plain list.
+ *
+ * A section with no data at all is not rendered — there is nothing to promise
+ * yet, and a heading for a namespace the user has never touched is a gap they
+ * have to work out the meaning of. A section that *has* data but none of it
+ * over the reporting threshold keeps its heading and says so; see `PlainList`.
+ */
+function Section({
+  stats,
+  section,
+}: {
+  stats: ExerciseStats
+  section: StatsSection
+}) {
+  const all = statsRows(stats, section)
+  if (all.length === 0) return null
+
+  const rows = reportableRows(all)
+  const body = section.bucketed ? (
+    <Buckets rows={rows} section={section} thin={all.length - rows.length} />
+  ) : (
+    <PlainList rows={rows} section={section} measuring={all.length} />
+  )
+
+  return (
+    <div className="flex flex-col gap-3">
+      <h2 className="px-1 text-base font-semibold">{section.title}</h2>
+      {body}
     </div>
   )
 }
@@ -111,7 +152,7 @@ const BUCKET_TITLES: Record<Mastery, string> = {
 const BUCKET_ORDER: Mastery[] = ['learning', 'practising', 'solid']
 
 /**
- * The thing the user names, in three buckets.
+ * The measure this screen is about, in three subsections.
  *
  * Three short lists rather than one table of twenty percentages, because a
  * phone shows about six rows and the ones that matter are all at one end. The
@@ -119,31 +160,18 @@ const BUCKET_ORDER: Mastery[] = ['learning', 'practising', 'solid']
  * "Needs work" is exactly what the exercise has been asking more often — two
  * definitions of struggling would have the app contradicting itself.
  */
-function AnswerSection({
-  stats,
+function Buckets({
+  rows,
   section,
+  thin,
 }: {
-  stats: ExerciseStats
+  rows: readonly StatsRow[]
   section: StatsSection
+  /** How many items have data but not enough of it to report. */
+  thin: number
 }) {
-  const all = statsRows(stats, section)
-  if (all.length === 0) return null
-
-  const rows = reportableRows(all)
-  const notEnough = all.length - rows.length
-
   return (
-    <div className="flex flex-col gap-4">
-      {/*
-        The buckets alone never said what they were bucketing. On the chord
-        screen that was survivable, since a list of chord names explains
-        itself; on progressions it left "SOLID" sitting above three roman
-        numerals with nothing to say they were about naming chords rather than
-        about anything else on the screen. The heading is a size up from the
-        bucket labels so the two read as a group and its parts.
-      */}
-      <h2 className="px-1 text-base font-semibold">{section.title}</h2>
-
+    <>
       {BUCKET_ORDER.map((bucket) => {
         const inBucket = rows.filter((row) => mastery(row.item) === bucket)
         if (inBucket.length === 0) return null
@@ -157,47 +185,46 @@ function AnswerSection({
         )
       })}
 
-      {notEnough > 0 && (
+      {thin > 0 && (
         <p className="px-4 text-sm text-content-muted">
           {rows.length === 0
             ? 'Nothing has been answered enough times yet. Keep practising and your statistics will appear here.'
-            : `${notEnough} other${notEnough === 1 ? '' : 's'} need${
-                notEnough === 1 ? 's' : ''
+            : `${thin} other${thin === 1 ? '' : 's'} need${
+                thin === 1 ? 's' : ''
               } more practice before statistics can show.`}
         </p>
       )}
-    </div>
+    </>
   )
 }
 
 /**
- * A condition the question was asked under — a plain worst-first list.
+ * Everything that is not the bucketed measure — a plain worst-first list.
  *
- * A breakdown with data but nothing over the threshold keeps its heading and
- * says so, rather than disappearing. Vanishing silently was defensible while
- * every breakdown filled at one record per question, but melody's opening
- * degrees fill at one per *melody* — so the most useful section on that screen
- * was also the last to appear, and until it did the screen said "you struggle
- * with the first note" and nothing about which one.
+ * A section with data but nothing over the threshold keeps its heading and says
+ * so, rather than disappearing. Vanishing silently was defensible while every
+ * such section filled at one record per question, but melody's opening degrees
+ * fill at one per *melody* — so the most useful section on that screen was also
+ * the last to appear, and until it did the screen said "you struggle with the
+ * first note" and nothing about which one. Progressions' first chord fills at
+ * the same rate and now leads the screen, which makes the placeholder load
+ * bearing rather than an edge case.
  *
  * A heading that promises a figure later is worth more than a gap the reader
  * has to notice is missing.
  */
-function BreakdownSection({
-  stats,
+function PlainList({
+  rows,
   section,
+  measuring,
 }: {
-  stats: ExerciseStats
+  rows: readonly StatsRow[]
   section: StatsSection
+  /** How many items exist at all, reported while none can be summarised. */
+  measuring: number
 }) {
-  const all = statsRows(stats, section)
-  if (all.length === 0) return null
-
-  const rows = reportableRows(all)
-
   return (
     <ListCard
-      title={section.title}
       footer={
         rows.length === 0
           ? 'Not enough yet — keep practising and this will fill in.'
@@ -208,7 +235,7 @@ function BreakdownSection({
         <ListRow
           label={
             <span className="text-content-muted">
-              {all.length} still being measured
+              {measuring} still being measured
             </span>
           }
         />

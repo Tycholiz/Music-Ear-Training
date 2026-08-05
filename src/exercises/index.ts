@@ -5,6 +5,7 @@ export {
   MIN_ATTEMPTS_TO_REPORT,
   PROGRESSION_STATS_VIEW,
   ROOT_STATS_VIEW,
+  bucketedSection,
   confusionsFor,
   hasAnyStats,
   mastery,

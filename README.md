@@ -21,16 +21,17 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1247 tests across 47 files.** All of `npm run lint`, `npm run build`,
+**1256 tests across 47 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
 persisted settings, Customize modal and score. Also done: the PWA (offline
 precaching, install offer, update prompt) and iOS audio handling.
 
-Nothing is in progress. `#72`–`#76` built Chord Progression Recognition, the
-most recent exercise, in the usual order: theory core → generation → voicing →
-screen → Customize.
+In progress: a run of follow-ups to the statistics feature, `#110`–`#122` —
+sharper progression statistics, direction-aware interval statistics, drills for
+confusable chords, and some customization and formatting work. `#110` is the
+first of them.
 
 See **Ideas not yet built** at the end for what is deliberately left undone.
 
@@ -183,12 +184,23 @@ data. So the store records and the callers decide what it means.
 Shown per exercise, reached from its menu. `exercises/statsView.ts` holds what
 each namespace _means_, so the screen stays one component rather than five.
 
-Two tiers. The **answer** is the measure an exercise leads with, bucketed into
-needs work / getting there / solid. Usually that is the thing the user names,
-but **melody leads with how a note arrived** — step or leap, up or down —
-because a per-degree figure conflates every way a degree can turn up, and those
-differ more than the degrees do. A **breakdown** is a condition the question was
-asked under, as a plain list.
+**One flat list of sections, in the order they are shown.** Exactly one of them
+is `bucketed` into needs work / getting there / solid — usually the thing the
+user names, but **melody buckets how a note arrived** — step or leap, up or
+down — because a per-degree figure conflates every way a degree can turn up, and
+those differ more than the degrees do. Every other section is a condition the
+question was asked under, as a plain list.
+
+This was two tiers, an `answer` that was always first and `breakdowns` after it,
+until progressions needed the **first chord above the buckets**: the measure that
+should lead there is not the bucketed one, and no reordering within a tier can
+say so. Order is explicit now and the tier is one flag.
+
+On screen every section is a heading with cards under it, and the buckets are
+cards _within_ a section. They used to render a tier apart — the bucketed
+measure got a real heading and everything else got only the small uppercase
+strip a `ListCard` draws — so two things at the same level in the model looked
+nested on screen.
 
 Whether a section diagnoses — "often mistaken for …" — is declared per section,
 never inferred from what happens to be in the store. It was inferred once, and
@@ -212,22 +224,35 @@ Rules the screen has to keep:
 **Each exercise is measured by the skill it actually trains**, which is rarely
 the thing the user taps:
 
-| Exercise    | Leads with         | And breaks down by                                        |
-| ----------- | ------------------ | --------------------------------------------------------- |
-| Intervals   | the interval       | play mode                                                 |
-| Chords      | the chord          | inversion, play mode                                      |
-| Chord root  | the chord          | inversion — its whole difficulty                          |
-| Melody      | how a note arrives | opening degree, scale                                     |
-| Progression | the chord          | opening chord, root and bass movement, cadence, inversion |
+| Exercise    | Buckets                        | And also lists                                      |
+| ----------- | ------------------------------ | --------------------------------------------------- |
+| Intervals   | the interval                   | play mode                                           |
+| Chords      | the chord                      | inversion, play mode                                |
+| Chord root  | the chord                      | inversion — its whole difficulty                    |
+| Melody      | how a note arrives             | opening degree, scale                               |
+| Progression | the chord, **after the first** | first chord _(leads)_, movement, cadence, inversion |
 
-Two of those are worth the detail. **Melody's degree breakdown covers the
-opening note only** — naming a degree is the real task for exactly one note,
-the one judged against the drone with nothing before it; everywhere else the
-ear follows a step or a leap and the degree it lands on is a consequence of
-where it started. **Progressions record root movement and bass movement side by
-side**, because an inversion makes them disagree, and that gap is the hardest
-case in the exercise: `V IV I` with the `I` inverted has a bass of G F E, which
-reads as `V IV III`.
+Three of those are worth the detail.
+
+**Progressions lead with the first chord, and keep it out of the buckets.**
+There is nothing before chord one, so it is heard by its function against the
+key alone; every later chord can lean on the one before it as a landmark. Two
+skills — mistaking `V` for `I` when it opens is a lost tonic, mistaking `vi` for
+`I` in the middle is two chords that both sound like home — and one figure
+across both describes neither. So position zero writes `opening:` and nothing
+else, positions one onward write `numeral:`, and the bucketed heading says "after
+the first" because its contents now match. It is a plain list that still shows
+confusions: bucketing is not what earns those, and "you hear the opening `V` as
+`I`" is the most useful line on the screen.
+
+**Melody's degree breakdown covers the opening note only** — naming a degree is
+the real task for exactly one note, the one judged against the drone with nothing
+before it; everywhere else the ear follows a step or a leap and the degree it
+lands on is a consequence of where it started.
+
+**Progressions record root movement and bass movement side by side**, because an
+inversion makes them disagree, and that gap is the hardest case in the exercise:
+`V IV I` with the `I` inverted has a bass of G F E, which reads as `V IV III`.
 
 That last case is detected rather than described. When the numeral pressed is
 rooted on the note actually sounding underneath, the row says **"often mistaken

@@ -5,11 +5,17 @@ import { ModalSheet } from '../components'
 import {
   chordSettingsStore,
   chordStatsStore,
+  progressionStatsStore,
   recordInStore,
   rootStatsStore,
 } from '../settings'
-import { CHORD_STATS_VIEW, ROOT_STATS_VIEW } from '../exercises'
+import {
+  CHORD_STATS_VIEW,
+  PROGRESSION_STATS_VIEW,
+  ROOT_STATS_VIEW,
+} from '../exercises'
 import { ChordSettingsMenu } from './ChordSettingsMenu'
+import { StatisticsScreen } from './StatisticsScreen'
 
 function openMenu(view = CHORD_STATS_VIEW, statsStore = chordStatsStore) {
   const user = userEvent.setup()
@@ -44,11 +50,24 @@ function times(item: string, correct: boolean, n: number, answered?: string) {
   return Array.from({ length: n }, () => ({ item, correct, answered }))
 }
 
+/**
+ * Section headings in the order the screen renders them.
+ *
+ * Minus the modal's own title, which is chrome rather than part of the screen.
+ */
+function headings(): string[] {
+  return screen
+    .getAllByRole('heading')
+    .map((h) => h.textContent ?? '')
+    .filter((text) => text && text !== 'Statistics')
+}
+
 beforeEach(() => {
   localStorage.clear()
   chordSettingsStore.reset()
   chordStatsStore.reset()
   rootStatsStore.reset()
+  progressionStatsStore.reset()
 })
 
 describe('an empty record', () => {
@@ -264,6 +283,87 @@ describe('the breakdowns', () => {
 
     expect(screen.getByText('Major Triad')).toBeVisible()
     expect(screen.queryByText(/Often mistaken for/)).toBeNull()
+  })
+})
+
+describe('sections and the buckets inside them', () => {
+  it('gives every section a heading, not just the bucketed one', async () => {
+    // They are peers in the model and used to render a tier apart: the
+    // bucketed measure got a real heading, everything else got only the small
+    // uppercase strip a card draws. Nothing on screen said the two were at the
+    // same level, which is the whole complaint that led here.
+    recordInStore(rootStatsStore, [
+      ...times('chord:major', true, 10),
+      ...times('inversion:0', true, 10),
+    ])
+    const user = openMenu(ROOT_STATS_VIEW, rootStatsStore)
+    await openStatistics(user)
+
+    // Section, then its subsection; section, then its subsection-less card.
+    expect(headings()).toEqual(['Naming each chord', 'Solid', 'By inversion'])
+  })
+
+  it('leads the progression screen with the first chord', async () => {
+    // The first chord is heard against the key alone; every later chord has
+    // the one before it as a landmark. The harder measure used to sit below a
+    // bucketed figure that was quietly averaging it in.
+    recordInStore(progressionStatsStore, [
+      ...times('opening:I', true, 6),
+      ...times('opening:V', false, 6, 'I'),
+      ...times('numeral:IV', true, 10),
+    ])
+    render(
+      <StatisticsScreen
+        store={progressionStatsStore}
+        view={PROGRESSION_STATS_VIEW}
+        onReset={vi.fn()}
+      />,
+    )
+
+    const shown = headings()
+    expect(shown[0]).toBe('First chord recognition')
+    expect(shown).toContain('Naming each chord after the first')
+    expect(shown.indexOf('First chord recognition')).toBeLessThan(
+      shown.indexOf('Naming each chord after the first'),
+    )
+  })
+
+  it('diagnoses the first chord even though it is not bucketed', async () => {
+    // A plain list can still be the most diagnostic thing on the screen.
+    recordInStore(progressionStatsStore, times('opening:V', false, 8, 'I'))
+    render(
+      <StatisticsScreen
+        store={progressionStatsStore}
+        view={PROGRESSION_STATS_VIEW}
+        onReset={vi.fn()}
+      />,
+    )
+
+    expect(
+      cardUnder('First chord recognition').getByText(/Often mistaken for I$/),
+    ).toBeVisible()
+  })
+
+  it('keeps the opening chord out of the buckets', async () => {
+    // The recording side stopped writing openings to `numeral`, so a `V` the
+    // user only ever meets as an opening has nothing to bucket. Seeded with
+    // both namespaces holding the same numeral, which is what a record written
+    // before the split looks like — the buckets must show only the one.
+    recordInStore(progressionStatsStore, [
+      ...times('opening:V', false, 10, 'I'),
+      ...times('numeral:IV', true, 10),
+    ])
+    render(
+      <StatisticsScreen
+        store={progressionStatsStore}
+        view={PROGRESSION_STATS_VIEW}
+        onReset={vi.fn()}
+      />,
+    )
+
+    const buckets = cardUnder('Naming each chord after the first')
+    expect(buckets.getByText('IV')).toBeVisible()
+    expect(buckets.queryByText('V')).toBeNull()
   })
 })
 
