@@ -304,6 +304,20 @@ describe('statsRows', () => {
     ).toEqual(['7-asc'])
   })
 
+  it('leaves out a record for an interval the table no longer has', () => {
+    // Every `interval:0` a user built up before the Unison was removed. It
+    // would otherwise fall through `safely` and print its own raw id, since
+    // there is no name left to look up.
+    const stats = record(
+      ...repeat('interval:0-asc', true, 20),
+      ...repeat('interval:7-asc', false, 20),
+    )
+
+    expect(
+      statsRows(stats, bucketedSection(INTERVAL_STATS_VIEW)).map((r) => r.id),
+    ).toEqual(['7-asc'])
+  })
+
   it('buckets one interval two ways when the two directions differ', () => {
     // The finding, not a contradiction: solid one way and lost the other is
     // exactly what a pooled figure could never say.

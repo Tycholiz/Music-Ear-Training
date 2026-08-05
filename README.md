@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1278 tests across 47 files.** All of `npm run lint`, `npm run build`,
+**1280 tests across 47 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -31,7 +31,7 @@ precaching, install offer, update prompt) and iOS audio handling.
 In progress: a run of follow-ups to the statistics feature, `#110`–`#122` —
 sharper progression statistics, direction-aware interval statistics, drills for
 confusable chords, and some customization and formatting work. `#110`–`#112`
-and `#114`–`#115` are done; `#113` was built and then reverted (see Audio).
+and `#114`–`#116` are done; `#113` was built and then reverted (see Audio).
 
 See **Ideas not yet built** at the end for what is deliberately left undone.
 
@@ -84,7 +84,7 @@ exercises owns generation and grading, routes owns React state.
 src/
   theory/       pure music theory, no React, no audio
     pitch.ts          MIDI numbers, names, pitch classes
-    intervals.ts      interval table (gap between two notes)
+    intervals.ts      interval table (Minor 2nd to Double Octave; no Unison)
     chords.ts         chord table, inversions, root ambiguity
     scales.ts         scale degrees, the scale ladder, tonic chords
     romanNumerals.ts  roman numerals, cadence definitions
@@ -116,6 +116,24 @@ can say that.
 Accidentals are written `♭` (not `b`) everywhere they are shown to a user, since
 `b` reads as a note name. **Ids stay ASCII** (`bIII`) because they go into
 persisted settings, where a stable key matters more than a pretty one.
+
+**These tables are the exercises' vocabulary, not catalogues of music theory.**
+`INTERVALS` has no Unison — two notes at the same pitch are not something anyone
+has to identify, and it cost a special case in every direction-aware path, since
+descending a gap of zero would have read as an octave. Dropping the entry is
+what removes it from the settings list, the answer pad and the statistics at
+once, because all three are built from the table.
+
+Removing one taught a lesson worth keeping: **look up by the id field, never by
+array position.** `intervalBySemitones` was `INTERVALS[semitones]`, which worked
+only because the table happened to begin at zero. Dropping the first entry would
+have shifted every lookup by one and named a Perfect 5th a Tritone with nothing
+throwing. It is a `Map` keyed on `semitones` now.
+
+Anything reading an id out of persisted settings has to check the table still
+has it. `candidateAnswers` filtered only by range and direction, which was
+survivable while every stored id was also in the table — a stored Unison would
+otherwise have generated a question with no button on the pad to answer it.
 
 ### Settings: one store per exercise, sanitised on read _and_ write
 

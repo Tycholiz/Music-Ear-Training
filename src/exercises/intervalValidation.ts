@@ -1,4 +1,4 @@
-import { INTERVALS, intervalName } from '../theory'
+import { INTERVALS, intervalName, isKnownInterval } from '../theory'
 import type { IntervalPlayMode, IntervalSettings } from '../settings'
 import {
   MAX_DESCENDING_ANSWER,
@@ -33,8 +33,11 @@ function canModeProduce(
   mode: IntervalPlayMode,
   settings: IntervalSettings,
 ): boolean {
+  // Same guard as `candidateAnswers`, for the same reason: an id that is not
+  // in the table cannot be asked about, whatever the range and direction say.
+  if (!isKnownInterval(answer)) return false
+
   const descending = isDescending(mode)
-  if (descending && answer === 0) return false
   if (descending && answer > MAX_DESCENDING_ANSWER) return false
   return gapForAnswer(answer, descending) <= rangeSpan(settings)
 }
@@ -110,7 +113,7 @@ function widestRequiredGap(settings: IntervalSettings): number | null {
 
 function blockedByDirection(answer: number, mode: IntervalPlayMode): boolean {
   if (!isDescending(mode)) return false
-  return answer === 0 || answer > MAX_DESCENDING_ANSWER
+  return answer > MAX_DESCENDING_ANSWER
 }
 
 /** Nothing at all can be generated; the exercise itself is stuck. */

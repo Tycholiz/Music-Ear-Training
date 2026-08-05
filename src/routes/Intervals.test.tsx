@@ -262,20 +262,22 @@ describe('menu', () => {
 
 describe('buildCells', () => {
   it('renders a blank cell for every disabled interval, holding position', () => {
+    // The grid follows the table, which now starts at the Minor 2nd — so
+    // position zero is that rather than the Unison.
     const cells = buildCells([1, 3], [], false, null)
-    expect(cells[0]).toBeNull() // Unison
-    expect(cells[1]).toMatchObject({ label: 'Minor 2nd' })
-    expect(cells[2]).toBeNull() // Major 2nd, switched off
-    expect(cells[3]).toMatchObject({ label: 'Minor 3rd' })
+    expect(cells[0]).toMatchObject({ label: 'Minor 2nd' })
+    expect(cells[1]).toBeNull() // Major 2nd, switched off
+    expect(cells[2]).toMatchObject({ label: 'Minor 3rd' })
   })
 
   it('trims trailing blank rows rather than leaving dead space', () => {
-    // Nothing above Minor 3rd is enabled, so the grid stops there.
+    // Nothing above Minor 3rd is enabled, so the grid stops there — padded to
+    // four to keep the two-column grid rectangular.
     expect(buildCells([1, 3], [], false, null)).toHaveLength(4)
   })
 
   it('keeps the two-column grid rectangular', () => {
-    for (const enabled of [[1], [1, 2], [1, 2, 3], [0, 24]]) {
+    for (const enabled of [[1], [1, 2], [1, 2, 3], [1, 24]]) {
       expect(
         buildCells(enabled, [], false, null).length % 2,
         `${enabled}`,
@@ -295,7 +297,7 @@ describe('buildCells', () => {
 
   it('leaves the answer idle until the question is solved', () => {
     const cells = buildCells([7], [], false, P5)
-    expect(cells[7]).toMatchObject({ label: 'Perfect 5th', state: 'idle' })
+    expect(cells[6]).toMatchObject({ label: 'Perfect 5th', state: 'idle' })
   })
 })
 

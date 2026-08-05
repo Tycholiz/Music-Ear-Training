@@ -2,6 +2,7 @@ import {
   CADENCES,
   chordById,
   degreeLabel,
+  isKnownInterval,
   numeralById,
   numeralsInCustomizeOrder,
   scaleById,
@@ -199,11 +200,18 @@ export const INTERVAL_STATS_VIEW: StatsView = {
       namespace: 'interval',
       title: 'Naming each interval',
       label: safely(directedIntervalName),
-      // Records written before direction was part of the identity are an
-      // average of two skills. There is no way to say now which one they were,
-      // so they are left off rather than shown beside the rows that replaced
-      // them.
-      recognises: (value) => parseIntervalValue(value).direction !== null,
+      // Two kinds of record get left off rather than shown.
+      //
+      // Ones written before direction was part of the identity are an average
+      // of two skills, and there is no way to say now which one they were.
+      //
+      // Ones naming an interval the app no longer has — every `interval:0`, now
+      // that the Unison is gone — would otherwise fall through `safely` and
+      // print their own raw id.
+      recognises: (value) => {
+        const { semitones, direction } = parseIntervalValue(value)
+        return direction !== null && isKnownInterval(semitones)
+      },
       bucketed: true,
       showsConfusions: true,
     },

@@ -157,7 +157,7 @@ export const DEFAULT_RANGE: NoteRange = {
   high: nameToMidi('C5'),
 }
 
-/** Minor 2nd through Octave. Unison and the compound intervals start off. */
+/** Every simple interval. The compound ones start off. */
 export const DEFAULT_INTERVAL_SETTINGS: IntervalSettings = {
   intervals: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
   playModes: ['ascending', 'harmonic'],
