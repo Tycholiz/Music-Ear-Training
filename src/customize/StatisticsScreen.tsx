@@ -262,12 +262,18 @@ function PlainList({
  * stays on its own line. The three levels are the point: what the item is, that
  * a diagnosis follows, and what the diagnosis says. Run together at one size
  * they read as one long label, and the row stops having a subject.
+ *
+ * `alignFirstLine` because those extra lines make rows different heights, and a
+ * centred value drifts to the middle of each — so one card's figures sat at
+ * three different heights and the accuracy column stopped reading as a column.
+ * Aligned to the first line, every figure sits beside the thing it is about.
  */
 function StatRow({ row, section }: { row: StatsRow; section: StatsSection }) {
   const confusions = confusionsFor(row, section)
 
   return (
     <ListRow
+      alignFirstLine
       label={
         <>
           <span className="block">{row.label}</span>
@@ -295,12 +301,21 @@ function StatRow({ row, section }: { row: StatsRow; section: StatsSection }) {
  * threshold already guarantees the figure is worth trusting, so repeating the
  * sample size next to it adds a number the reader has to decide what to do
  * with and answers a question they were not asking.
+ *
+ * Small and unwrappable, in that order. It is a supporting figure rather than
+ * the row's headline — the item name is what the reader is scanning for — and
+ * at the row's own size it competed with the name for the eye. `nowrap` because
+ * "33% accurate" is a word longer than "0% accurate": squeezed by a long label
+ * the longer one broke over two lines and the shorter one did not, which is
+ * what put two figures in the same card at different heights. Between the
+ * smaller size and `shrink-0` on the value it now has the room, but the rule is
+ * what guarantees it.
  */
 function Accuracy({ row }: { row: StatsRow }) {
   if (row.accuracy === null) return null
 
   return (
-    <span className="tabular-nums">
+    <span className="text-xs whitespace-nowrap tabular-nums">
       {Math.round(row.accuracy * 100)}% accurate
     </span>
   )
