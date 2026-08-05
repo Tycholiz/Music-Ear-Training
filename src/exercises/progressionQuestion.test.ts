@@ -604,6 +604,99 @@ describe('harmonic shape', () => {
   })
 })
 
+describe('the circle of fifths', () => {
+  /** The diatonic set, where the circle runs iii vi ii V I. */
+  const diatonic = settingsWith({
+    numerals: ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii-dim'],
+    cadences: [...CADENCES],
+    length: 5,
+  })
+
+  const rootOf = (id: string) => NUMERALS.find((n) => n.id === id)!.root
+
+  /** Whether the root falls a fifth, measured up a fourth. */
+  function fallsAFifth(from: string, to: string): boolean {
+    return (((rootOf(to) - rootOf(from)) % 12) + 12) % 12 === 5
+  }
+
+  /** The longest run of consecutive falling fifths in a progression. */
+  function longestRun(numerals: readonly string[]): number {
+    let best = 0
+    let run = 0
+    for (let i = 1; i < numerals.length; i++) {
+      run = fallsAFifth(numerals[i - 1], numerals[i]) ? run + 1 : 0
+      if (run > best) best = run
+    }
+    return best
+  }
+
+  /** What share of progressions contain a run of at least `moves` fifths. */
+  function shareWithRun(
+    settings: ProgressionSettings,
+    moves: number,
+    count = 600,
+  ): number {
+    const hits = sample(settings, count).filter(
+      (q) => longestRun(q.numerals) >= moves,
+    ).length
+    return hits / count
+  }
+
+  it('produces fifths sequences often enough to be practised', () => {
+    // Two consecutive falling fifths is a three-chord sequence — `ii V I`, or
+    // `vi ii V`. Unweighted this happened in about one progression in six, by
+    // accident rather than design, and a user could practise for a long time
+    // without meeting one as a *sequence*. Measured at about a half.
+    expect(shareWithRun(diatonic, 2)).toBeGreaterThan(0.3)
+  })
+
+  it('produces the longer runs too, not just ii V I', () => {
+    // Three consecutive fifths is `vi ii V I`. Measured at about one in six,
+    // against about one in twenty-five before the weighting.
+    expect(shareWithRun(diatonic, 3)).toBeGreaterThan(0.06)
+  })
+
+  it('does not turn every progression into the same sequence', () => {
+    // The upper bound matters as much as the lower one. A hard rule rather
+    // than a weight would run every chain to its end, and the user would learn
+    // one shape rather than the sound of the move — the failure the melody
+    // generator shipped with when every melody ended on a chord tone.
+    expect(shareWithRun(diatonic, 3)).toBeLessThan(0.6)
+
+    const shapes = new Set(
+      sample(diatonic, 300).map((q) => q.numerals.join(' ')),
+    )
+    expect(shapes.size).toBeGreaterThan(20)
+  })
+
+  it('keeps every invariant while it favours the circle', () => {
+    // The reason this is a weighting rather than a pattern of its own: the
+    // walk was already free to make these choices, so nothing it guarantees
+    // can be broken by preferring some of them.
+    const enabled = new Set(diatonic.numerals)
+
+    for (const question of sample(diatonic, 300)) {
+      expect(question.numerals).toHaveLength(diatonic.length)
+      for (const id of question.numerals) {
+        expect(enabled.has(id), id).toBe(true)
+      }
+      const ending = cadenceNumerals(question.cadence)
+      expect(question.numerals.slice(-ending.length)).toEqual([...ending])
+    }
+  })
+
+  it('favours the circle without needing every chord switched on', () => {
+    // A selection that cannot reach `iii` still gets `vi ii V I`.
+    const narrow = settingsWith({
+      numerals: ['I', 'ii', 'IV', 'V', 'vi'],
+      cadences: ['authentic'],
+      length: 5,
+    })
+
+    expect(shareWithRun(narrow, 2)).toBeGreaterThan(0.3)
+  })
+})
+
 describe('checkProgression', () => {
   const question: ProgressionQuestion = {
     numerals: ['I', 'vi', 'V', 'I'],
