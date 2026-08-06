@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1312 tests across 48 files.** All of `npm run lint`, `npm run build`,
+**1316 tests across 48 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -657,6 +657,31 @@ Two separate layers, and fixing one does not fix the other:
 
 Neither is verifiable off-device. The state machines are tested against fakes;
 the fixes need a real iPhone, in Safari and installed to the home screen.
+
+### Scroll stays inside the modal, and it took three rules
+
+Scrolling the sheet moved the exercise page behind it. Three separate things
+were letting it, and fixing any one of them alone left a case that still leaked.
+
+**`overscroll-y-contain` on the sheet's scroller** stops a scroll that reaches
+the end of the content from chaining outward. But it **only takes effect on a
+container that is actually scrolling** — a screen whose content fits, like the
+root menu or most Customize screens, absorbs nothing at all, so the drag goes
+straight past it. That is why fixing the statistics screen looked like fixing
+the problem, and the short screens still leaked.
+
+**The page is held still while the sheet is open**, with `overflow: hidden` on
+both `documentElement` and `body`, restored to whatever they had rather than to
+`''`. That is what covers the screens with nothing to scroll. Both elements,
+because which one scrolls the viewport differs by browser.
+
+**`overscroll-behavior: none` is set on `html` as well as `body`**, and the pair
+is not redundant for the same reason: which element the viewport takes it from
+is not agreed between browsers. Set on one alone it works in some and silently
+does nothing in others.
+
+The scrim is `touch-none` alongside all of it: it cannot scroll, so a drag on it
+would otherwise fall through to the nearest thing that can.
 
 ### PWA updates
 

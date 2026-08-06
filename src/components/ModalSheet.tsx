@@ -82,6 +82,37 @@ export function ModalSheet({
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [open, back])
 
+  /**
+   * Hold the page still underneath while the sheet is up.
+   *
+   * `overscroll-y-contain` on the sheet's own scroller is not enough on its
+   * own, and the way it fails is worth knowing: **it only takes effect on a
+   * container that is actually scrolling.** A screen whose content fits — the
+   * root menu, most of the Customize screens — has nothing to scroll, so the
+   * drag is never absorbed there at all and goes straight to the page behind.
+   * That is why the statistics screen behaved and the short ones did not, and
+   * why the containment looked like it worked.
+   *
+   * So the page is taken out of the equation rather than asked nicely. Both
+   * elements, because which one scrolls the viewport differs by browser, and
+   * both are restored to whatever they had rather than to `''` — the app sets
+   * neither today, but a rule arriving later should not be quietly erased by
+   * closing a modal.
+   */
+  useEffect(() => {
+    if (!open) return
+
+    const targets = [document.documentElement, document.body]
+    const before = targets.map((element) => element.style.overflow)
+    for (const element of targets) element.style.overflow = 'hidden'
+
+    return () => {
+      targets.forEach((element, i) => {
+        element.style.overflow = before[i]
+      })
+    }
+  }, [open])
+
   if (!open) return null
 
   const current: ModalScreen = stack.at(-1) ?? { title, content: children }
@@ -92,12 +123,17 @@ export function ModalSheet({
       <div className="fixed inset-0 z-50 flex items-end justify-center">
         {/* Scrim, not a control: the header already exposes a labelled Close
             button and Escape works, so announcing a second dismiss affordance
-            would just be noise. */}
+            would just be noise.
+
+            `touch-none` because it is not scrollable and does not want to be
+            mistaken for something that is: a drag here would otherwise fall
+            through to the nearest thing that *can* scroll, which is the page
+            the sheet is covering. */}
         <div
           aria-hidden
           data-testid="modal-backdrop"
           onClick={close}
-          className={`absolute inset-0 bg-black/50 transition-opacity duration-300 ${
+          className={`absolute inset-0 touch-none bg-black/50 transition-opacity duration-300 ${
             raised ? 'opacity-100' : 'opacity-0'
           }`}
         />
@@ -123,9 +159,22 @@ export function ModalSheet({
           </header>
 
           <div className="relative flex-1 overflow-hidden">
+            {/*
+              `overscroll-y-contain` so a scroll that reaches the end of this
+              screen stops there. Without it the gesture chains outward to the
+              next thing that can scroll — the exercise page the sheet is
+              covering — and the user watches the background move while they are
+              reading a modal, which is not something they asked for and not
+              something they can see the cause of.
+
+              `body { overscroll-behavior: none }` in `index.css` does not cover
+              this. That stops the *body* passing its own overscroll on to the
+              document; it says nothing about a nested scroller passing scroll
+              *into* the body, which is the direction this travels.
+            */}
             <div
               key={depth}
-              className={`h-full overflow-y-auto ${
+              className={`h-full overflow-y-auto overscroll-y-contain ${
                 depth > 0 ? 'modal-screen-in' : ''
               }`}
             >

@@ -141,6 +141,81 @@ describe('ModalSheet', () => {
     await waitFor(() => expect(onClose).toHaveBeenCalledOnce())
   })
 
+  it('keeps a scroll inside the sheet rather than moving the page behind it', () => {
+    // A scroll that reaches the end of the sheet chains outward to the next
+    // thing that can scroll, which is the exercise page the sheet is covering.
+    // The user then watches the background move while reading a modal, with
+    // nothing on screen to explain why.
+    //
+    // `body { overscroll-behavior: none }` does not cover this: that stops the
+    // body passing its *own* overscroll to the document, and says nothing about
+    // a nested scroller passing scroll into the body.
+    render(
+      <ModalSheet open onClose={vi.fn()} title="Statistics">
+        <p>Content</p>
+      </ModalSheet>,
+    )
+
+    const scroller = screen.getByText('Content').closest('.overflow-y-auto')
+    expect(scroller?.className).toContain('overscroll-y-contain')
+  })
+
+  it('holds the page still while it is open, and gives it back after', () => {
+    // Containment on the sheet's own scroller only takes effect on a container
+    // that is actually scrolling. A screen whose content fits — the root menu,
+    // most of the Customize screens — absorbs nothing, so the drag goes to the
+    // page behind. That is why the statistics screen behaved and the short ones
+    // did not.
+    const { rerender } = render(
+      <ModalSheet open onClose={vi.fn()} title="Menu">
+        <p>Content</p>
+      </ModalSheet>,
+    )
+
+    expect(document.documentElement.style.overflow).toBe('hidden')
+    expect(document.body.style.overflow).toBe('hidden')
+
+    rerender(
+      <ModalSheet open={false} onClose={vi.fn()} title="Menu">
+        <p>Content</p>
+      </ModalSheet>,
+    )
+
+    expect(document.documentElement.style.overflow).toBe('')
+    expect(document.body.style.overflow).toBe('')
+  })
+
+  it('gives back whatever the page had, not an empty string', () => {
+    // The app sets neither today. A rule arriving later should not be quietly
+    // erased by opening and closing a modal.
+    document.body.style.overflow = 'scroll'
+
+    const { unmount } = render(
+      <ModalSheet open onClose={vi.fn()} title="Menu">
+        <p>Content</p>
+      </ModalSheet>,
+    )
+    expect(document.body.style.overflow).toBe('hidden')
+
+    unmount()
+    expect(document.body.style.overflow).toBe('scroll')
+    document.body.style.overflow = ''
+  })
+
+  it('does not let a drag on the scrim scroll the page', () => {
+    // The scrim cannot scroll and should not be mistaken for something that
+    // can: a drag there falls through to the nearest thing that *can*.
+    render(
+      <ModalSheet open onClose={vi.fn()} title="Statistics">
+        <p>Content</p>
+      </ModalSheet>,
+    )
+
+    expect(screen.getByTestId('modal-backdrop').className).toContain(
+      'touch-none',
+    )
+  })
+
   it('throws if the nav hook is used outside a sheet', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     expect(() => render(<Root />)).toThrow(/inside a ModalSheet/)
