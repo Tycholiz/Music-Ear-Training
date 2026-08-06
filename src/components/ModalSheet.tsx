@@ -82,6 +82,37 @@ export function ModalSheet({
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [open, back])
 
+  /**
+   * Hold the page still underneath while the sheet is up.
+   *
+   * `overscroll-y-contain` on the sheet's own scroller is not enough on its
+   * own, and the way it fails is worth knowing: **it only takes effect on a
+   * container that is actually scrolling.** A screen whose content fits — the
+   * root menu, most of the Customize screens — has nothing to scroll, so the
+   * drag is never absorbed there at all and goes straight to the page behind.
+   * That is why the statistics screen behaved and the short ones did not, and
+   * why the containment looked like it worked.
+   *
+   * So the page is taken out of the equation rather than asked nicely. Both
+   * elements, because which one scrolls the viewport differs by browser, and
+   * both are restored to whatever they had rather than to `''` — the app sets
+   * neither today, but a rule arriving later should not be quietly erased by
+   * closing a modal.
+   */
+  useEffect(() => {
+    if (!open) return
+
+    const targets = [document.documentElement, document.body]
+    const before = targets.map((element) => element.style.overflow)
+    for (const element of targets) element.style.overflow = 'hidden'
+
+    return () => {
+      targets.forEach((element, i) => {
+        element.style.overflow = before[i]
+      })
+    }
+  }, [open])
+
   if (!open) return null
 
   const current: ModalScreen = stack.at(-1) ?? { title, content: children }

@@ -160,6 +160,48 @@ describe('ModalSheet', () => {
     expect(scroller?.className).toContain('overscroll-y-contain')
   })
 
+  it('holds the page still while it is open, and gives it back after', () => {
+    // Containment on the sheet's own scroller only takes effect on a container
+    // that is actually scrolling. A screen whose content fits — the root menu,
+    // most of the Customize screens — absorbs nothing, so the drag goes to the
+    // page behind. That is why the statistics screen behaved and the short ones
+    // did not.
+    const { rerender } = render(
+      <ModalSheet open onClose={vi.fn()} title="Menu">
+        <p>Content</p>
+      </ModalSheet>,
+    )
+
+    expect(document.documentElement.style.overflow).toBe('hidden')
+    expect(document.body.style.overflow).toBe('hidden')
+
+    rerender(
+      <ModalSheet open={false} onClose={vi.fn()} title="Menu">
+        <p>Content</p>
+      </ModalSheet>,
+    )
+
+    expect(document.documentElement.style.overflow).toBe('')
+    expect(document.body.style.overflow).toBe('')
+  })
+
+  it('gives back whatever the page had, not an empty string', () => {
+    // The app sets neither today. A rule arriving later should not be quietly
+    // erased by opening and closing a modal.
+    document.body.style.overflow = 'scroll'
+
+    const { unmount } = render(
+      <ModalSheet open onClose={vi.fn()} title="Menu">
+        <p>Content</p>
+      </ModalSheet>,
+    )
+    expect(document.body.style.overflow).toBe('hidden')
+
+    unmount()
+    expect(document.body.style.overflow).toBe('scroll')
+    document.body.style.overflow = ''
+  })
+
   it('does not let a drag on the scrim scroll the page', () => {
     // The scrim cannot scroll and should not be mistaken for something that
     // can: a drag there falls through to the nearest thing that *can*.

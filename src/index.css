@@ -31,6 +31,16 @@ body,
   height: 100%;
 }
 
+/* On `html` as well as `body`, and the pair is not redundant. What scrolls the
+   page is the viewport, and which element's `overscroll-behavior` the viewport
+   takes is not agreed between browsers — some read the root element, some
+   accept it propagated up from `body`. Set on one alone it works in some
+   browsers and silently does nothing in others, which is the worst of the
+   three options. */
+html {
+  overscroll-behavior: none;
+}
+
 body {
   background-color: var(--color-page);
   color: var(--color-content);
