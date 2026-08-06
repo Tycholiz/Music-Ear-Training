@@ -52,6 +52,18 @@ beforeEach(() => {
   chordSettingsStore.reset()
 })
 
+/**
+ * The chord rows, without the "All …" rows that stand for a whole group.
+ *
+ * Those are checkboxes too, so counting every checkbox on the screen counts
+ * the groups as chords.
+ */
+function chordCheckboxes() {
+  return screen
+    .getAllByRole('checkbox')
+    .filter((box) => !/^All /.test(box.textContent ?? ''))
+}
+
 describe('the root exercise gets the same four settings', () => {
   it('offers chords, inversions, range and play mode', async () => {
     const { user } = openRootMenu()
@@ -160,9 +172,7 @@ describe('chords with no identifiable root are not offered', () => {
     const { user } = openRootMenu()
     await goTo(user, 'Chords')
 
-    expect(screen.getAllByRole('checkbox')).toHaveLength(
-      UNAMBIGUOUS_ROOT_CHORDS.length,
-    )
+    expect(chordCheckboxes()).toHaveLength(UNAMBIGUOUS_ROOT_CHORDS.length)
   })
 
   it('hides a category left empty by the filter', async () => {
@@ -190,7 +200,7 @@ describe('chords with no identifiable root are not offered', () => {
 
     // Ambiguity of root is irrelevant when the question is which chord it is.
     expect(screen.getByRole('checkbox', { name: 'Sus2' })).toBeVisible()
-    expect(screen.getAllByRole('checkbox')).toHaveLength(CHORDS.length)
+    expect(chordCheckboxes()).toHaveLength(CHORDS.length)
   })
 })
 

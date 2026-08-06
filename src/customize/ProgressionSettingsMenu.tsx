@@ -18,8 +18,9 @@ import {
   midiToName,
   numeralsByDifficulty,
   numeralsInCategory,
+  numeralsInCustomizeOrder,
 } from '../theory'
-import type { Cadence } from '../theory'
+import type { Cadence, RomanNumeral } from '../theory'
 import {
   PROGRESSION_STATS_VIEW,
   CADENCE_DESCRIPTIONS,
@@ -35,6 +36,7 @@ import {
 } from '../exercises'
 import { RangeScreen } from './RangeScreen'
 import { StatisticsScreen } from './StatisticsScreen'
+import { afterGroupToggle, groupDisabled, groupState } from './bulkSelect'
 
 /**
  * Hamburger menu for the chord progression exercise, and the Customize screen
@@ -185,20 +187,63 @@ function NumeralsScreen() {
   const [settings, setSettings] = usePersisted(progressionSettingsStore)
   const chosen = new Set(settings.numerals)
 
+  const inOrder = (ids: Iterable<string>) => {
+    const wanted = new Set(ids)
+    return numeralsByDifficulty()
+      .map((numeral) => numeral.id)
+      .filter((id) => wanted.has(id))
+  }
+
   const toggle = (numeralId: string, checked: boolean) => {
     const numerals = checked
-      ? numeralsByDifficulty()
-          .map((numeral) => numeral.id)
-          .filter((id) => chosen.has(id) || id === numeralId)
+      ? inOrder([...settings.numerals, numeralId])
       : settings.numerals.filter((id) => id !== numeralId)
 
     setSettings({ ...settings, numerals })
   }
 
+  /**
+   * What a group checkbox needs about each numeral.
+   *
+   * `canDisable` is the interesting one here: a numeral an enabled cadence
+   * depends on is locked, and a bulk uncheck has to leave it exactly as a
+   * single tap would — switching off every chord a plagal cadence is made of
+   * would break the setting the lock exists to protect.
+   */
+  const selectable = (numerals: readonly RomanNumeral[]) =>
+    numerals.map((numeral) => ({
+      id: numeral.id,
+      checked: chosen.has(numeral.id),
+      canEnable: true,
+      canDisable:
+        !chosen.has(numeral.id) ||
+        numeralLockWarning(numeral.id, settings) === null,
+    }))
+
+  const toggleGroup = (numerals: readonly RomanNumeral[]) => {
+    const next = afterGroupToggle(selectable(numerals), settings.numerals)
+    if (next) setSettings({ ...settings, numerals: inOrder(next) })
+  }
+
+  const groupRow = (label: string, numerals: readonly RomanNumeral[]) => (
+    <CheckRow
+      label={label}
+      checked={groupState(selectable(numerals))}
+      disabled={groupDisabled(selectable(numerals), settings.numerals)}
+      onChange={() => toggleGroup(numerals)}
+    />
+  )
+
   return (
     <div className="flex flex-col gap-6 p-4">
+      <ListCard>{groupRow('All chords', numeralsInCustomizeOrder())}</ListCard>
+
       {NUMERAL_SECTIONS.map((section) => (
         <ListCard key={section.category} title={section.title}>
+          {groupRow(
+            `All ${section.title.toLowerCase()}`,
+            numeralsInCategory(section.category),
+          )}
           {numeralsInCategory(section.category).map((numeral) => {
             const checked = chosen.has(numeral.id)
             const warning = checked

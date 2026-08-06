@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1316 tests across 48 files.** All of `npm run lint`, `npm run build`,
+**1339 tests across 49 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -31,7 +31,7 @@ precaching, install offer, update prompt) and iOS audio handling.
 In progress: a run of follow-ups to the statistics feature, `#110`–`#122` —
 sharper progression statistics, direction-aware interval statistics, drills for
 confusable chords, and some customization and formatting work. `#110`–`#112`,
-`#114`–`#117`, `#121` and `#122` are done; `#113` was built and then reverted (see Audio).
+`#114`–`#117` and `#120`–`#122` are done; `#113` was built and then reverted (see Audio).
 
 See **Ideas not yet built** at the end for what is deliberately left undone.
 
@@ -714,6 +714,23 @@ place deliberately; remove it or revive it, but do not assume it is wired up.
 - **Shared UI is parameterised, not duplicated.** `ChordSettingsMenu` serves two
   exercises via a store prop and an `extraRows` slot. `RangeScreen` takes its
   value, footer and warning from the caller.
+- **A group checkbox obeys the rules the rows already have.** Sectioned
+  checklists carry an "All …" row per section and one for the whole screen,
+  three-state so a partial group reads as `mixed` rather than lying in either
+  direction. Tapping a partial group goes to _all_, never to none: the tap means
+  "I want these", and the user who wants none is one more tap away.
+
+  The screens hand `bulkSelect.ts` what they already computed per row — whether
+  it may be switched on, whether it may be switched off — so a group can never
+  reach past a chord the range cannot build or a numeral an enabled cadence
+  depends on. It would otherwise be the way round both.
+
+  **Nothing may write an empty selection.** `sanitizeSelection` reads one as
+  corrupt and returns the _defaults_, so a bulk uncheck that emptied the list
+  would look like the screen resetting itself to something the user never chose.
+  A group whose tap would empty the list is disabled, which is the rule the last
+  remaining individual row already follows.
+
 - **A disabled control names its reason on the row, not off in a shared note.**
   The progression chords screen used to print one line under the whole card,
   for whichever locked chord happened to come first — nowhere near the row a

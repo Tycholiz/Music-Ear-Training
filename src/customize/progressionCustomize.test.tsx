@@ -48,6 +48,19 @@ beforeEach(() => {
   progressionSettingsStore.reset()
 })
 
+/**
+ * The numeral rows, without the "All …" rows standing for whole groups.
+ *
+ * Those are checkboxes too, so counting every checkbox counts the groups as
+ * chords.
+ */
+function numeralLabels(): string[] {
+  return screen
+    .getAllByRole('checkbox')
+    .map((element) => element.textContent?.trim() ?? '')
+    .filter((text) => !/^All /.test(text))
+}
+
 describe('the menu', () => {
   it('resets the score', async () => {
     const { user, onResetScore } = openMenu()
@@ -81,9 +94,7 @@ describe('choosing chords', () => {
     // A locked row's textContent carries its red explanation too (I and V
     // are locked by default), so this checks the leading label rather than
     // an exact match.
-    const labels = screen
-      .getAllByRole('checkbox')
-      .map((element) => element.textContent?.trim())
+    const labels = numeralLabels()
 
     expect(labels.slice(0, 3).map((text) => text?.split('Locked:')[0])).toEqual(
       ['I', 'IV', 'V'],
@@ -135,9 +146,7 @@ describe('choosing chords', () => {
     const { user } = openMenu()
     await openScreen(user, 'Chords')
 
-    const labels = screen
-      .getAllByRole('checkbox')
-      .map((element) => element.textContent?.trim())
+    const labels = numeralLabels()
 
     expect(labels).toHaveLength(15)
     expect(new Set(labels).size).toBe(15)
@@ -510,5 +519,72 @@ describe('warnings', () => {
 
     expect(screen.queryByText(/semitones wide/)).toBeNull()
     expect(screen.queryByText(/No cadence/)).toBeNull()
+  })
+})
+
+describe('checking a whole group of chords at once', () => {
+  it('takes a section without disturbing the rest', async () => {
+    const { user } = openMenu()
+    await openScreen(user, 'Chords')
+
+    await user.click(
+      screen.getByRole('checkbox', { name: 'All secondary dominants' }),
+    )
+
+    await waitFor(() => {
+      const chosen = progressionSettingsStore.read().numerals
+      for (const id of ['II', 'III', 'VI']) expect(chosen).toContain(id)
+      // The defaults it started with are still there.
+      for (const id of ['I', 'IV', 'V']) expect(chosen).toContain(id)
+    })
+  })
+
+  it('leaves a chord an enabled cadence depends on switched on', async () => {
+    // The whole risk of a bulk uncheck. `I` and `V` are what an authentic
+    // cadence is made of, and switching them off would break the setting the
+    // lock exists to protect — so the group has to stop exactly where a single
+    // tap on that row already stops.
+    //
+    // A borrowed chord is switched on first so that emptying the diatonic
+    // section would still leave *something* selected. Without it the refusal
+    // to empty the list does the work and the lock is never tested — which is
+    // how an earlier version of this test passed while ignoring locks.
+    progressionSettingsStore.write({
+      ...DEFAULT_PROGRESSION_SETTINGS,
+      numerals: ['I', 'IV', 'V', 'bVII'],
+    })
+    const { user } = openMenu()
+    await openScreen(user, 'Chords')
+
+    await user.click(screen.getByRole('checkbox', { name: 'All diatonic' }))
+    await user.click(screen.getByRole('checkbox', { name: 'All diatonic' }))
+
+    await waitFor(() => {
+      const chosen = progressionSettingsStore.read().numerals
+      // The locked pair survived; the unlocked diatonic chords did not.
+      expect(chosen).toContain('I')
+      expect(chosen).toContain('V')
+      expect(chosen).not.toContain('ii')
+      expect(chosen).not.toContain('iii')
+    })
+  })
+
+  it('keeps the locked rows locked afterwards', async () => {
+    const { user } = openMenu()
+    await openScreen(user, 'Chords')
+
+    await user.click(screen.getByRole('checkbox', { name: 'All chords' }))
+
+    await waitFor(() => expect(row('I')).toBeDisabled())
+    expect(row('V')).toBeDisabled()
+  })
+
+  it('reads as partly checked when only the defaults are on', async () => {
+    const { user } = openMenu()
+    await openScreen(user, 'Chords')
+
+    expect(
+      screen.getByRole('checkbox', { name: 'All chords' }),
+    ).toHaveAttribute('aria-checked', 'mixed')
   })
 })

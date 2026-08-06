@@ -90,8 +90,13 @@ describe('intervals screen', () => {
     const { user } = openMenu()
     await goTo(user, 'Intervals')
 
-    // Twenty-four, not twenty-five: there is no Unison to offer.
-    expect(screen.getAllByRole('checkbox')).toHaveLength(24)
+    // Twenty-four, not twenty-five: there is no Unison to offer. The "All …"
+    // rows are checkboxes too and stand for groups rather than intervals.
+    expect(
+      screen
+        .getAllByRole('checkbox')
+        .filter((box) => !/^All /.test(box.textContent ?? '')),
+    ).toHaveLength(24)
     expect(screen.getByRole('heading', { name: 'Simple' })).toBeVisible()
     expect(screen.getByRole('heading', { name: 'Compound' })).toBeVisible()
   })
