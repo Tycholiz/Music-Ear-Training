@@ -11,21 +11,33 @@ import type { ReactNode } from 'react'
 
 export function ListCard({
   title,
+  action,
   footer,
   children,
 }: {
   /** Uppercase section header shown above the card. */
   title?: string
+  /**
+   * A control for the section as a whole, at the trailing edge of its header.
+   *
+   * Above the card rather than inside it, because something that acts on every
+   * row is not one of the rows — put in the list it reads as one more option,
+   * at the same height and with the same tick as the things it stands over.
+   */
+  action?: ReactNode
   /** Muted explanatory text shown below the card. */
   footer?: ReactNode
   children: ReactNode
 }) {
   return (
     <section>
-      {title && (
-        <h2 className="px-4 pb-1.5 text-xs font-medium tracking-wide text-content-muted uppercase">
-          {title}
-        </h2>
+      {(title || action) && (
+        <div className="flex items-baseline justify-between gap-3 px-4 pb-1.5">
+          <h2 className="text-xs font-medium tracking-wide text-content-muted uppercase">
+            {title}
+          </h2>
+          {action}
+        </div>
       )}
       <div className="overflow-hidden rounded-xl bg-surface">{children}</div>
       {footer && (

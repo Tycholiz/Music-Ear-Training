@@ -41,7 +41,6 @@ export function ChordPlayModeScreen({
               key={mode}
               label={CHORD_PLAY_MODE_NAMES[mode]}
               checked={checked}
-              disabled={checked && settings.playModes.length === 1}
               onChange={(next) => toggle(mode, next)}
             />
           )

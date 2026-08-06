@@ -128,15 +128,15 @@ describe('choosing scales', () => {
     )
   })
 
-  it('will not let the last one go', async () => {
-    // Nothing selected can generate nothing; stopping it here means the
-    // exercise never has to explain it.
+  it('lets the last one go', async () => {
+    // The exercise explains it rather than the screen refusing the tap — the
+    // same state a range too narrow to fit a melody already produces.
     const { user } = openMenu()
     await openScreen(user, 'Scales')
 
     expect(
       screen.getByRole('checkbox', { name: /Major Pentatonic/ }),
-    ).toBeDisabled()
+    ).toBeEnabled()
   })
 
   it('summarises a single scale by name and several by count', async () => {

@@ -18,8 +18,9 @@ import {
   midiToName,
   numeralsByDifficulty,
   numeralsInCategory,
+  numeralsInCustomizeOrder,
 } from '../theory'
-import type { Cadence } from '../theory'
+import type { Cadence, RomanNumeral } from '../theory'
 import {
   PROGRESSION_STATS_VIEW,
   CADENCE_DESCRIPTIONS,
@@ -35,6 +36,8 @@ import {
 } from '../exercises'
 import { RangeScreen } from './RangeScreen'
 import { StatisticsScreen } from './StatisticsScreen'
+import { afterGroupToggle, groupCanToggle, groupIsFull } from './bulkSelect'
+import { SelectAll } from './SelectAll'
 
 /**
  * Hamburger menu for the chord progression exercise, and the Customize screen
@@ -185,20 +188,65 @@ function NumeralsScreen() {
   const [settings, setSettings] = usePersisted(progressionSettingsStore)
   const chosen = new Set(settings.numerals)
 
+  const inOrder = (ids: Iterable<string>) => {
+    const wanted = new Set(ids)
+    return numeralsByDifficulty()
+      .map((numeral) => numeral.id)
+      .filter((id) => wanted.has(id))
+  }
+
   const toggle = (numeralId: string, checked: boolean) => {
     const numerals = checked
-      ? numeralsByDifficulty()
-          .map((numeral) => numeral.id)
-          .filter((id) => chosen.has(id) || id === numeralId)
+      ? inOrder([...settings.numerals, numeralId])
       : settings.numerals.filter((id) => id !== numeralId)
 
     setSettings({ ...settings, numerals })
   }
 
+  /**
+   * What a group checkbox needs about each numeral.
+   *
+   * `canDisable` is the interesting one here: a numeral an enabled cadence
+   * depends on is locked, and a bulk uncheck has to leave it exactly as a
+   * single tap would — switching off every chord a plagal cadence is made of
+   * would break the setting the lock exists to protect.
+   */
+  const selectable = (numerals: readonly RomanNumeral[]) =>
+    numerals.map((numeral) => ({
+      id: numeral.id,
+      checked: chosen.has(numeral.id),
+      canEnable: true,
+      canDisable:
+        !chosen.has(numeral.id) ||
+        numeralLockWarning(numeral.id, settings) === null,
+    }))
+
+  const toggleGroup = (numerals: readonly RomanNumeral[]) => {
+    const next = afterGroupToggle(selectable(numerals), settings.numerals)
+    setSettings({ ...settings, numerals: inOrder(next) })
+  }
+
+  const selectAll = (numerals: readonly RomanNumeral[], of?: string) => (
+    <SelectAll
+      of={of}
+      full={groupIsFull(selectable(numerals))}
+      disabled={!groupCanToggle(selectable(numerals))}
+      onToggle={() => toggleGroup(numerals)}
+    />
+  )
+
   return (
     <div className="flex flex-col gap-6 p-4">
+      <div className="flex justify-end px-4">
+        {selectAll(numeralsInCustomizeOrder(), 'chords')}
+      </div>
+
       {NUMERAL_SECTIONS.map((section) => (
-        <ListCard key={section.category} title={section.title}>
+        <ListCard
+          key={section.category}
+          title={section.title}
+          action={selectAll(numeralsInCategory(section.category))}
+        >
           {numeralsInCategory(section.category).map((numeral) => {
             const checked = chosen.has(numeral.id)
             const warning = checked
@@ -247,7 +295,6 @@ function NumeralsScreen() {
 function CadencesScreen() {
   const [settings, setSettings] = usePersisted(progressionSettingsStore)
   const chosen = new Set(settings.cadences)
-  const usable = usableCadences(settings)
 
   const toggle = (cadence: Cadence, checked: boolean) => {
     const cadences = checked
@@ -281,9 +328,11 @@ function CadencesScreen() {
                 </>
               }
               checked={checked}
-              // Either its chords are switched off, or it is the last one that
-              // works and a progression would have no way to end without it.
-              disabled={!available || (checked && usable.length === 1)}
+              // Only its chords being switched off blocks it. The last
+              // working cadence can go too; the exercise then says it cannot
+              // build a progression, which it already says for a range too
+              // narrow to voice one in.
+              disabled={!available}
               onChange={(next) => toggle(cadence, next)}
             />
           )
@@ -375,7 +424,6 @@ function InversionsScreen() {
               key={inversion}
               label={INVERSION_NAMES[inversion]}
               checked={checked}
-              disabled={checked && settings.inversions.length === 1}
               onChange={(next) => toggle(inversion, next)}
             />
           )

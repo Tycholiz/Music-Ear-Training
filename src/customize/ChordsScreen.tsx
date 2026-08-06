@@ -3,6 +3,8 @@ import { CHORDS, CHORD_CATEGORIES, type Chord } from '../theory'
 import { usePersisted } from '../settings'
 import type { ChordSettings, PersistedStore } from '../settings'
 import { chordsWarning, isChordUsable } from '../exercises'
+import { afterGroupToggle, groupCanToggle, groupIsFull } from './bulkSelect'
+import { SelectAll } from './SelectAll'
 
 /**
  * Which chords the user wants to be tested on, grouped by the categories from
@@ -25,31 +27,80 @@ export function ChordsScreen({
   const enabled = new Set(settings.chords)
   const warning = chordsWarning(settings)
 
+  /** Keep the stored order canonical so the answer grid is stable. */
+  const inOrder = (ids: Iterable<string>) => {
+    const chosen = new Set(ids)
+    return available
+      .filter((chord) => chosen.has(chord.id))
+      .map((chord) => chord.id)
+  }
+
   const toggle = (id: string, checked: boolean) => {
-    // Keep the stored order canonical so the answer grid is stable.
     const next = checked
-      ? available
-          .filter((chord) => enabled.has(chord.id) || chord.id === id)
-          .map((chord) => chord.id)
+      ? inOrder([...settings.chords, id])
       : settings.chords.filter((value) => value !== id)
     setSettings({ ...settings, chords: next })
   }
 
+  /**
+   * What a group checkbox needs to know about each chord: the same two rules
+   * the individual rows follow, handed over rather than restated.
+   */
+  const selectable = (chords: readonly Chord[]) =>
+    chords.map((chord) => ({
+      id: chord.id,
+      checked: enabled.has(chord.id),
+      canEnable: isChordUsable(chord.id, settings),
+      canDisable: true,
+    }))
+
+  const toggleGroup = (chords: readonly Chord[]) => {
+    const next = afterGroupToggle(selectable(chords), settings.chords)
+    setSettings({ ...settings, chords: inOrder(next) })
+  }
+
+  const shownCategories = CHORD_CATEGORIES.filter((category) =>
+    available.some((chord) => chord.category === category),
+  )
+
   return (
     <div className="flex flex-col gap-6 p-4">
-      {CHORD_CATEGORIES.filter((category) =>
-        available.some((chord) => chord.category === category),
-      ).map((category, index, shown) => (
-        <ListCard
-          key={category}
-          title={category}
-          // Attach the warning to the last card so it reads as a summary of
-          // the whole screen rather than of one category.
-          footer={index === shown.length - 1 ? warning : undefined}
-        >
-          {available
-            .filter((chord) => chord.category === category)
-            .map((chord) => {
+      {/*
+        The whole screen, above the sections it stands for. Someone who wants
+        eighteen of the twenty chords has been tapping eighteen times to get
+        there, and the shortest way to a large selection is to take all of them
+        and put a few back.
+      */}
+      <div className="flex justify-end px-4">
+        <SelectAll
+          of="chords"
+          full={groupIsFull(selectable(available))}
+          disabled={!groupCanToggle(selectable(available))}
+          onToggle={() => toggleGroup(available)}
+        />
+      </div>
+
+      {shownCategories.map((category, index, shown) => {
+        const inCategory = available.filter(
+          (chord) => chord.category === category,
+        )
+
+        return (
+          <ListCard
+            key={category}
+            title={category}
+            action={
+              <SelectAll
+                full={groupIsFull(selectable(inCategory))}
+                disabled={!groupCanToggle(selectable(inCategory))}
+                onToggle={() => toggleGroup(inCategory)}
+              />
+            }
+            // Attach the warning to the last card so it reads as a summary of
+            // the whole screen rather than of one category.
+            footer={index === shown.length - 1 ? warning : undefined}
+          >
+            {inCategory.map((chord) => {
               const checked = enabled.has(chord.id)
               const usable = isChordUsable(chord.id, settings)
 
@@ -67,18 +118,17 @@ export function ChordsScreen({
                   }
                   checked={checked}
                   // An unbuildable chord can still be switched off — only
-                  // turning one on is blocked. The last remaining chord is
-                  // pinned so the exercise always has something to ask.
-                  disabled={
-                    (!checked && !usable) ||
-                    (checked && settings.chords.length === 1)
-                  }
+                  // turning one on is blocked. Switching off the last one is
+                  // allowed: the exercise says it has nothing to ask, which is
+                  // a state it already shows when the range is too narrow.
+                  disabled={!checked && !usable}
                   onChange={(next) => toggle(chord.id, next)}
                 />
               )
             })}
-        </ListCard>
-      ))}
+          </ListCard>
+        )
+      })}
     </div>
   )
 }

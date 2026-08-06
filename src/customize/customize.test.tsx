@@ -90,8 +90,13 @@ describe('intervals screen', () => {
     const { user } = openMenu()
     await goTo(user, 'Intervals')
 
-    // Twenty-four, not twenty-five: there is no Unison to offer.
-    expect(screen.getAllByRole('checkbox')).toHaveLength(24)
+    // Twenty-four, not twenty-five: there is no Unison to offer. The "All …"
+    // rows are checkboxes too and stand for groups rather than intervals.
+    expect(
+      screen
+        .getAllByRole('checkbox')
+        .filter((box) => !/^All /.test(box.textContent ?? '')),
+    ).toHaveLength(24)
     expect(screen.getByRole('heading', { name: 'Simple' })).toBeVisible()
     expect(screen.getByRole('heading', { name: 'Compound' })).toBeVisible()
   })
@@ -142,12 +147,22 @@ describe('intervals screen', () => {
     expect(screen.getByRole('checkbox', { name: 'Octave' })).toBeEnabled()
   })
 
-  it('pins the last remaining interval so the exercise always has something to ask', async () => {
+  it('lets the last remaining interval go', async () => {
+    // Switching off the last one is allowed now. The exercise says it has
+    // nothing to ask — a state it already shows for a range too narrow to
+    // play in — rather than the screen refusing the tap, which made the
+    // section "select all" work on one list and silently not on another.
     write({ intervals: [7] })
     const { user } = openMenu()
     await goTo(user, 'Intervals')
 
-    expect(screen.getByRole('checkbox', { name: 'Perfect 5th' })).toBeDisabled()
+    const only = screen.getByRole('checkbox', { name: 'Perfect 5th' })
+    expect(only).toBeEnabled()
+
+    await user.click(only)
+    await waitFor(() =>
+      expect(intervalSettingsStore.read().intervals).toEqual([]),
+    )
   })
 
   it('still allows switching off an interval that has become unreachable', async () => {
@@ -211,12 +226,12 @@ describe('play mode screen', () => {
     )
   })
 
-  it('pins the last remaining mode', async () => {
+  it('lets the last remaining mode go', async () => {
     write({ playModes: ['harmonic'] })
     const { user } = openMenu()
     await goTo(user, 'Play Mode')
 
-    expect(screen.getByRole('checkbox', { name: 'Harmonic' })).toBeDisabled()
+    expect(screen.getByRole('checkbox', { name: 'Harmonic' })).toBeEnabled()
   })
 
   it('disables a mode that could not produce any enabled interval', async () => {

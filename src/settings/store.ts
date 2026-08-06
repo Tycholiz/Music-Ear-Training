@@ -138,6 +138,22 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
  * `allowed` so lists render consistently. Falls back to `fallback` if nothing
  * survives, since an empty selection can't generate a question.
  */
+/**
+ * An empty selection is a choice; an unrecognisable one is damage.
+ *
+ * These used to be the same answer — anything that came out empty was replaced
+ * with the defaults — and that made "none of them" impossible to store. A user
+ * who deselected everything had the screen fill itself back in with settings
+ * they had never chosen, which is worse than the empty exercise screen they
+ * were asking for and which the app already knows how to show.
+ *
+ * The two are told apart by what arrived rather than by what survived. An empty
+ * array is someone choosing nothing. An array with values in it where *none* is
+ * recognised is a stale or corrupt blob — settings written before an option was
+ * removed, say — and there the defaults are the only sensible answer, because
+ * the alternative is silently switching the exercise off for something the user
+ * never did.
+ */
 export function sanitizeSelection<T>(
   raw: unknown,
   allowed: readonly T[],
@@ -146,7 +162,8 @@ export function sanitizeSelection<T>(
   if (!Array.isArray(raw)) return [...fallback]
   const chosen = new Set(raw)
   const kept = allowed.filter((option) => chosen.has(option))
-  return kept.length > 0 ? kept : [...fallback]
+  if (kept.length === 0 && raw.length > 0) return [...fallback]
+  return kept
 }
 
 export function sanitizeInteger(
