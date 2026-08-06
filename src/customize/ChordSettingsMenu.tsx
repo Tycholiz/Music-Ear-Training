@@ -60,7 +60,7 @@ export function ChordSettingsMenu({
           }
         />
         <ListRow
-          label="Customize Exercise"
+          label="Customization"
           chevron
           onClick={() =>
             push({

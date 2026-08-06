@@ -12,7 +12,7 @@ function Root() {
     <ListCard>
       <ListRow label="Reset Score" onClick={vi.fn()} />
       <ListRow
-        label="Customize Exercise"
+        label="Customization"
         chevron
         onClick={() => push({ title: 'Customize', content: <Customize /> })}
       />
@@ -67,7 +67,7 @@ describe('ModalSheet', () => {
   it('pushes a screen without leaving the sheet', async () => {
     const { user } = open()
 
-    await user.click(screen.getByRole('button', { name: 'Customize Exercise' }))
+    await user.click(screen.getByRole('button', { name: 'Customization' }))
 
     expect(screen.getByRole('heading', { name: 'Customize' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Intervals' })).toBeVisible()
@@ -77,7 +77,7 @@ describe('ModalSheet', () => {
   it('pushes two levels deep', async () => {
     const { user } = open()
 
-    await user.click(screen.getByRole('button', { name: 'Customize Exercise' }))
+    await user.click(screen.getByRole('button', { name: 'Customization' }))
     await user.click(screen.getByRole('button', { name: 'Intervals' }))
 
     expect(screen.getByRole('heading', { name: 'Intervals' })).toBeVisible()
@@ -87,7 +87,7 @@ describe('ModalSheet', () => {
   it('pops one level at a time with the back chevron', async () => {
     const { user } = open()
 
-    await user.click(screen.getByRole('button', { name: 'Customize Exercise' }))
+    await user.click(screen.getByRole('button', { name: 'Customization' }))
     await user.click(screen.getByRole('button', { name: 'Intervals' }))
 
     await user.click(screen.getByRole('button', { name: 'Back' }))
@@ -105,7 +105,7 @@ describe('ModalSheet', () => {
     const { user } = open()
     expect(screen.getByRole('button', { name: 'Close' })).toBeVisible()
 
-    await user.click(screen.getByRole('button', { name: 'Customize Exercise' }))
+    await user.click(screen.getByRole('button', { name: 'Customization' }))
     expect(screen.getByRole('button', { name: 'Back' })).toBeVisible()
   })
 
@@ -129,7 +129,7 @@ describe('ModalSheet', () => {
     const onClose = vi.fn()
     const { user } = open(onClose)
 
-    await user.click(screen.getByRole('button', { name: 'Customize Exercise' }))
+    await user.click(screen.getByRole('button', { name: 'Customization' }))
     await user.keyboard('{Escape}')
 
     await waitFor(() =>

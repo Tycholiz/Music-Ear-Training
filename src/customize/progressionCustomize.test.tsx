@@ -24,7 +24,7 @@ async function openScreen(
   user: ReturnType<typeof userEvent.setup>,
   name: string,
 ) {
-  await user.click(screen.getByRole('button', { name: /Customize Exercise/ }))
+  await user.click(screen.getByRole('button', { name: /Customization/ }))
   await user.click(screen.getByRole('button', { name: new RegExp(name) }))
 }
 
@@ -77,7 +77,7 @@ describe('the menu', () => {
 
   it('summarises each setting without opening it', async () => {
     const { user } = openMenu()
-    await user.click(screen.getByRole('button', { name: /Customize Exercise/ }))
+    await user.click(screen.getByRole('button', { name: /Customization/ }))
 
     // Read off each row rather than by value: Chords and Inversions both
     // happen to say "3 selected" by default, and a bare text query cannot
@@ -471,7 +471,7 @@ describe('length', () => {
     // conclude it had not taken.
     progressionSettingsStore.write(settingsWith({ length: 5, upTo: true }))
     const { user } = openMenu()
-    await user.click(screen.getByRole('button', { name: /Customize Exercise/ }))
+    await user.click(screen.getByRole('button', { name: /Customization/ }))
 
     expect(
       screen.getByRole('button', { name: /^Length/ }).textContent,
@@ -516,7 +516,7 @@ describe('warnings', () => {
       settingsWith({ range: { low: 60, high: 67 } }),
     )
     const { user } = openMenu()
-    await user.click(screen.getByRole('button', { name: /Customize Exercise/ }))
+    await user.click(screen.getByRole('button', { name: /Customization/ }))
 
     expect(screen.getByText(/only 7 semitones wide/)).toBeVisible()
     expect(screen.getByText(/Widen it by 5 more/)).toBeVisible()
@@ -524,7 +524,7 @@ describe('warnings', () => {
 
   it('says nothing when the settings are fine', async () => {
     const { user } = openMenu()
-    await user.click(screen.getByRole('button', { name: /Customize Exercise/ }))
+    await user.click(screen.getByRole('button', { name: /Customization/ }))
 
     expect(screen.queryByText(/semitones wide/)).toBeNull()
     expect(screen.queryByText(/No cadence/)).toBeNull()

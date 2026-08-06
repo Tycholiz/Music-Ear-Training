@@ -40,7 +40,7 @@ async function goTo(
   user: ReturnType<typeof userEvent.setup>,
   ...screens: string[]
 ) {
-  await user.click(screen.getByRole('button', { name: 'Customize Exercise' }))
+  await user.click(screen.getByRole('button', { name: 'Customization' }))
   for (const name of screens) {
     await user.click(screen.getByRole('button', { name: new RegExp(name) }))
   }

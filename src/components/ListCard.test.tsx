@@ -37,7 +37,7 @@ describe('ListRow', () => {
   it('calls onClick when tapped', async () => {
     const onClick = vi.fn()
     const user = userEvent.setup()
-    render(<ListRow label="Customize Exercise" chevron onClick={onClick} />)
+    render(<ListRow label="Customization" chevron onClick={onClick} />)
 
     await user.click(screen.getByRole('button'))
     expect(onClick).toHaveBeenCalledOnce()

@@ -23,7 +23,7 @@ async function goTo(
   user: ReturnType<typeof userEvent.setup>,
   ...screens: string[]
 ) {
-  await user.click(screen.getByRole('button', { name: 'Customize Exercise' }))
+  await user.click(screen.getByRole('button', { name: 'Customization' }))
   for (const name of screens) {
     await user.click(screen.getByRole('button', { name: new RegExp(name) }))
   }
@@ -39,12 +39,10 @@ beforeEach(() => {
 })
 
 describe('menu root', () => {
-  it('offers Reset Score and Customize Exercise', () => {
+  it('offers Reset Score and Customization', () => {
     openMenu()
     expect(screen.getByRole('button', { name: 'Reset Score' })).toBeVisible()
-    expect(
-      screen.getByRole('button', { name: /Customize Exercise/ }),
-    ).toBeVisible()
+    expect(screen.getByRole('button', { name: /Customization/ })).toBeVisible()
   })
 
   it('calls back on Reset Score rather than touching settings', async () => {

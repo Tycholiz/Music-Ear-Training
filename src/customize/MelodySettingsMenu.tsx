@@ -68,7 +68,7 @@ export function MelodySettingsMenu({
           }
         />
         <ListRow
-          label="Customize Exercise"
+          label="Customization"
           chevron
           onClick={() =>
             push({ title: 'Customize', content: <CustomizeScreen /> })

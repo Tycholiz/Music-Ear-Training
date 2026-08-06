@@ -53,7 +53,7 @@ export function IntervalMenu({ onResetScore }: { onResetScore: () => void }) {
           }
         />
         <ListRow
-          label="Customize Exercise"
+          label="Customization"
           chevron
           onClick={() =>
             push({ title: 'Customize', content: <CustomizeScreen /> })

@@ -24,7 +24,7 @@ async function openScreen(
   user: ReturnType<typeof userEvent.setup>,
   name: string,
 ) {
-  await user.click(screen.getByRole('button', { name: /Customize Exercise/ }))
+  await user.click(screen.getByRole('button', { name: /Customization/ }))
   await user.click(screen.getByRole('button', { name: new RegExp(name) }))
 }
 
@@ -46,7 +46,7 @@ describe('the menu', () => {
 
   it('summarises each setting without opening it', async () => {
     const { user } = openMenu()
-    await user.click(screen.getByRole('button', { name: /Customize Exercise/ }))
+    await user.click(screen.getByRole('button', { name: /Customization/ }))
 
     expect(screen.getByText('Major Pentatonic')).toBeVisible()
     expect(screen.getByText('None')).toBeVisible()
@@ -144,7 +144,7 @@ describe('choosing scales', () => {
       settingsWith({ scaleIds: ['major', 'blues', 'dorian'] }),
     )
     const { user } = openMenu()
-    await user.click(screen.getByRole('button', { name: /Customize Exercise/ }))
+    await user.click(screen.getByRole('button', { name: /Customization/ }))
 
     expect(screen.getByText('3 selected')).toBeVisible()
   })
@@ -320,7 +320,7 @@ describe('warnings', () => {
   it('flags an impossible range in the modal, not only on the exercise', async () => {
     melodySettingsStore.write(settingsWith({ range: { low: 60, high: 64 } }))
     const { user } = openMenu()
-    await user.click(screen.getByRole('button', { name: /Customize Exercise/ }))
+    await user.click(screen.getByRole('button', { name: /Customization/ }))
 
     expect(screen.getByText(/A melody spans an octave/i)).toBeVisible()
   })
@@ -330,14 +330,14 @@ describe('warnings', () => {
       settingsWith({ scaleIds: ['major'], featured: [0, 2, 4, 5], length: 3 }),
     )
     const { user } = openMenu()
-    await user.click(screen.getByRole('button', { name: /Customize Exercise/ }))
+    await user.click(screen.getByRole('button', { name: /Customization/ }))
 
     expect(screen.getByText(/cannot all appear/i)).toBeVisible()
   })
 
   it('says nothing when the settings are fine', async () => {
     const { user } = openMenu()
-    await user.click(screen.getByRole('button', { name: /Customize Exercise/ }))
+    await user.click(screen.getByRole('button', { name: /Customization/ }))
 
     expect(screen.queryByText(/cannot all appear/i)).toBeNull()
     expect(screen.queryByText(/A melody spans an octave/i)).toBeNull()

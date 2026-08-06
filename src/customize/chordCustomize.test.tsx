@@ -31,7 +31,7 @@ async function goTo(
   user: ReturnType<typeof userEvent.setup>,
   ...screens: string[]
 ) {
-  await user.click(screen.getByRole('button', { name: 'Customize Exercise' }))
+  await user.click(screen.getByRole('button', { name: 'Customization' }))
   for (const name of screens) {
     await user.click(screen.getByRole('button', { name: new RegExp(name) }))
   }
@@ -386,7 +386,7 @@ describe('navigation', () => {
 describe('focusing on weak spots', () => {
   it('is on by default, since a user who never finds it is better served by it', async () => {
     const { user } = openMenu()
-    await user.click(screen.getByRole('button', { name: /Customize Exercise/ }))
+    await user.click(screen.getByRole('button', { name: /Customization/ }))
 
     expect(
       screen.getByRole('checkbox', { name: /Focus on weak spots/ }),
@@ -395,7 +395,7 @@ describe('focusing on weak spots', () => {
 
   it('can be switched off', async () => {
     const { user } = openMenu()
-    await user.click(screen.getByRole('button', { name: /Customize Exercise/ }))
+    await user.click(screen.getByRole('button', { name: /Customization/ }))
     await user.click(
       screen.getByRole('checkbox', { name: /Focus on weak spots/ }),
     )
@@ -405,7 +405,7 @@ describe('focusing on weak spots', () => {
 
   it('says it never changes the selection, which is the promise it has to keep', async () => {
     const { user } = openMenu()
-    await user.click(screen.getByRole('button', { name: /Customize Exercise/ }))
+    await user.click(screen.getByRole('button', { name: /Customization/ }))
 
     expect(screen.getByText(/never turns a chord on or off/i)).toBeVisible()
   })

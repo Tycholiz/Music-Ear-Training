@@ -77,7 +77,7 @@ export function ProgressionSettingsMenu({
           }
         />
         <ListRow
-          label="Customize Exercise"
+          label="Customization"
           chevron
           onClick={() =>
             push({ title: 'Customize', content: <CustomizeScreen /> })
