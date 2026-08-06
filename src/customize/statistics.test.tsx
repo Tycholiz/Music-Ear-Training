@@ -10,6 +10,7 @@ import {
   rootStatsStore,
 } from '../settings'
 import {
+  CHORD_ABOUT,
   CHORD_STATS_VIEW,
   PROGRESSION_STATS_VIEW,
   ROOT_STATS_VIEW,
@@ -25,6 +26,7 @@ function openMenu(view = CHORD_STATS_VIEW, statsStore = chordStatsStore) {
         store={chordSettingsStore}
         statsStore={statsStore}
         statsView={view}
+        about={CHORD_ABOUT}
         onResetScore={vi.fn()}
       />
     </ModalSheet>,

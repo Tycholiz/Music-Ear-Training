@@ -5,10 +5,16 @@ import {
   usePersisted,
 } from '../settings'
 import { intervalName } from '../theory'
-import { INTERVAL_STATS_VIEW, isStuck, rangeWarning } from '../exercises'
+import {
+  INTERVAL_ABOUT,
+  INTERVAL_STATS_VIEW,
+  isStuck,
+  rangeWarning,
+} from '../exercises'
 import { IntervalsScreen } from './IntervalsScreen'
 import { PlayModeScreen } from './PlayModeScreen'
 import { RangeScreen } from './RangeScreen'
+import { AboutScreen } from './AboutScreen'
 import { StatisticsScreen } from './StatisticsScreen'
 import { midiToName } from '../theory'
 
@@ -53,6 +59,21 @@ export function IntervalMenu({ onResetScore }: { onResetScore: () => void }) {
                   store={intervalStatsStore}
                   view={INTERVAL_STATS_VIEW}
                   onReset={() => intervalStatsStore.reset()}
+                />
+              ),
+            })
+          }
+        />
+        <ListRow
+          label="About this exercise"
+          chevron
+          onClick={() =>
+            push({
+              title: 'About',
+              content: (
+                <AboutScreen
+                  about={INTERVAL_ABOUT}
+                  view={INTERVAL_STATS_VIEW}
                 />
               ),
             })

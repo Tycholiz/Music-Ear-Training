@@ -19,6 +19,7 @@ import {
   usePersisted,
 } from '../settings'
 import {
+  CHORD_ABOUT,
   CHORD_STATS_VIEW,
   buildChordCells,
   canGenerateChord,
@@ -261,6 +262,7 @@ export default function Chords() {
           store={chordSettingsStore}
           statsStore={chordStatsStore}
           statsView={CHORD_STATS_VIEW}
+          about={CHORD_ABOUT}
           onResetScore={() => {
             resetScore()
             setMenuOpen(false)

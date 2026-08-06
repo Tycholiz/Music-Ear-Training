@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1339 tests across 49 files.** All of `npm run lint`, `npm run build`,
+**1350 tests across 50 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -355,6 +355,25 @@ leading with an anomaly reads as a finding about the user.
 Root and bass movement are the sections that stay worst-first. No Customize
 screen offers movements — they are a property of the progression that comes out,
 not something switched on — so there is no order to mirror.
+
+### About this exercise: the manual, half of it generated
+
+Each exercise's menu carries an **About this exercise** screen, above Reset
+Score. `exercises/aboutExercise.ts` holds the prose — what the exercise asks,
+what skill it builds, how to work it, and the handful of behaviours that are
+deliberate and look like faults until explained (a wrong chord ending the
+_attempt_ rather than the question; Reveal counting as a miss).
+
+**The statistics half is read from the `StatsView` rather than written.** It
+names the bucketed measure and lists the other sections from the view itself,
+and takes `MIN_ATTEMPTS_TO_REPORT` and `RECENT_WINDOW` from the constants the
+screen enforces. Prose repeating those would go stale the first time a breakdown
+was added or a threshold moved, and nothing would fail — the manual would simply
+start lying, which is worse than not having one.
+
+Which is also why the generic half avoids examples from any one exercise. A
+sentence about inversions makes sense on the chord screen and is nonsense on the
+interval one; it was written that way first and read back wrong immediately.
 
 ### Adaptive difficulty: same pool, different frequency
 

@@ -6,7 +6,7 @@ import {
   RadioRow,
   useModalNav,
 } from '../components'
-import { MELODY_STATS_VIEW, selectedScales } from '../exercises'
+import { MELODY_ABOUT, MELODY_STATS_VIEW, selectedScales } from '../exercises'
 import {
   MELODY_BACKINGS,
   melodySettingsStore,
@@ -30,6 +30,7 @@ import {
   melodyStuckReason,
 } from '../exercises'
 import { RangeScreen } from './RangeScreen'
+import { AboutScreen } from './AboutScreen'
 import { StatisticsScreen } from './StatisticsScreen'
 
 /**
@@ -69,6 +70,18 @@ export function MelodySettingsMenu({
                   view={MELODY_STATS_VIEW}
                   onReset={() => melodyStatsStore.reset()}
                 />
+              ),
+            })
+          }
+        />
+        <ListRow
+          label="About this exercise"
+          chevron
+          onClick={() =>
+            push({
+              title: 'About',
+              content: (
+                <AboutScreen about={MELODY_ABOUT} view={MELODY_STATS_VIEW} />
               ),
             })
           }

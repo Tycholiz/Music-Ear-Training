@@ -22,6 +22,7 @@ import {
 } from '../theory'
 import type { Cadence, RomanNumeral } from '../theory'
 import {
+  PROGRESSION_ABOUT,
   PROGRESSION_STATS_VIEW,
   CADENCE_DESCRIPTIONS,
   CADENCE_NAMES,
@@ -35,6 +36,7 @@ import {
   usableCadences,
 } from '../exercises'
 import { RangeScreen } from './RangeScreen'
+import { AboutScreen } from './AboutScreen'
 import { StatisticsScreen } from './StatisticsScreen'
 import { afterGroupToggle, groupCanToggle, groupIsFull } from './bulkSelect'
 import { SelectAll } from './SelectAll'
@@ -77,6 +79,21 @@ export function ProgressionSettingsMenu({
                   store={progressionStatsStore}
                   view={PROGRESSION_STATS_VIEW}
                   onReset={() => progressionStatsStore.reset()}
+                />
+              ),
+            })
+          }
+        />
+        <ListRow
+          label="About this exercise"
+          chevron
+          onClick={() =>
+            push({
+              title: 'About',
+              content: (
+                <AboutScreen
+                  about={PROGRESSION_ABOUT}
+                  view={PROGRESSION_STATS_VIEW}
                 />
               ),
             })

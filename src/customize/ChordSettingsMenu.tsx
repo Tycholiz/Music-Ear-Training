@@ -6,11 +6,17 @@ import {
   type PersistedStore,
 } from '../settings'
 import { CHORDS, midiToName, type Chord } from '../theory'
-import { chordRangeWarning, isChordStuck, type StatsView } from '../exercises'
+import {
+  chordRangeWarning,
+  isChordStuck,
+  type ExerciseAbout,
+  type StatsView,
+} from '../exercises'
 import { ChordsScreen } from './ChordsScreen'
 import { InversionsScreen } from './InversionsScreen'
 import { ChordPlayModeScreen } from './ChordPlayModeScreen'
 import { RangeScreen } from './RangeScreen'
+import { AboutScreen } from './AboutScreen'
 import { StatisticsScreen } from './StatisticsScreen'
 
 /**
@@ -26,6 +32,7 @@ export function ChordSettingsMenu({
   store,
   statsStore,
   statsView,
+  about,
   onResetScore,
   availableChords = CHORDS,
 }: {
@@ -33,6 +40,12 @@ export function ChordSettingsMenu({
   statsStore: PersistedStore<ExerciseStats>
   /** Chords and chord root record the same namespaces but read differently. */
   statsView: StatsView
+  /**
+   * Which exercise this is, in words. Passed in for the same reason
+   * `statsView` is: two exercises share this menu and neither's manual is the
+   * other's.
+   */
+  about: ExerciseAbout
   onResetScore: () => void
   /** Narrower for the root exercise, which cannot use ambiguous chords. */
   availableChords?: readonly Chord[]
@@ -70,6 +83,16 @@ export function ChordSettingsMenu({
                   onReset={() => statsStore.reset()}
                 />
               ),
+            })
+          }
+        />
+        <ListRow
+          label="About this exercise"
+          chevron
+          onClick={() =>
+            push({
+              title: 'About',
+              content: <AboutScreen about={about} view={statsView} />,
             })
           }
         />
