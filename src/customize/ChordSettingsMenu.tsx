@@ -42,7 +42,21 @@ export function ChordSettingsMenu({
   return (
     <div className="p-4">
       <ListCard>
-        <ListRow label="Reset Score" destructive onClick={onResetScore} />
+        <ListRow
+          label="Customization"
+          chevron
+          onClick={() =>
+            push({
+              title: 'Customize',
+              content: (
+                <CustomizeScreen
+                  store={store}
+                  availableChords={availableChords}
+                />
+              ),
+            })
+          }
+        />
         <ListRow
           label="Statistics"
           chevron
@@ -59,21 +73,7 @@ export function ChordSettingsMenu({
             })
           }
         />
-        <ListRow
-          label="Customization"
-          chevron
-          onClick={() =>
-            push({
-              title: 'Customize',
-              content: (
-                <CustomizeScreen
-                  store={store}
-                  availableChords={availableChords}
-                />
-              ),
-            })
-          }
-        />
+        <ListRow label="Reset Score" destructive onClick={onResetScore} />
       </ListCard>
     </div>
   )

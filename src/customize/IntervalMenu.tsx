@@ -35,7 +35,13 @@ export function IntervalMenu({ onResetScore }: { onResetScore: () => void }) {
   return (
     <div className="p-4">
       <ListCard>
-        <ListRow label="Reset Score" destructive onClick={onResetScore} />
+        <ListRow
+          label="Customization"
+          chevron
+          onClick={() =>
+            push({ title: 'Customize', content: <CustomizeScreen /> })
+          }
+        />
         <ListRow
           label="Statistics"
           chevron
@@ -52,13 +58,7 @@ export function IntervalMenu({ onResetScore }: { onResetScore: () => void }) {
             })
           }
         />
-        <ListRow
-          label="Customization"
-          chevron
-          onClick={() =>
-            push({ title: 'Customize', content: <CustomizeScreen /> })
-          }
-        />
+        <ListRow label="Reset Score" destructive onClick={onResetScore} />
       </ListCard>
     </div>
   )

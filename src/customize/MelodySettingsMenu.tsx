@@ -50,7 +50,13 @@ export function MelodySettingsMenu({
   return (
     <div className="p-4">
       <ListCard>
-        <ListRow label="Reset Score" destructive onClick={onResetScore} />
+        <ListRow
+          label="Customization"
+          chevron
+          onClick={() =>
+            push({ title: 'Customize', content: <CustomizeScreen /> })
+          }
+        />
         <ListRow
           label="Statistics"
           chevron
@@ -67,13 +73,7 @@ export function MelodySettingsMenu({
             })
           }
         />
-        <ListRow
-          label="Customization"
-          chevron
-          onClick={() =>
-            push({ title: 'Customize', content: <CustomizeScreen /> })
-          }
-        />
+        <ListRow label="Reset Score" destructive onClick={onResetScore} />
       </ListCard>
     </div>
   )
