@@ -381,14 +381,6 @@ export default function Melody() {
               <div className="flex justify-center gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={undo}
-                  disabled={entered.length === 0 || phase !== 'entering'}
-                  className="rounded-full px-6 py-2 text-sm text-content-muted active:bg-surface disabled:opacity-30"
-                >
-                  Undo
-                </button>
-                <button
-                  type="button"
                   onClick={reveal}
                   disabled={phase === 'correct'}
                   className="rounded-full px-6 py-2 text-sm text-content-muted active:bg-surface disabled:opacity-30"
