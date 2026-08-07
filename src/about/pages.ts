@@ -122,6 +122,7 @@ export const CHORD_ABOUT: AboutContent = [
     title: 'What is tracked',
     paragraphs: [
       'Which chords you name correctly, sorted into *needs work*, *getting there* and *solid*, along with what you tend to mistake each one for.',
+      'Mistakes that run through a whole family of chords are counted across the family as well. Hearing major chords as minor ones is one habit however many major chords you have switched on, and counted chord by chord it would be split between them until none of the pieces looked like anything.',
       'It also keeps a separate record by inversion and by play mode, so you can see whether it is the chord giving you trouble or the way it is being played to you.',
     ],
   },

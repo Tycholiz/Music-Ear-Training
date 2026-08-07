@@ -21,17 +21,18 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1372 tests across 52 files.** All of `npm run lint`, `npm run build`,
+**1400 tests across 52 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
 persisted settings, Customize modal and score. Also done: the PWA (offline
 precaching, install offer, update prompt) and iOS audio handling.
 
-In progress: a run of follow-ups to the statistics feature, `#110`–`#122` —
-sharper progression statistics, direction-aware interval statistics, drills for
-confusable chords, and some customization and formatting work. `#110`–`#112`,
-`#114`–`#117` and `#120`–`#122` are done; `#113` was built and then reverted (see Audio).
+Done: a run of follow-ups to the statistics feature, `#110`–`#122` — sharper
+progression statistics, direction-aware interval statistics, drills for
+confusable chords, chord-quality confusion roll-ups, and some customization and
+formatting work. All of them except `#113`, which was built and then reverted
+(see Audio).
 
 See **Ideas not yet built** at the end for what is deliberately left undone.
 
@@ -237,6 +238,48 @@ wrong at all, so an item at 40% accuracy can name four at the very most.
 Which makes the count say something a cap was hiding. A row naming one mistake
 is a systematic confusion; a row naming four is a user guessing. Those want
 different practice.
+
+#### Chords also roll their confusions up by quality
+
+A per-chord confusion serves a user working on extensions — this Dominant 7th
+keeps coming out as a Dominant 9th. A less experienced user's commonest mistake
+is coarser than any one chord: they hear major as minor, everywhere. No row can
+say that, so `qualityConfusions` groups the chord records by `quality` —
+a second cut of the chord table, orthogonal to the `category` the Customize
+screen offers chords under — and reports the cross-family habits above the
+buckets.
+
+**Both axes are grouped, and each fixes a different half of the problem.**
+Grouping the _answer_ is what clears the threshold: a Major 7th mistaken for a
+Minor 7th 8% of the time, a Minor 9th 7% and a Minor 6/9 6% names nothing at all
+and is one habit at 21%. Grouping the _item_ is what gets there sooner: five
+major chords with four attempts each are five rows the screen refuses to
+summarise and twenty attempts' worth of evidence about major chords. The roll-up
+is often the only thing on the screen with anything to say, which is exactly the
+user it is for.
+
+Its evidence floor is its own — `MIN_QUALITY_ATTEMPTS_TO_REPORT`, three times
+the per-item one — because pooling changes what a thin sample looks like. Five
+attempts on one chord is thin because five is few; five pooled over eight chords
+is thin _and_ misleading, since one slip would print a claim about all eight. It
+stays at or below `RECENT_WINDOW`, so a user with a single major chord switched
+on can still fill it — a floor above that would be a section silent by
+construction rather than by evidence.
+
+Mistakes _inside_ a quality are dropped: a Major 7th heard as a Major 9th is
+real and it is the per-chord list's business, and here it could only come out as
+"you hear major as major". The section is not a `StatsSection` and deliberately
+so — no accuracy, no bucket, and no swipe to reset, since one row stands on ten
+chords' records and a swipe would clear all of them. It renders nothing when
+there is nothing to say, which is what makes it safe to put first.
+
+**The qualities are curated, like the drill pairs.** Written per chord in
+`theory/chords.ts` rather than derived from the offsets, because the offsets do
+not settle every case: a Dominant 7th Sus4 has no third to read, and a Dominant
+7♯9's ♯9 is a minor third an octave up over a major third the chord also has. A
+derivation right for thirty-three of thirty-five is worse than none, because the
+two it gets wrong are invisible. The tests assert the rule each quality _would_
+follow, which pins the thirty-three and names the two exceptions on their own.
 
 Rules the screen has to keep:
 

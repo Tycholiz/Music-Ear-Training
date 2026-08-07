@@ -1,12 +1,16 @@
 import {
   CADENCES,
+  CHORD_QUALITIES,
+  QUALITY_NAMES,
   chordById,
+  chordQuality,
   degreeLabel,
   isKnownInterval,
   numeralById,
   numeralsInCustomizeOrder,
   scaleById,
   scalesByDifficulty,
+  type ChordQuality,
   type Degree,
 } from '../theory'
 import {
@@ -142,6 +146,21 @@ export interface StatsSection {
 export interface StatsView {
   /** Every section, in the order the screen shows them. */
   sections: StatsSection[]
+  /**
+   * Lead with the chord-quality roll-up — see `qualityConfusions`.
+   *
+   * Not a `StatsSection`, because it is not one. A section is a namespace in
+   * the store rendered as rows; this is one namespace *regrouped* along both
+   * axes at once, and it has no accuracy, no buckets and nothing to forget. It
+   * would have needed a flag on `StatsSection` for each of those, which is
+   * three lies about what a section is in exchange for reusing a `map`.
+   *
+   * Above the sections rather than in among them. It reads as the coarse
+   * headline — the sentence a beginner needs and an advanced user has already
+   * outgrown — and it disappears entirely once the habit it names is gone, so
+   * leading with it costs nothing to the user it has nothing to say to.
+   */
+  qualityRollUp?: boolean
 }
 
 /** The one bucketed section — what this screen is really measuring. */
@@ -225,6 +244,11 @@ export const INTERVAL_STATS_VIEW: StatsView = {
 }
 
 export const CHORD_STATS_VIEW: StatsView = {
+  // The one exercise that can have it: chords are grouped into qualities, and
+  // this is the only view where the user names a chord and can therefore name
+  // one of the wrong quality. Chord root shares the namespace and is
+  // self-graded, so it has no answers to group.
+  qualityRollUp: true,
   sections: [
     chordAnswer,
     inversionBreakdown,
@@ -668,6 +692,139 @@ export function confusionsFor(row: StatsRow, section: StatsSection): string[] {
     .filter(([, count]) => count / attempts >= CONFUSION_THRESHOLD)
     .sort(([, a], [, b]) => b - a)
     .map(([answered]) => section.label(answered))
+}
+
+// --- the chord-quality roll-up ---------------------------------------------
+
+/**
+ * How many recent attempts across a whole quality before it says anything.
+ *
+ * Three times `MIN_ATTEMPTS_TO_REPORT`, and the reason is that pooling changes
+ * what a thin sample looks like. Five attempts on one chord is thin because
+ * five is few; five attempts pooled over eight major chords is thin *and*
+ * misleading, because a single slip would print "you hear major as minor 20%
+ * of the time" as a claim about eight chords.
+ *
+ * It is still reached far sooner than any single chord's record — that is the
+ * point of the roll-up, and the reason a beginner sees this section before the
+ * buckets have anything in them. Fifteen attempts spread over a family is two
+ * per chord, or one session.
+ *
+ * Deliberately no higher than a single item's window (`RECENT_WINDOW`, twenty),
+ * so a quality is never unreportable by construction. A user with exactly one
+ * major chord switched on can still fill it.
+ */
+export const MIN_QUALITY_ATTEMPTS_TO_REPORT = 15
+
+/** One habit of hearing a whole family of chords as another family. */
+export interface QualityConfusion {
+  /** The quality of the chord that actually played. */
+  from: ChordQuality
+  /** The quality of the chord that was pressed instead. */
+  to: ChordQuality
+  /** Share of recent attempts on `from` chords that were answered as a `to`. */
+  share: number
+}
+
+/**
+ * Cross-quality mistakes, pooled over every chord of a quality.
+ *
+ * The per-chord confusions answer a question an advanced user has: this
+ * Dominant 7th keeps coming out as a Dominant 9th. A less experienced user's
+ * dominant mistake is coarser than any one chord — they hear major as minor,
+ * everywhere — and no per-chord row can say so.
+ *
+ * **The grouping is on both axes at once, and each axis fixes a different
+ * half of that.**
+ *
+ * Grouping the *answer* is what lifts the share over the threshold. A Major
+ * 7th mistaken for a Minor 7th 8% of the time, for a Minor 9th 7% and for a
+ * Minor 6/9 6% names nothing at all, because no single answer clears
+ * `CONFUSION_THRESHOLD` — and it is one habit at 21%. Nothing that counts
+ * answers one at a time can see it.
+ *
+ * Grouping the *item* is what gets there sooner. Five major chords with four
+ * recent attempts each are five rows the screen refuses to summarise, and
+ * twenty attempts' worth of evidence about major chords. That is why this
+ * section can be the only thing on the screen with anything to say, which is
+ * exactly the user it is for.
+ *
+ * Same-quality mistakes are dropped rather than counted. A Major 7th heard as
+ * a Major 9th is a real mistake and it is the per-chord list's business; here
+ * it would come out as "you hear major as major", which is not a finding.
+ *
+ * Both thresholds are the ones the rest of the screen uses — a share of
+ * attempts rather than of misses, for the reason `CONFUSION_THRESHOLD` gives —
+ * with the minimum evidence raised to suit a pooled count.
+ *
+ * Worst first. There is no Customize screen listing qualities to mirror the
+ * order of (that screen groups chords by *category*, which is a different cut
+ * of the same table), so the useful order is what to work on.
+ */
+export function qualityConfusions(stats: ExerciseStats): QualityConfusion[] {
+  const attempts = new Map<ChordQuality, number>()
+  const answers = new Map<string, number>()
+
+  const key = (from: ChordQuality, to: ChordQuality) => `${from}>${to}`
+
+  // The bucketed section's namespace rather than a literal, so the roll-up
+  // reads whatever the chord rows read and the two cannot drift apart.
+  const items = itemsInNamespace(stats, chordAnswer.namespace)
+
+  for (const [id, item] of Object.entries(items)) {
+    // A record left behind by a chord the table has dropped. It cannot be
+    // grouped, and guessing which family it was in would invent the finding.
+    const from = chordQuality(id)
+    if (from === null) continue
+
+    attempts.set(from, (attempts.get(from) ?? 0) + item.recent.length)
+
+    for (const { answered } of item.recent) {
+      if (answered === undefined) continue
+
+      const to = chordQuality(answered)
+      // The one place same-quality mistakes are dropped. Nothing downstream
+      // repeats the rule — a second guard in the loop below would be a second
+      // place to change it and only one of the two could ever be tested.
+      if (to === null || to === from) continue
+
+      answers.set(key(from, to), (answers.get(key(from, to)) ?? 0) + 1)
+    }
+  }
+
+  const found: QualityConfusion[] = []
+
+  // Both loops walk `CHORD_QUALITIES` rather than the maps, so two habits at
+  // the same share come out in a fixed order rather than in whatever order the
+  // store happened to yield its chords.
+  for (const from of CHORD_QUALITIES) {
+    const total = attempts.get(from) ?? 0
+    if (total < MIN_QUALITY_ATTEMPTS_TO_REPORT) continue
+
+    for (const to of CHORD_QUALITIES) {
+      const share = (answers.get(key(from, to)) ?? 0) / total
+      if (share >= CONFUSION_THRESHOLD) found.push({ from, to, share })
+    }
+  }
+
+  return found.sort((a, b) => b.share - a.share)
+}
+
+/** The heading the roll-up is shown under. */
+export const QUALITY_ROLLUP_TITLE = 'Hearing one kind of chord as another'
+
+/**
+ * One roll-up row, as a sentence.
+ *
+ * Says which way round it goes, because the two directions are different
+ * findings — hearing major as minor and hearing minor as major are not one
+ * symmetrical habit, and a user with only the first should not be told they
+ * have both.
+ */
+export function qualityConfusionLabel({ from, to }: QualityConfusion): string {
+  // Lower-cased mid-sentence: `QUALITY_NAMES` is written for a heading, and
+  // these six are plain ASCII words, so the transform cannot surprise anyone.
+  return `${QUALITY_NAMES[from]} chords answered as ${QUALITY_NAMES[to].toLowerCase()}`
 }
 
 /** Whether anything at all has been recorded for this exercise. */
