@@ -370,9 +370,6 @@ function DrillSummary({
         <p className="text-lg font-semibold">
           {first.name} vs {second.name}
         </p>
-        <p className="text-sm leading-relaxed text-content-muted">
-          {drill.listenFor}
-        </p>
       </div>
 
       <div className="flex flex-col items-center gap-3">
