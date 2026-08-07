@@ -4,7 +4,8 @@ import { MemoryRouter } from 'react-router'
 import userEvent from '@testing-library/user-event'
 import { AboutPage, ModalSheet, type AboutContent } from '../components'
 import { chordSettingsStore, chordStatsStore } from '../settings'
-import { CHORD_STATS_VIEW } from '../exercises'
+import { CHORD_STATS_VIEW, answerFor } from '../exercises'
+import { intervalName } from '../theory'
 import {
   CHORD_ABOUT,
   HOW_TO_USE_THIS_APP,
@@ -67,6 +68,39 @@ describe('every page', () => {
       expect(words, name).not.toContain('twenty attempts')
       expect(words, name).not.toContain('swipe')
     }
+  })
+})
+
+describe('the descending naming disclaimer', () => {
+  it('matches what the code actually answers', () => {
+    // The page tells the user that a D followed by the C below it is a minor
+    // 7th here rather than a major 2nd. If that convention ever changed, the
+    // manual is the last place anyone would think to look — so the claim is
+    // checked against the function that makes it true.
+    const D = 62
+    const C_BELOW = 60
+
+    expect(intervalName(answerFor(D, C_BELOW, 'descending'))).toBe('Minor 7th')
+  })
+
+  it('is right that both directions land on the same note', () => {
+    // The reason the naming is not arbitrary, and the sentence the page leans
+    // on: a minor 7th below the root and a minor 7th above it are the same
+    // note an octave apart, so one name covers both.
+    const D = 62
+    const C_BELOW = 60
+
+    expect(answerFor(D, C_BELOW + 12, 'ascending')).toBe(
+      answerFor(D, C_BELOW, 'descending'),
+    )
+  })
+
+  it('is on the interval page, where someone marked wrong will look', () => {
+    const words = INTERVAL_ABOUT.flatMap((section) => section.paragraphs).join(
+      ' ',
+    )
+    expect(words).toContain('major 2nd')
+    expect(words).toContain('minor 7th')
   })
 })
 

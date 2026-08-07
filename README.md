@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1349 tests across 50 files.** All of `npm run lint`, `npm run build`,
+**1352 tests across 50 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,

@@ -51,21 +51,31 @@ export const INTERVAL_ABOUT: AboutContent = [
   {
     title: 'What it asks',
     paragraphs: [
-      'You will hear two notes, one after the other — or sometimes both at once. Name the distance between them: a minor 3rd, a perfect 5th, and so on.',
+      'You will hear two notes, one after the other — or sometimes both at once. Name the interval between them: a minor 3rd, a perfect 5th, and so on.',
+    ],
+  },
+  {
+    title: 'Descending intervals are named differently here',
+    paragraphs: [
+      'Worth reading before you decide the app has marked you wrong.',
+      'Play a D, then the C below it. Most apps call that a descending major 2nd, because the two notes sit two semitones apart. This app calls it a *minor 7th*.',
+      'That is because the second note is named by its function against the first, not by the raw gap between them. C is the ♭7 of D, and it stays the ♭7 whether you reach it going up or coming down.',
+      'It falls out neatly when you look at where the notes actually are. The C a minor 7th above that D, and the C just below it, are the same note an octave apart — so under this naming, a minor 7th below the root and a minor 7th above it land on the same note. Call the descending one a major 2nd and that stops being true: the same note ends up with two different names depending on which direction you happened to approach it from.',
+      'The practical upshot is that a descending answer is always somewhere between a minor 2nd and an octave. Compound intervals only ever turn up ascending or harmonic.',
     ],
   },
   {
     title: 'What it trains',
     paragraphs: [
-      'Being able to hear the distance between two notes is what lets you pick up melodies by ear.',
+      'Being able to hear the distance between two notes forms the basis of what lets you pick up melodies by ear.',
       'Say a tune opens with a big leap. If you hear that leap as a perfect 5th, and you know where a perfect 5th sits under your fingers, you can play it immediately. Without that you are hunting around for the note and hoping.',
-      'Everything else is built out of intervals too. A chord is a stack of them; a melody is a chain of them.',
+      'Furthermore, everything else is built out of intervals. A chord is a stack of them; a melody is a chain of them.',
     ],
   },
   {
     title: 'Working it',
     paragraphs: [
-      'Play again repeats the question as often as you like, and costs nothing.',
+      '*Play again* repeats the question as often as you like, and costs nothing.',
       'Pressing an answer plays it, from the same starting note as the question. That makes a wrong guess worth listening to — you hear your answer and the real one back to back, which teaches you more than being told you were wrong.',
       'Start with one direction and add the others once it is comfortable. Mixing all five play modes from the beginning is a lot harder than it looks.',
     ],
@@ -103,7 +113,7 @@ export const CHORD_ABOUT: AboutContent = [
   {
     title: 'Working it',
     paragraphs: [
-      'Play again repeats the chord. Reveal gives you the answer and counts as a miss, so a question you cannot get does not turn into a wall.',
+      '*Play again* repeats the chord. *Reveal* gives you the answer and counts as a miss, so a question you cannot get does not turn into a wall.',
       'Inversions and the play mode — block or arpeggiated — both change how hard the same chord is to name. Leave them alone until the chords themselves feel comfortable.',
       'Start with a handful of chords rather than all of them. Eight chords you meet often will teach you more than thirty you meet rarely.',
     ],
@@ -142,7 +152,7 @@ export const ROOT_ABOUT: AboutContent = [
     title: 'How to find the root',
     paragraphs: [
       'Hum any note you can pick out of the chord. Then try to hum a fifth below it.',
-      'If that lands somewhere that feels like the bottom of the chord, you have found the root. If it does not, the note you started on was the 3rd or the 5th — pick a different note out of the chord and try again.',
+      'If that note sounds like it fits with the chord, you have found the root. If it does not, the note you started on was the 3rd or the 5th — pick a different note out of the chord and try again.',
       'This works the same way for major and minor chords.',
     ],
   },
@@ -150,14 +160,13 @@ export const ROOT_ABOUT: AboutContent = [
     title: 'Working it',
     paragraphs: [
       'Reveal plays the root on its own so you can check yourself. Sing or hum your answer *before* you press it — deciding what you thought after you have already heard the answer is the one way to get nothing at all out of this exercise.',
-      'Then say honestly whether you had it. The app cannot see what you were thinking, so the record is worth exactly as much as your honesty about that.',
     ],
   },
   {
     title: 'What is tracked',
     paragraphs: [
       'Which chords you find the root of, sorted into *needs work*, *getting there* and *solid*, and a separate record for each inversion.',
-      'That inversion breakdown is the useful one here. Finding the root of a root-position chord and finding it under a second inversion are barely the same task, and this tells you which of the two is costing you.',
+      'That inversion breakdown is the useful one here. Finding the root of a root-position chord and finding it under a second inversion are distinct skills, and this tells you which of the two is costing you.',
     ],
   },
 ]
@@ -196,7 +205,7 @@ export const MELODY_ABOUT: AboutContent = [
     title: 'A tip',
     paragraphs: [
       'If you hear a semitone, it is almost always either 3–4 or 7–1. Those are the only two places a major scale puts its semitones.',
-      'So when you catch one, ask which of the two it felt like. If it landed somewhere settled, it was 7–1. If it did not, it was 3–4.',
+      'So when you catch one, ask which of the two it felt like. If the higher note was more stable, then it was 7-1. If the lower note felt more stable, then it was 3-4',
     ],
   },
   {
