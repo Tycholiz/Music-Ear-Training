@@ -138,7 +138,7 @@ export {
   PROGRESSION_INVERSIONS,
   PROGRESSION_LENGTHS,
   cadenceMissing,
-  cadenceWarning,
+  cadenceUnlockNote,
   canDisableNumeral,
   isProgressionStuck,
   numeralLockWarning,

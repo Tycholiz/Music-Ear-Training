@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1352 tests across 50 files.** All of `npm run lint`, `npm run build`,
+**1355 tests across 50 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -756,13 +756,27 @@ place deliberately; remove it or revive it, but do not assume it is wired up.
   A group whose tap would empty the list is disabled, which is the rule the last
   remaining individual row already follows.
 
-- **A disabled control names its reason on the row, not off in a shared note.**
+- **A control that can fix itself does, rather than explaining why it will
+  not.** A cadence needs its chords, and one whose chords are off used to be
+  disabled with the reason printed under the card. That was a refusal plus
+  homework: go to another screen, work out which chords these are, switch them
+  on, come back. Pressing the cadence now switches them on itself, and the row
+  says so first — _"Choosing this will also switch on vi."_ — so nothing changes
+  behind the user's back.
+
+  Written in one `setSettings` call, because the store drops a cadence whose
+  chords are not enabled: saving the cadence first would have it stripped before
+  the chords justifying it arrived.
+
+  The note is not styled as an error. Nothing has gone wrong — it describes a
+  consequence of a tap that has not happened yet.
   The progression chords screen used to print one line under the whole card,
   for whichever locked chord happened to come first — nowhere near the row a
   user had actually pressed, and silent for every other locked row on screen.
   Each locked `CheckRow` now carries its own explanation as red text in its
   label, using the multi-line label pattern the Cadences screen already had.
   The row stays `disabled`; a tap still does nothing.
+
 - **New pads pack their buttons**, unlike `AnswerGrid` which holds empty
   positions. For a _selection_ the gaps are the point — major pentatonic would
   leave seven of twelve cells blank — and nothing can move mid-question because
