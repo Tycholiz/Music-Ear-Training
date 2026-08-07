@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1350 tests across 50 files.** All of `npm run lint`, `npm run build`,
+**1349 tests across 50 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -96,6 +96,7 @@ src/
   pitch/        pitch detection and microphone input (see "Dead code")
   exercises/    question generation, grading, validation — one file per exercise
   settings/     versioned localStorage stores and their sanitisers
+  about/        every word of written guidance, one file
   customize/    the settings screens inside each exercise's modal
   components/   shared UI kit
   routes/       one file per screen
@@ -356,24 +357,29 @@ Root and bass movement are the sections that stay worst-first. No Customize
 screen offers movements — they are a property of the progression that comes out,
 not something switched on — so there is no order to mirror.
 
-### About this exercise: the manual, half of it generated
+### The written pages are plain, and all in one file
 
-Each exercise's menu carries an **About this exercise** screen, above Reset
-Score. `exercises/aboutExercise.ts` holds the prose — what the exercise asks,
-what skill it builds, how to work it, and the handful of behaviours that are
-deliberate and look like faults until explained (a wrong chord ending the
-_attempt_ rather than the question; Reveal counting as a miss).
+`src/about/pages.ts` holds every word of guidance in the app: five exercise
+pages reached from each menu, and a **How to use this app** page linked from the
+bottom of the home screen.
 
-**The statistics half is read from the `StatsView` rather than written.** It
-names the bucketed measure and lists the other sections from the view itself,
-and takes `MIN_ATTEMPTS_TO_REPORT` and `RECENT_WINDOW` from the constants the
-screen enforces. Prose repeating those would go stale the first time a breakdown
-was added or a threshold moved, and nothing would fail — the manual would simply
-start lying, which is worse than not having one.
+Each page is a list of headings and paragraphs. Nothing is generated, nothing is
+shared between pages, and nothing reads any other part of the app — so any page
+can be rewritten on its own without knowing what else it touches. The first
+version generated half of each page from `StatsView` and interpolated the
+thresholds, which was clever, drift-proof and completely unmaintainable: nobody
+could edit a sentence without first working out where it came from. **Content is
+not a place to be efficient.**
 
-Which is also why the generic half avoids examples from any one exercise. A
-sentence about inversions makes sense on the chord screen and is nonsense on the
-interval one; it was written that way first and read back wrong immediately.
+`*asterisks*` make italics and that is the whole markup vocabulary. It exists
+because the bucket names need it — _needs work_, _getting there_, _solid_ — and
+stops there.
+
+**Anything true of the whole app goes on the general page**, not repeated across
+five exercise pages: what the app is for, why playing what you hear on an
+instrument matters more than naming it, and how the statistics work. A test
+asserts the exercise pages do not re-explain the statistics, since a manual that
+says the same thing in five places goes out of date in four of them.
 
 ### Adaptive difficulty: same pool, different frequency
 

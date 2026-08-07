@@ -9,7 +9,8 @@ import {
   type ChordSettings,
 } from '../settings'
 import { CHORDS } from '../theory'
-import { CHORD_ABOUT, CHORD_STATS_VIEW } from '../exercises'
+import { CHORD_STATS_VIEW } from '../exercises'
+import { CHORD_ABOUT } from '../about/pages'
 import { ChordSettingsMenu } from './ChordSettingsMenu'
 
 function openMenu(onResetScore = vi.fn()) {

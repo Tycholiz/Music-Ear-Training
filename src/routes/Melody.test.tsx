@@ -192,23 +192,14 @@ describe('entering a melody', () => {
     expect(answer()).toBe('1565')
   })
 
-  it('removes only the last degree on Undo', async () => {
+  it('offers no Undo, since the button was removed', async () => {
+    // `f1a8580` took the button out and left the handler and these tests
+    // behind, so `main` has been failing both `npm test` and `tsc` since.
     const user = userEvent.setup()
     renderExercise()
     await start(user)
 
-    await tap(user, '1', '5', '6')
-    await user.click(screen.getByRole('button', { name: 'Undo' }))
-
-    expect(answer()).toBe('15··')
-  })
-
-  it('has nothing to undo before anything is entered', async () => {
-    const user = userEvent.setup()
-    renderExercise()
-    await start(user)
-
-    expect(screen.getByRole('button', { name: 'Undo' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull()
   })
 })
 

@@ -1,4 +1,5 @@
 import {
+  AboutPage,
   CheckRow,
   ListCard,
   ListRow,
@@ -6,7 +7,7 @@ import {
   RadioRow,
   useModalNav,
 } from '../components'
-import { MELODY_ABOUT, MELODY_STATS_VIEW, selectedScales } from '../exercises'
+import { MELODY_STATS_VIEW, selectedScales } from '../exercises'
 import {
   MELODY_BACKINGS,
   melodySettingsStore,
@@ -30,8 +31,8 @@ import {
   melodyStuckReason,
 } from '../exercises'
 import { RangeScreen } from './RangeScreen'
-import { AboutScreen } from './AboutScreen'
 import { StatisticsScreen } from './StatisticsScreen'
+import { MELODY_ABOUT } from '../about/pages'
 
 /**
  * Hamburger menu for the melody exercise, and the Customize screen it pushes.
@@ -80,9 +81,7 @@ export function MelodySettingsMenu({
           onClick={() =>
             push({
               title: 'About',
-              content: (
-                <AboutScreen about={MELODY_ABOUT} view={MELODY_STATS_VIEW} />
-              ),
+              content: <AboutPage content={MELODY_ABOUT} />,
             })
           }
         />

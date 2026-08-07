@@ -19,7 +19,6 @@ import {
   usePersisted,
 } from '../settings'
 import {
-  CHORD_ABOUT,
   CHORD_STATS_VIEW,
   buildChordCells,
   canGenerateChord,
@@ -29,6 +28,7 @@ import {
   isChordCorrect,
   type ChordQuestion,
 } from '../exercises'
+import { CHORD_ABOUT } from '../about/pages'
 
 /** Minimum pause on the green button before the next question starts. */
 const AUTO_ADVANCE_MS = 800

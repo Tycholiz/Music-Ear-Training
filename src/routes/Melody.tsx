@@ -280,11 +280,6 @@ export default function Melody() {
     }
   }, [entered, round, phase, scoreOnce, nextQuestion])
 
-  const undo = () => {
-    if (phase !== 'entering') return
-    setEntered((current) => current.slice(0, -1))
-  }
-
   /**
    * Give up on this melody and be told what it was.
    *

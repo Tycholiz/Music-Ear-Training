@@ -1,4 +1,5 @@
 import {
+  AboutPage,
   CheckRow,
   ListCard,
   ListRow,
@@ -22,7 +23,6 @@ import {
 } from '../theory'
 import type { Cadence, RomanNumeral } from '../theory'
 import {
-  PROGRESSION_ABOUT,
   PROGRESSION_STATS_VIEW,
   CADENCE_DESCRIPTIONS,
   CADENCE_NAMES,
@@ -36,8 +36,8 @@ import {
   usableCadences,
 } from '../exercises'
 import { RangeScreen } from './RangeScreen'
-import { AboutScreen } from './AboutScreen'
 import { StatisticsScreen } from './StatisticsScreen'
+import { PROGRESSION_ABOUT } from '../about/pages'
 import { afterGroupToggle, groupCanToggle, groupIsFull } from './bulkSelect'
 import { SelectAll } from './SelectAll'
 
@@ -90,12 +90,7 @@ export function ProgressionSettingsMenu({
           onClick={() =>
             push({
               title: 'About',
-              content: (
-                <AboutScreen
-                  about={PROGRESSION_ABOUT}
-                  view={PROGRESSION_STATS_VIEW}
-                />
-              ),
+              content: <AboutPage content={PROGRESSION_ABOUT} />,
             })
           }
         />

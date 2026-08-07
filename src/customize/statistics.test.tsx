@@ -10,11 +10,11 @@ import {
   rootStatsStore,
 } from '../settings'
 import {
-  CHORD_ABOUT,
   CHORD_STATS_VIEW,
   PROGRESSION_STATS_VIEW,
   ROOT_STATS_VIEW,
 } from '../exercises'
+import { CHORD_ABOUT } from '../about/pages'
 import { ChordSettingsMenu } from './ChordSettingsMenu'
 import { StatisticsScreen } from './StatisticsScreen'
 

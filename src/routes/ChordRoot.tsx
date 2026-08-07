@@ -19,7 +19,6 @@ import {
   usePersisted,
 } from '../settings'
 import {
-  ROOT_ABOUT,
   ROOT_STATS_VIEW,
   canGenerateChord,
   generateRootQuestion,
@@ -27,6 +26,7 @@ import {
   rootAnswer,
   type RootQuestion,
 } from '../exercises'
+import { ROOT_ABOUT } from '../about/pages'
 
 /** Pause on the graded answer before the next question starts. */
 const AUTO_ADVANCE_MS = 800

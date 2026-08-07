@@ -1,21 +1,22 @@
-import { CheckRow, ListCard, ListRow, useModalNav } from '../components'
+import {
+  AboutPage,
+  CheckRow,
+  ListCard,
+  ListRow,
+  useModalNav,
+} from '../components'
 import {
   intervalSettingsStore,
   intervalStatsStore,
   usePersisted,
 } from '../settings'
 import { intervalName } from '../theory'
-import {
-  INTERVAL_ABOUT,
-  INTERVAL_STATS_VIEW,
-  isStuck,
-  rangeWarning,
-} from '../exercises'
+import { INTERVAL_STATS_VIEW, isStuck, rangeWarning } from '../exercises'
 import { IntervalsScreen } from './IntervalsScreen'
 import { PlayModeScreen } from './PlayModeScreen'
 import { RangeScreen } from './RangeScreen'
-import { AboutScreen } from './AboutScreen'
 import { StatisticsScreen } from './StatisticsScreen'
+import { INTERVAL_ABOUT } from '../about/pages'
 import { midiToName } from '../theory'
 
 function IntervalRangeScreen() {
@@ -70,12 +71,7 @@ export function IntervalMenu({ onResetScore }: { onResetScore: () => void }) {
           onClick={() =>
             push({
               title: 'About',
-              content: (
-                <AboutScreen
-                  about={INTERVAL_ABOUT}
-                  view={INTERVAL_STATS_VIEW}
-                />
-              ),
+              content: <AboutPage content={INTERVAL_ABOUT} />,
             })
           }
         />

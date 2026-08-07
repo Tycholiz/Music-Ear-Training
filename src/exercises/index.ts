@@ -14,14 +14,6 @@ export {
 } from './statsView'
 export type { Mastery, StatsRow, StatsSection, StatsView } from './statsView'
 export {
-  CHORD_ABOUT,
-  INTERVAL_ABOUT,
-  MELODY_ABOUT,
-  PROGRESSION_ABOUT,
-  ROOT_ABOUT,
-} from './aboutExercise'
-export type { ExerciseAbout } from './aboutExercise'
-export {
   MAX_WEIGHT_RATIO,
   chordKey,
   intervalKey,

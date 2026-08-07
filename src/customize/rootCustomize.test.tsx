@@ -11,12 +11,8 @@ import {
   chordStatsStore,
 } from '../settings'
 import { CHORDS, UNAMBIGUOUS_ROOT_CHORDS } from '../theory'
-import {
-  CHORD_ABOUT,
-  CHORD_STATS_VIEW,
-  ROOT_ABOUT,
-  ROOT_STATS_VIEW,
-} from '../exercises'
+import { CHORD_STATS_VIEW, ROOT_STATS_VIEW } from '../exercises'
+import { CHORD_ABOUT, ROOT_ABOUT } from '../about/pages'
 import { ChordSettingsMenu } from './ChordSettingsMenu'
 
 /**

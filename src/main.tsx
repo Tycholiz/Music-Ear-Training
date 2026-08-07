@@ -4,6 +4,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router'
 import './index.css'
 import App from './App.tsx'
 import Home from './routes/Home.tsx'
+import About from './routes/About.tsx'
 import Intervals from './routes/Intervals.tsx'
 import Chords from './routes/Chords.tsx'
 import ChordRoot from './routes/ChordRoot.tsx'
@@ -21,6 +22,7 @@ const router = createBrowserRouter([
       { path: 'chord-root', element: <ChordRoot /> },
       { path: 'melody', element: <Melody /> },
       { path: 'progressions', element: <Progressions /> },
+      { path: 'about', element: <About /> },
     ],
   },
 ])
