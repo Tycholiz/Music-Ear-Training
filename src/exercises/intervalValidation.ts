@@ -150,7 +150,7 @@ export const DIRECTION_NAMES: Record<IntervalDirection, string> = {
  *
  * Callers treat that differently by what they are doing with it. Naming one is
  * fine, so a confusion still reads. Listing one as a *row* is not, so
- * `INTERVAL_STATS_VIEW` refuses those — see `recognises`.
+ * `INTERVAL_STATS_VIEW` refuses those — see `recognizes`.
  */
 export function parseIntervalValue(value: string): {
   semitones: number

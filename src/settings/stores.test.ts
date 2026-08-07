@@ -449,7 +449,7 @@ describe('melodySettingsStore', () => {
     )
   })
 
-  it('keeps the scales it recognises and drops the ones it does not', () => {
+  it('keeps the scales it recognizes and drops the ones it does not', () => {
     persist({
       ...DEFAULT_MELODY_SETTINGS,
       scaleIds: ['major', 'lydian-dominant', 'blues'],
@@ -477,7 +477,7 @@ describe('melodySettingsStore', () => {
     expect(melodySettingsStore.read().length).toBe(3)
   })
 
-  it('falls back on a backing it does not recognise', () => {
+  it('falls back on a backing it does not recognize', () => {
     persist({ ...DEFAULT_MELODY_SETTINGS, backing: 'orchestra' })
     expect(melodySettingsStore.read().backing).toBe(
       DEFAULT_MELODY_SETTINGS.backing,

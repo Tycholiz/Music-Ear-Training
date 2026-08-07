@@ -282,7 +282,7 @@ what is left of it is a real question — whether the harmonic confirmation is
 doing any work — and nothing above it can answer that.
 
 Records written before direction was part of the identity are an average of two
-skills with no way to say now which they were, so `recognises` leaves them off
+skills with no way to say now which they were, so `recognizes` leaves them off
 rather than showing them beside the rows that replaced them. Only rows are
 filtered: a confusion naming a bare interval is still fine, since naming what was
 pressed claims nothing about direction.

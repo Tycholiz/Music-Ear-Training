@@ -22,7 +22,7 @@ export const HOW_TO_USE_THIS_APP: AboutContent = [
     title: 'What this app is for',
     paragraphs: [
       'Ear training really happens with real music — working songs out, playing along with records, transcribing solos. That is messy and slow, and it is also the only thing that actually makes you better.',
-      'This app is not a replacement for that. It is a supplement. What it does is take one element at a time and strip everything else away, so you can drill the bit you are weak at without the rest of the music going on around it. A hundred clean intervals in ten minutes is something no record will give you.',
+      'This app is not a replacement for that. It is a supplement. What it does is take one element at a time and strip everything else away, so you can drill the bit you are weak at without the rest of the music going on around it.',
       'Use it to sharpen the pieces, then go back to real music and put them together.',
     ],
   },
@@ -31,7 +31,7 @@ export const HOW_TO_USE_THIS_APP: AboutContent = [
     paragraphs: [
       'Whenever you can, play what you hear. In Melody Dictation, do not just enter the degrees and move on — pick up the guitar, or sit at the piano, and play the melody back until you can get through it without a mistake.',
       'Knowing that what you heard was a fifth is one thing. Knowing what a fifth *feels* like under your fingers is another, and it is the one that lets you play what you hear without stopping to think about it.',
-      'If you cannot have an instrument in front of you, visualise it instead. Picture the shape your hand would make, where the fingers would go. It is not as good as playing it, and it is far better than nothing.',
+      'If you cannot have an instrument in front of you, visualise it instead. Picture the shape your hand would make, where the fingers would go. It is not as good as playing it, but it is far better than nothing.',
       'None of this is required. The app works perfectly well on its own — the instrument just makes what you learn here stick harder.',
     ],
   },
@@ -51,17 +51,7 @@ export const INTERVAL_ABOUT: AboutContent = [
   {
     title: 'What it asks',
     paragraphs: [
-      'You will hear two notes, one after the other — or sometimes both at once. Name the interval between them: a minor 3rd, a perfect 5th, and so on.',
-    ],
-  },
-  {
-    title: 'Descending intervals are named differently here',
-    paragraphs: [
-      'Worth reading before you decide the app has marked you wrong.',
-      'Play a D, then the C below it. Most apps call that a descending major 2nd, because the two notes sit two semitones apart. This app calls it a *minor 7th*.',
-      'That is because the second note is named by its function against the first, not by the raw gap between them. C is the ♭7 of D, and it stays the ♭7 whether you reach it going up or coming down.',
-      'It falls out neatly when you look at where the notes actually are. The C a minor 7th above that D, and the C just below it, are the same note an octave apart — so under this naming, a minor 7th below the root and a minor 7th above it land on the same note. Call the descending one a major 2nd and that stops being true: the same note ends up with two different names depending on which direction you happened to approach it from.',
-      'The practical upshot is that a descending answer is always somewhere between a minor 2nd and an octave. Compound intervals only ever turn up ascending or harmonic.',
+      'You will hear two notes, one after the other — or both at once depending on your *Play Mode*. Name the interval between them: a minor 3rd, a perfect 5th, and so on.',
     ],
   },
   {
@@ -91,6 +81,16 @@ export const INTERVAL_ABOUT: AboutContent = [
     title: 'Worth knowing',
     paragraphs: [
       'The score counts every press, so three wrong guesses and then the right one is one correct out of four. The statistics only count your first press, because that is the one that says whether you actually knew it.',
+    ],
+  },
+  {
+    title: 'Descending intervals are named differently here',
+    paragraphs: [
+      'Worth reading before you decide the app has marked you wrong.',
+      'Play a D, then the C below it. Many would call that a descending major 2nd, because the two notes sit two semitones apart. Here, we call it a *minor 7th*.',
+      'That is because the second note is named by its function against the first, not by the raw gap between them. C is the ♭7 of D, and it stays the ♭7 whether you reach it going up or coming down.',
+      'It falls out neatly when you look at where the notes actually are. The C a minor 7th above that D, and the C just below it, are the same note an octave apart — so under this naming, a minor 7th below the root and a minor 7th above it land on the same note. Call the descending one a major 2nd and that stops being true: the same note ends up with two different names depending on which direction you happened to approach it from.',
+      'The practical upshot is that a descending answer is always somewhere between a minor 2nd and an octave. Compound intervals (ie. those that span more than an octave) only ever turn up ascending or harmonic.',
     ],
   },
 ]
@@ -183,7 +183,7 @@ export const MELODY_ABOUT: AboutContent = [
     paragraphs: [
       'This trains you to hear a note by where it sits in the key, against a chord — which is most of what playing by ear actually is.',
       'If you can hear that the note being played is the 3rd, you immediately know what is around it: a semitone up to the 4th, a whole tone down to the 2nd. You know roughly what a leap from there up to the 5th is going to sound like before it happens.',
-      'You also learn how each degree *feels*. The 5th sits still and settled. The 7th pulls hard toward the tonic and will not leave you alone. Once you can feel that instability, the particular flavour of it tells you which degree you are on.',
+      'You also learn how each degree *feels*. The 5th sits still and settled. The 7th pulls up toward the tonic and will not leave you alone. Once you can feel that instability, the particular flavour of it tells you which degree you are on.',
     ],
   },
   {
@@ -204,7 +204,7 @@ export const MELODY_ABOUT: AboutContent = [
   {
     title: 'A tip',
     paragraphs: [
-      'If you hear a semitone, it is almost always either 3–4 or 7–1. Those are the only two places a major scale puts its semitones.',
+      'If you hear a semitone movement, it is almost always either 3–4 or 7–1. Those are the only two places a major scale puts its semitones.',
       'So when you catch one, ask which of the two it felt like. If the higher note was more stable, then it was 7-1. If the lower note felt more stable, then it was 3-4',
     ],
   },
@@ -212,7 +212,7 @@ export const MELODY_ABOUT: AboutContent = [
     title: 'What is tracked',
     paragraphs: [
       'How each note *arrived* rather than which note it was — a step up, a leap down, a repeat, the opening note — sorted into *needs work*, *getting there* and *solid*.',
-      'The opening note is kept separately because it has nothing before it to measure against, which makes it a different job from every note that follows. There is also a breakdown by scale.',
+      'The opening note is kept separately because it has only the root note/chord to measure against, which makes it a different job from every note that follows. There is also a breakdown by scale.',
     ],
   },
   {
@@ -233,9 +233,9 @@ export const PROGRESSION_ABOUT: AboutContent = [
   {
     title: 'What it trains',
     paragraphs: [
-      'This trains you to recognise progressions, and it builds straight on top of root recognition. Once you can hear where the root goes, you can hear how far it moved — and how far it moved is usually most of the answer.',
-      'Theory does the rest. You know a IV sits a semitone above a iii. So if you hear a minor chord, and then the root climbs a semitone and the chord turns major, you can be fairly confident you just heard a iii–IV. That also narrows down what can sensibly come next.',
-      'Get good at this and you can pick up songs very quickly. Chord progressions are far more standardised than melodies — the same three chords in the same order turn up in countless songs, and somehow all of them still sound like themselves.',
+      'This trains you to recognize progressions. To do this effectively, you must be comfortable recognizing the root of each chord. Once you can hear where the root goes, you can hear how far it moved — and how far it moved is usually most of the answer. If you struggle with root recognition, spend some time with the Chord Root Recognition exercise',
+      'Your knowledge of theory can help determine chord movements. You know a IV sits a semitone above a iii. So if you hear a minor chord, and then the root climbs a semitone and the chord turns major, you can be fairly confident you just heard a iii–IV. That also narrows down what can sensibly come next.',
+      'Get good at this and you can pick up songs very quickly. Chord progressions are far more standardized than melodies — the same three chords in the same order turn up in countless songs, and somehow all of them still sound like themselves.',
     ],
   },
   {

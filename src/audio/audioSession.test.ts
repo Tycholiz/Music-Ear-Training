@@ -223,12 +223,12 @@ describe('going into the background', () => {
 })
 
 describe('isIos', () => {
-  it('recognises an iPhone', () => {
+  it('recognizes an iPhone', () => {
     withUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)')
     expect(isIos()).toBe(true)
   })
 
-  it('recognises an iPad that claims to be a Mac', () => {
+  it('recognizes an iPad that claims to be a Mac', () => {
     // iPadOS 13+ reports MacIntel; the touch points are what give it away.
     withUserAgent(
       'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
