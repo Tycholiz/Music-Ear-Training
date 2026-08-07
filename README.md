@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1352 tests across 50 files.** All of `npm run lint`, `npm run build`,
+**1354 tests across 50 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -757,6 +757,13 @@ place deliberately; remove it or revive it, but do not assume it is wired up.
   remaining individual row already follows.
 
 - **A disabled control names its reason on the row, not off in a shared note.**
+  A cadence whose chords are switched off says so on its own row, the same way
+  a locked numeral does. It used to be a paragraph under the card — the same
+  words, in a place that was not an answer to the press that raised the
+  question, and with four cadences unavailable there were four paragraphs to
+  match back to their rows by hand. Where a lock has somewhere to send the user,
+  it does: the Cadences screen offers a route to Chords, and only while
+  something is actually blocked.
   The progression chords screen used to print one line under the whole card,
   for whichever locked chord happened to come first — nowhere near the row a
   user had actually pressed, and silent for every other locked row on screen.

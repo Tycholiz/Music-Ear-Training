@@ -304,7 +304,21 @@ function NumeralsScreen() {
  * it needs named underneath. Hiding it would leave the user wondering where it
  * had gone.
  */
+/**
+ * How progressions may end.
+ *
+ * A cadence needs its chords, so one whose chords are switched off cannot be
+ * chosen. **The reason goes on the row it belongs to**, in the same shape the
+ * Chords screen uses for a locked numeral.
+ *
+ * It used to be a paragraph under the card, which is a different thing wearing
+ * the same words: a user who presses `Deceptive` and gets nothing has asked a
+ * question, and an answer somewhere further down the screen is not a reply to
+ * it. With four cadences unavailable there were four paragraphs, and matching
+ * each back to its row was work the screen was making the reader do.
+ */
 function CadencesScreen() {
+  const { push } = useModalNav()
   const [settings, setSettings] = usePersisted(progressionSettingsStore)
   const chosen = new Set(settings.cadences)
 
@@ -316,16 +330,16 @@ function CadencesScreen() {
     setSettings({ ...settings, cadences: [...cadences] })
   }
 
-  const unavailable = CADENCES.map((cadence) => ({
-    cadence,
-    warning: cadenceWarning(cadence, settings),
-  })).filter((entry) => entry.warning !== null)
+  const anyUnavailable = CADENCES.some(
+    (cadence) => cadenceWarning(cadence, settings) !== null,
+  )
 
   return (
     <div className="flex flex-col gap-6 p-4">
       <ListCard footer="With more than one selected, each progression picks a way to end — and you are not told which. They do not all land on I, which is what keeps the last chord from being a formality.">
         {CADENCES.map((cadence) => {
-          const available = cadenceWarning(cadence, settings) === null
+          const warning = cadenceWarning(cadence, settings)
+          const available = warning === null
           const checked = chosen.has(cadence) && available
 
           return (
@@ -337,6 +351,11 @@ function CadencesScreen() {
                   <span className="block text-sm text-content-muted">
                     {CADENCE_DESCRIPTIONS[cadence]}
                   </span>
+                  {warning && (
+                    <span className="block text-xs text-incorrect">
+                      {warning}
+                    </span>
+                  )}
                 </>
               }
               checked={checked}
@@ -351,15 +370,23 @@ function CadencesScreen() {
         })}
       </ListCard>
 
-      {unavailable.map(({ cadence, warning }) => (
-        <p
-          key={cadence}
-          className="px-4 text-center text-sm text-content-muted"
-        >
-          <span className="text-content">{CADENCE_NAMES[cadence]}:</span>{' '}
-          {warning}
-        </p>
-      ))}
+      {/*
+        Somewhere to go, since every one of those warnings is about a chord and
+        chords are switched on one screen over. Shown only when something is
+        actually blocked — a permanent shortcut would be one more row to read
+        past on the screen where nothing is wrong.
+      */}
+      {anyUnavailable && (
+        <ListCard footer="A cadence needs its chords. Switch them on and it becomes available here.">
+          <ListRow
+            label="Chords"
+            chevron
+            onClick={() =>
+              push({ title: 'Chords', content: <NumeralsScreen /> })
+            }
+          />
+        </ListCard>
+      )}
     </div>
   )
 }

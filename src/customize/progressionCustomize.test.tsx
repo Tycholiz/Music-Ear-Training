@@ -379,11 +379,42 @@ describe('choosing cadences', () => {
     expect(row('Deceptive')).toBeDisabled()
   })
 
-  it('names the chords an unavailable cadence needs', async () => {
+  it('names the chords an unavailable cadence needs, on its own row', async () => {
+    // The text was already on the screen before — as a paragraph under the
+    // card — so asserting it exists somewhere passed either way. What was
+    // wrong was where: pressing `Deceptive` and getting nothing is a question,
+    // and an answer further down the screen is not a reply to it.
     const { user } = openMenu()
     await openScreen(user, 'Cadences')
 
-    expect(screen.getByText(/Needs vi, which is switched off/)).toBeVisible()
+    expect(
+      within(row('Deceptive')).getByText(/Needs vi, which is switched off/),
+    ).toBeVisible()
+  })
+
+  it('offers a way to the screen that can free it', async () => {
+    // Every one of those warnings is about a chord, and chords are switched on
+    // one screen over.
+    const { user } = openMenu()
+    await openScreen(user, 'Cadences')
+
+    await user.click(screen.getByRole('button', { name: /^Chords/ }))
+    // The Chords screen, reached without going back to Customize first.
+    expect(screen.getByRole('heading', { name: 'Diatonic' })).toBeVisible()
+  })
+
+  it('offers no way out when nothing is blocked', async () => {
+    // A permanent shortcut is one more row to read past on the screen where
+    // nothing is wrong.
+    progressionSettingsStore.write(
+      settingsWith({
+        numerals: ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii-dim', 'III'],
+      }),
+    )
+    const { user } = openMenu()
+    await openScreen(user, 'Cadences')
+
+    expect(screen.queryByRole('button', { name: /^Chords/ })).toBeNull()
   })
 
   it('becomes available once its chords are enabled', async () => {
