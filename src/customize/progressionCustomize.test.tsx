@@ -322,15 +322,16 @@ describe('choosing cadences', () => {
     expect(screen.getByText(/relative minor/)).toBeVisible()
   })
 
-  it('names both chords the secondary cadence needs', async () => {
+  it('names both chords the secondary cadence will switch on', async () => {
     // The only cadence needing two chords that are both off by default, and
-    // so the only one whose warning has to read as a list.
+    // so the only one whose note has to read as a list.
     const { user } = openMenu()
     await openScreen(user, 'Cadences')
 
-    expect(row('Secondary')).toBeDisabled()
     expect(
-      screen.getByText(/Needs III and vi, which are switched off/),
+      within(row('Secondary')).getByText(
+        /Choosing this will also switch on III and vi/,
+      ),
     ).toBeVisible()
   })
 
@@ -371,50 +372,72 @@ describe('choosing cadences', () => {
     expect(row('Authentic')).toBeEnabled()
   })
 
-  it('disables a cadence whose chords are switched off', async () => {
-    // Deceptive is V then vi, and vi is not enabled by default.
+  it('offers a cadence whose chords are switched off, rather than refusing it', async () => {
+    // Deceptive is V then vi, and vi is not enabled by default. It used to be
+    // disabled, which left the user to work out which chords were missing and
+    // go and switch them on themselves.
     const { user } = openMenu()
     await openScreen(user, 'Cadences')
 
-    expect(row('Deceptive')).toBeDisabled()
+    expect(row('Deceptive')).toBeEnabled()
+    expect(row('Deceptive')).toHaveAttribute('aria-checked', 'false')
   })
 
-  it('names the chords an unavailable cadence needs, on its own row', async () => {
+  it('says on the row what choosing it will switch on', async () => {
     // The text was already on the screen before — as a paragraph under the
     // card — so asserting it exists somewhere passed either way. What was
-    // wrong was where: pressing `Deceptive` and getting nothing is a question,
-    // and an answer further down the screen is not a reply to it.
+    // wrong was where, and what it said: a refusal rather than a consequence.
     const { user } = openMenu()
     await openScreen(user, 'Cadences')
 
     expect(
-      within(row('Deceptive')).getByText(/Needs vi, which is switched off/),
+      within(row('Deceptive')).getByText(
+        /Choosing this will also switch on vi/,
+      ),
     ).toBeVisible()
   })
 
-  it('offers a way to the screen that can free it', async () => {
-    // Every one of those warnings is about a chord, and chords are switched on
-    // one screen over.
+  it('switches those chords on when the cadence is chosen', async () => {
     const { user } = openMenu()
     await openScreen(user, 'Cadences')
 
-    await user.click(screen.getByRole('button', { name: /^Chords/ }))
-    // The Chords screen, reached without going back to Customize first.
-    expect(screen.getByRole('heading', { name: 'Diatonic' })).toBeVisible()
+    await user.click(row('Deceptive'))
+
+    await waitFor(() => {
+      const settings = progressionSettingsStore.read()
+      expect(settings.numerals).toContain('vi')
+      expect(settings.cadences).toContain('deceptive')
+    })
   })
 
-  it('offers no way out when nothing is blocked', async () => {
-    // A permanent shortcut is one more row to read past on the screen where
-    // nothing is wrong.
-    progressionSettingsStore.write(
-      settingsWith({
-        numerals: ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii-dim', 'III'],
-      }),
-    )
+  it('keeps the chords that were already on', async () => {
+    // The cadence brings what it needs and takes nothing away.
+    const { user } = openMenu()
+    await openScreen(user, 'Cadences')
+    const before = progressionSettingsStore.read().numerals
+
+    await user.click(row('Secondary'))
+
+    await waitFor(() => {
+      const after = progressionSettingsStore.read().numerals
+      for (const id of before) expect(after).toContain(id)
+      expect(after).toContain('III')
+      expect(after).toContain('vi')
+    })
+  })
+
+  it('stops saying it once the chords are on', async () => {
     const { user } = openMenu()
     await openScreen(user, 'Cadences')
 
-    expect(screen.queryByRole('button', { name: /^Chords/ })).toBeNull()
+    await user.click(row('Deceptive'))
+
+    await waitFor(() =>
+      expect(row('Deceptive')).toHaveAttribute('aria-checked', 'true'),
+    )
+    expect(
+      within(row('Deceptive')).queryByText(/will also switch on/),
+    ).toBeNull()
   })
 
   it('becomes available once its chords are enabled', async () => {

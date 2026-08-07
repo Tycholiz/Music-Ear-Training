@@ -29,7 +29,8 @@ import {
   INVERSION_NAMES,
   PROGRESSION_INVERSIONS,
   PROGRESSION_LENGTHS,
-  cadenceWarning,
+  cadenceMissing,
+  cadenceUnlockNote,
   numeralLockWarning,
   progressionRangeWarning,
   progressionStuckReason,
@@ -307,40 +308,50 @@ function NumeralsScreen() {
 /**
  * How progressions may end.
  *
- * A cadence needs its chords, so one whose chords are switched off cannot be
- * chosen. **The reason goes on the row it belongs to**, in the same shape the
- * Chords screen uses for a locked numeral.
+ * A cadence needs its chords, and one whose chords are switched off used to be
+ * disabled — with the reason printed as a paragraph under the card. Two things
+ * wrong with that. The words were in a place that was not an answer to the
+ * press that raised the question, and the answer itself was homework: *go to
+ * another screen, work out which chords these are, switch them on, come back*.
  *
- * It used to be a paragraph under the card, which is a different thing wearing
- * the same words: a user who presses `Deceptive` and gets nothing has asked a
- * question, and an answer somewhere further down the screen is not a reply to
- * it. With four cadences unavailable there were four paragraphs, and matching
- * each back to its row was work the screen was making the reader do.
+ * **Now the row switches them on itself.** Every one of those cadences is one
+ * press from being usable, so the press does it, and the note says what will
+ * happen before it does — nothing is turned on behind the user's back.
+ *
+ * The note is not styled as an error any more either. Nothing has gone wrong;
+ * it is a consequence of a tap the user has not yet made.
  */
 function CadencesScreen() {
-  const { push } = useModalNav()
   const [settings, setSettings] = usePersisted(progressionSettingsStore)
   const chosen = new Set(settings.cadences)
 
   const toggle = (cadence: Cadence, checked: boolean) => {
-    const cadences = checked
-      ? CADENCES.filter((option) => chosen.has(option) || option === cadence)
-      : settings.cadences.filter((option) => option !== cadence)
+    if (!checked) {
+      const cadences = settings.cadences.filter((option) => option !== cadence)
+      setSettings({ ...settings, cadences })
+      return
+    }
 
-    setSettings({ ...settings, cadences: [...cadences] })
+    // The chords come with it. Written in the same call rather than in two,
+    // because the store filters out a cadence whose chords are not enabled —
+    // saving the cadence first would have it stripped before the chords that
+    // justify it ever arrived.
+    const numerals = [
+      ...settings.numerals,
+      ...cadenceMissing(cadence, settings),
+    ]
+    const cadences = CADENCES.filter(
+      (option) => chosen.has(option) || option === cadence,
+    )
+
+    setSettings({ ...settings, numerals, cadences: [...cadences] })
   }
-
-  const anyUnavailable = CADENCES.some(
-    (cadence) => cadenceWarning(cadence, settings) !== null,
-  )
 
   return (
     <div className="flex flex-col gap-6 p-4">
       <ListCard footer="With more than one selected, each progression picks a way to end — and you are not told which. They do not all land on I, which is what keeps the last chord from being a formality.">
         {CADENCES.map((cadence) => {
-          const warning = cadenceWarning(cadence, settings)
-          const available = warning === null
-          const checked = chosen.has(cadence) && available
+          const note = cadenceUnlockNote(cadence, settings)
 
           return (
             <CheckRow
@@ -351,42 +362,20 @@ function CadencesScreen() {
                   <span className="block text-sm text-content-muted">
                     {CADENCE_DESCRIPTIONS[cadence]}
                   </span>
-                  {warning && (
-                    <span className="block text-xs text-incorrect">
-                      {warning}
-                    </span>
+                  {note && (
+                    <span className="block text-xs text-accent">{note}</span>
                   )}
                 </>
               }
-              checked={checked}
-              // Only its chords being switched off blocks it. The last
-              // working cadence can go too; the exercise then says it cannot
-              // build a progression, which it already says for a range too
-              // narrow to voice one in.
-              disabled={!available}
+              // A cadence whose chords are off reads as unchecked, because it
+              // is: it cannot be part of a progression until they are on. The
+              // press is what changes that.
+              checked={chosen.has(cadence) && note === null}
               onChange={(next) => toggle(cadence, next)}
             />
           )
         })}
       </ListCard>
-
-      {/*
-        Somewhere to go, since every one of those warnings is about a chord and
-        chords are switched on one screen over. Shown only when something is
-        actually blocked — a permanent shortcut would be one more row to read
-        past on the screen where nothing is wrong.
-      */}
-      {anyUnavailable && (
-        <ListCard footer="A cadence needs its chords. Switch them on and it becomes available here.">
-          <ListRow
-            label="Chords"
-            chevron
-            onClick={() =>
-              push({ title: 'Chords', content: <NumeralsScreen /> })
-            }
-          />
-        </ListCard>
-      )}
     </div>
   )
 }

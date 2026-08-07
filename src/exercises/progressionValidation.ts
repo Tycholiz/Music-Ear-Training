@@ -82,8 +82,16 @@ export function cadenceMissing(
   )
 }
 
-/** Why a cadence cannot be chosen, or null when it can. */
-export function cadenceWarning(
+/**
+ * What choosing this cadence will also switch on, or null when nothing.
+ *
+ * A note about a consequence rather than a refusal. It used to read "Needs vi,
+ * which is switched off." — accurate, and an answer to a question nobody asked:
+ * the user wanted the cadence, and being told which chord stands in the way
+ * left them to go and find it. Now the press does it, and this says so first,
+ * so nothing is switched on behind their back.
+ */
+export function cadenceUnlockNote(
   cadence: Cadence,
   settings: ProgressionSettings,
 ): string | null {
@@ -91,7 +99,7 @@ export function cadenceWarning(
   if (missing.length === 0) return null
 
   const names = listNames(missing.map(label))
-  return `Needs ${names}, which ${missing.length === 1 ? 'is' : 'are'} switched off.`
+  return `Choosing this will also switch on ${names}.`
 }
 
 /**
