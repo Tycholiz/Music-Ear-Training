@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1372 tests across 52 files.** All of `npm run lint`, `npm run build`,
+**1381 tests across 52 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -413,9 +413,28 @@ fresh object every render is a change every render: the question was thrown away
 as fast as it arrived, and the screen sat on Start forever. Un-memoise it and
 the test suite hangs rather than fails, which is the shape of that bug.
 
-Untried drills are listed separately rather than bucketed. An untried drill is
-not a weak one, and _needs work_ would be a verdict on evidence nobody has
-collected.
+**A pair the exercise has already seen you tell apart is marked solid without
+you ever opening it.** Being made to prove major against minor when you
+demonstrate it every session is busywork, and it is what would have put the most
+basic drill permanently at the top of an experienced user's list. Ordinary play
+answers the same question the drill asks, so it is allowed to.
+
+Both chords have to have been met, not just one — a clean record on major says
+nothing about telling it from a minor the user has never heard. And it reads
+`CONFUSION_THRESHOLD` from both sides rather than inventing a second, stricter
+number: above the line worth mentioning is a pair you mix up, below it is one
+you do not.
+
+The list is **tiered rather than scored** — confused pairs, then unknown ones,
+then anything already filed, each tier by `rank`. A weighted score needs a
+constant chosen to make the arithmetic come out, and nobody reading the list
+afterwards can say why one row sits above another. Within a tier it stays
+`rank`: someone who mixes up major/minor _and_ the elevenths should fix
+major/minor first, whichever they get wrong more often.
+
+A drill actually done outranks anything inferred, because it asked the same
+question directly. An untried, unknown drill is still not bucketed at all —
+_needs work_ would be a verdict on evidence nobody has collected.
 
 ### Adaptive difficulty: same pool, different frequency
 

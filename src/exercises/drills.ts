@@ -1,7 +1,13 @@
 import { chordById, type Chord } from '../theory'
 import type { ChordSettings, ExerciseStats, ItemStats } from '../settings'
 import { itemsInNamespace } from '../settings'
-import { mastery, type Mastery } from './statsView'
+import {
+  CONFUSION_THRESHOLD,
+  MIN_ATTEMPTS_TO_REPORT,
+  mastery,
+  type Mastery,
+} from './statsView'
+import { chordKey } from './adaptive'
 
 /**
  * Short drills on two chords that get mistaken for each other.
@@ -194,32 +200,126 @@ export function drillSettings(
   }
 }
 
+/**
+ * How often the ordinary chord exercise sees these two mixed up.
+ *
+ * Null when there is not enough to say. **Both chords have to have been asked
+ * about**, not just one: someone who has met a dominant 9th five times and a
+ * dominant 11th never has shown nothing about telling the two apart, and
+ * reading their clean 9th record as proof would mark the pair solid on the
+ * strength of a chord they have never heard.
+ *
+ * Counted over attempts rather than over misses, the same way `confusionsFor`
+ * counts. Two chords answered as each other a fifth of the time is a habit;
+ * once in twenty tries is a slip, and a rate over misses would call a single
+ * slip 100%.
+ */
+export function pairConfusionRate(
+  chordStats: ExerciseStats,
+  drill: Drill,
+): number | null {
+  const [a, b] = drill.chords.map((id) => chordStats[chordKey(id)])
+  if (!a || !b) return null
+  if (
+    a.recent.length < MIN_ATTEMPTS_TO_REPORT ||
+    b.recent.length < MIN_ATTEMPTS_TO_REPORT
+  ) {
+    return null
+  }
+
+  const mistakenFor = (item: ItemStats, other: string) =>
+    item.recent.filter((attempt) => attempt.answered === other).length
+
+  const mistakes =
+    mistakenFor(a, drill.chords[1]) + mistakenFor(b, drill.chords[0])
+
+  return mistakes / (a.recent.length + b.recent.length)
+}
+
+/**
+ * What is known about a pair, and where it came from.
+ *
+ * A drill the user has actually done outranks anything inferred, because it is
+ * the same question asked directly. Everything else is read off ordinary play.
+ */
+export type DrillEvidence =
+  | { kind: 'drilled'; bucket: Mastery }
+  | { kind: 'confused' }
+  | { kind: 'no-confusion' }
+  | { kind: 'unknown' }
+
 export interface DrillProgress {
   drill: Drill
   /** Null until the drill has been finished at least once. */
   record: ItemStats | null
-  /** Null until there is a record to judge. */
+  evidence: DrillEvidence
+  /** Where the row is filed. Null means it has not earned a bucket. */
   bucket: Mastery | null
 }
 
 /**
- * Every drill, most fundamental first, with whatever is known about each.
+ * Every drill, with what is known about each and in the order to work them.
  *
- * Ordered by `rank` alone for now. Blending in what the user's ordinary chord
- * play already says about each pair is #118's second half and wants the
- * confusion records, which this deliberately does not read yet.
+ * ## One threshold, read both ways
+ *
+ * `CONFUSION_THRESHOLD` already decides when a mistake is worth naming on the
+ * statistics screen — a fifth of the time counts, a twentieth does not. The
+ * same number decides both answers here: above it the pair is one the user
+ * mixes up, below it is one they do not. Inventing a second, stricter number
+ * for "demonstrably fine" would be two thresholds nobody could hold in their
+ * head at once, and the honest reading of "below the line worth mentioning" is
+ * that there is nothing to mention.
+ *
+ * ## Ordered in tiers, not by a blended score
+ *
+ * Confused pairs first, then unknown ones, and each tier by `rank`. The obvious
+ * alternative is a weighted score — rank minus some multiple of the confusion
+ * rate — which needs a constant chosen to make the arithmetic come out, and
+ * nobody reading the list afterwards can say why one row sits above another.
+ *
+ * Within a tier it stays `rank` rather than confusion rate on purpose. Someone
+ * who mixes up major and minor *and* the elevenths should fix major and minor
+ * first, whichever they get wrong more often, because everything else is built
+ * on it.
  */
-export function drillProgress(stats: ExerciseStats): DrillProgress[] {
+export function drillProgress(
+  stats: ExerciseStats,
+  chordStats: ExerciseStats = {},
+): DrillProgress[] {
   const records = itemsInNamespace(stats, DRILL_NAMESPACE)
 
-  return [...DRILLS]
-    .sort((a, b) => a.rank - b.rank)
-    .map((drill) => {
-      const record = records[drill.id] ?? null
-      return {
-        drill,
-        record,
-        bucket: record && record.recent.length > 0 ? mastery(record) : null,
-      }
-    })
+  const entries = DRILLS.map((drill) => {
+    const record = records[drill.id] ?? null
+    if (record && record.recent.length > 0) {
+      const bucket = mastery(record)
+      return { drill, record, evidence: { kind: 'drilled', bucket }, bucket }
+    }
+
+    const rate = pairConfusionRate(chordStats, drill)
+    if (rate === null) {
+      return { drill, record, evidence: { kind: 'unknown' }, bucket: null }
+    }
+    if (rate >= CONFUSION_THRESHOLD) {
+      return { drill, record, evidence: { kind: 'confused' }, bucket: null }
+    }
+    // Told apart in ordinary play often enough that being made to drill them
+    // would be busywork. Filed as solid without ever having been opened.
+    return {
+      drill,
+      record,
+      evidence: { kind: 'no-confusion' },
+      bucket: 'solid',
+    }
+  }) as DrillProgress[]
+
+  return entries.sort(
+    (a, b) => tier(a) - tier(b) || a.drill.rank - b.drill.rank,
+  )
+}
+
+/** Confused pairs before unknown ones; anything already filed sorts last. */
+function tier(entry: DrillProgress): number {
+  if (entry.evidence.kind === 'confused') return 0
+  if (entry.evidence.kind === 'unknown') return 1
+  return 2
 }

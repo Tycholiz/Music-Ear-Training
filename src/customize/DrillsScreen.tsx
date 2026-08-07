@@ -1,9 +1,14 @@
 import { ListCard, ListRow } from '../components'
-import { chordDrillStatsStore, usePersisted } from '../settings'
+import {
+  chordDrillStatsStore,
+  chordStatsStore,
+  usePersisted,
+} from '../settings'
 import {
   DRILL_LENGTH,
   drillChords,
   drillProgress,
+  type DrillEvidence,
   type DrillProgress,
   type Mastery,
 } from '../exercises'
@@ -23,15 +28,16 @@ import {
  */
 export function DrillsScreen({ onStart }: { onStart: (id: string) => void }) {
   const [stats] = usePersisted(chordDrillStatsStore)
-  const progress = drillProgress(stats)
+  const [chordStats] = usePersisted(chordStatsStore)
+  const progress = drillProgress(stats, chordStats)
 
-  const tried = progress.filter((entry) => entry.bucket !== null)
-  const untried = progress.filter((entry) => entry.bucket === null)
+  const filed = progress.filter((entry) => entry.bucket !== null)
+  const open = progress.filter((entry) => entry.bucket === null)
 
   return (
     <div className="flex flex-col gap-6 p-4">
       {BUCKET_ORDER.map((bucket) => {
-        const inBucket = tried.filter((entry) => entry.bucket === bucket)
+        const inBucket = filed.filter((entry) => entry.bucket === bucket)
         if (inBucket.length === 0) return null
 
         return (
@@ -43,12 +49,12 @@ export function DrillsScreen({ onStart }: { onStart: (id: string) => void }) {
         )
       })}
 
-      {untried.length > 0 && (
+      {open.length > 0 && (
         <ListCard
-          title={tried.length > 0 ? 'Not tried yet' : undefined}
-          footer={`Each drill is ${DRILL_LENGTH} questions on those two chords and nothing else. Start anywhere — they are ordered by how fundamental the distinction is, not by how hard.`}
+          title={filed.length > 0 ? 'Worth doing' : undefined}
+          footer={`Each drill is ${DRILL_LENGTH} questions on those two chords and nothing else. Anything the exercise has already seen you mix up is at the top; the rest are in order of how fundamental the distinction is, not how hard.`}
         >
-          {untried.map((entry) => (
+          {open.map((entry) => (
             <DrillRow key={entry.drill.id} entry={entry} onStart={onStart} />
           ))}
         </ListCard>
@@ -95,8 +101,31 @@ function DrillRow({
           <span className="mt-0.5 block text-xs leading-snug text-content-muted">
             {entry.drill.listenFor}
           </span>
+          {WHY[entry.evidence.kind] && (
+            <span className="mt-0.5 block text-xs leading-snug text-accent">
+              {WHY[entry.evidence.kind]}
+            </span>
+          )}
         </>
       }
     />
   )
+}
+
+/**
+ * Why a row is where it is, when the reason is not "you did this drill".
+ *
+ * A pair marked solid without ever being opened is the one thing on this screen
+ * a user would otherwise have to guess at, and guessing wrong means concluding
+ * the app has lost their record. So it says where it came from.
+ *
+ * Nothing is said for `unknown` — that is the ordinary state of the list, and a
+ * line under every untouched row explaining that nothing is known yet would be
+ * noise on the screen's most common case.
+ */
+const WHY: Record<DrillEvidence['kind'], string | null> = {
+  drilled: null,
+  unknown: null,
+  confused: 'The exercise has seen you mix these two up.',
+  'no-confusion': 'You already tell these apart in the exercise.',
 }
