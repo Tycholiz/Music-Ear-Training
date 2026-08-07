@@ -1,4 +1,5 @@
 export { AnswerGrid } from './AnswerGrid'
+export { ANSWER_COLUMNS, dropEmptyRows } from './answerCells'
 export type { Answer, AnswerCell, AnswerState } from './AnswerGrid'
 export { AboutPage } from './AboutPage'
 export type { AboutContent, AboutSection } from './AboutPage'

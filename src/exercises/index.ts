@@ -85,7 +85,7 @@ export {
   isChordCorrect,
 } from './chordQuestion'
 export type { ChordCandidate, ChordQuestion } from './chordQuestion'
-export { buildChordCells } from './chordCells'
+export { buildChordCells, buildDrillCells } from './chordCells'
 export {
   ALL_INVERSIONS,
   CHORD_PLAY_MODE_NAMES,

@@ -24,6 +24,7 @@ import {
   DRILL_LENGTH,
   DRILL_NAMESPACE,
   buildChordCells,
+  buildDrillCells,
   canGenerateChord,
   generateChordQuestion,
   groupsForChordPreview,
@@ -293,12 +294,15 @@ export default function Chords() {
           </div>
           <SilentSwitchHint />
           <AnswerGrid
-            cells={buildChordCells(
-              settings.chords,
-              wrong,
-              solvedId,
-              revealedId,
-            )}
+            // A drill lays its two chords out side by side rather than on the
+            // chord table, because it is not showing the chord table. The
+            // reserved positions are there so a chord keeps its place among
+            // the other thirty-four, and a drill has no other thirty-four.
+            cells={
+              drill
+                ? buildDrillCells(drill, wrong, solvedId, revealedId)
+                : buildChordCells(settings.chords, wrong, solvedId, revealedId)
+            }
             onAnswer={handleAnswer}
           />
           <div className="flex shrink-0 justify-center pb-2">

@@ -276,6 +276,32 @@ describe('buildCells', () => {
     expect(buildCells([1, 3], [], false, null)).toHaveLength(4)
   })
 
+  it('drops blank rows in the middle too, not only the trailing ones', () => {
+    // A Minor 2nd and an Octave used to be two buttons at opposite ends of a
+    // twelve-row grid, with ten empty rows of nothing between them and both
+    // buttons too small to hit.
+    const cells = buildCells([1, 12], [], false, null)
+
+    expect(cells).toHaveLength(4)
+    expect(cells[0]).toMatchObject({ label: 'Minor 2nd' })
+    expect(cells[3]).toMatchObject({ label: 'Octave' })
+  })
+
+  it('keeps every button in the column it was in', () => {
+    // The muscle memory this grid protects is left versus right: someone who
+    // knows the Major 2nd is on the right should never find it on the left.
+    // Rows are dropped whole, so nothing can slide sideways.
+    const cells = buildCells([2, 3], [], false, null)
+
+    // Major 2nd is the second entry in the table, so it is a right-hand
+    // button; the Minor 3rd below it is a left-hand one. Both stay put while
+    // the row above them goes.
+    expect(cells[0]).toBeNull()
+    expect(cells[1]).toMatchObject({ label: 'Major 2nd' })
+    expect(cells[2]).toMatchObject({ label: 'Minor 3rd' })
+    expect(cells[3]).toBeNull()
+  })
+
   it('keeps the two-column grid rectangular', () => {
     for (const enabled of [[1], [1, 2], [1, 2, 3], [1, 24]]) {
       expect(
@@ -296,8 +322,14 @@ describe('buildCells', () => {
   })
 
   it('leaves the answer idle until the question is solved', () => {
+    // The only enabled interval, so its three empty rows above go and it comes
+    // out first — still in its own column, which for the Perfect 5th is the
+    // left one.
     const cells = buildCells([7], [], false, P5)
-    expect(cells[6]).toMatchObject({ label: 'Perfect 5th', state: 'idle' })
+    expect(cells).toEqual([
+      { id: '7', label: 'Perfect 5th', state: 'idle' },
+      null,
+    ])
   })
 })
 

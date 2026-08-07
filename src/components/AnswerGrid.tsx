@@ -4,7 +4,8 @@
  * Answers the user has deselected in Customize are passed through as `null`,
  * which renders an empty cell that holds its position rather than letting the
  * remaining buttons reflow. Rows share the available height so the whole grid
- * fits on one screen without scrolling.
+ * fits on one screen without scrolling — the fewer rows, the taller each one,
+ * which is what makes `dropEmptyRows` in `answerCells.ts` worth doing.
  */
 
 export type AnswerState = 'idle' | 'wrong' | 'correct' | 'revealed'
