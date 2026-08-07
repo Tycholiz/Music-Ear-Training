@@ -3,7 +3,8 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import Chords from './Chords'
-import { buildChordCells } from '../exercises'
+import { DRILLS, buildChordCells, buildDrillCells } from '../exercises'
+import { ANSWER_COLUMNS } from '../components'
 import { piano } from '../audio'
 import {
   DEFAULT_CHORD_SETTINGS,
@@ -360,6 +361,51 @@ describe('buildChordCells', () => {
     }
   })
 
+  it('drops blank rows in the middle, not only the trailing ones', () => {
+    // The complaint that led here: three ninth chords out of thirty-five gave
+    // three buttons too small to hit, staggered down fourteen empty rows.
+    const cells = buildChordCells(
+      ['major-9th', 'major-7th-sharp-11', 'major-13th'],
+      [],
+      null,
+    )
+
+    expect(cells).toHaveLength(6)
+    expect(cells.filter((cell) => cell !== null)).toHaveLength(3)
+  })
+
+  it('keeps every button in the column it was in', () => {
+    // Left versus right is the half of a button's position a user actually
+    // memorises, and rows are dropped whole so nothing slides sideways. All
+    // three of these are right-hand buttons in the chord table and all three
+    // stay there, empty left-hand cells and all.
+    const cells = buildChordCells(
+      ['major-9th', 'major-7th-sharp-11', 'major-13th'],
+      [],
+      null,
+    )
+
+    expect(cells.map((cell) => cell?.label ?? null)).toEqual([
+      null,
+      'Major 9th',
+      null,
+      'Major 7♯11',
+      null,
+      'Major 13th',
+    ])
+  })
+
+  it('holds a switched-off chord that shares a row with an enabled one', () => {
+    // The gaps that earn their place. Major Triad and Minor Triad are one row,
+    // so switching Minor off leaves a hole rather than promoting Diminished
+    // into the place the user's thumb expects Minor.
+    const cells = buildChordCells(['major', 'diminished'], [], null)
+
+    expect(cells[0]).toMatchObject({ label: 'Major Triad' })
+    expect(cells[1]).toBeNull()
+    expect(cells[2]).toMatchObject({ label: 'Diminished Triad' })
+  })
+
   it('marks wrong guesses and the solved answer', () => {
     const cells = buildChordCells(
       ['major', 'minor', 'diminished'],
@@ -372,6 +418,74 @@ describe('buildChordCells', () => {
     expect(byLabel.get('Minor Triad')).toBe('wrong')
     expect(byLabel.get('Major Triad')).toBe('correct')
     expect(byLabel.get('Diminished Triad')).toBe('idle')
+  })
+})
+
+/**
+ * A drill is two chords, so it gets two buttons and the whole screen.
+ *
+ * The reserved positions exist so a chord keeps its place among the other
+ * thirty-four. A drill has no other thirty-four, and honouring the table there
+ * meant the layout depended on where the pair happened to land in a list the
+ * user cannot see — Major versus Minor filled the screen because those two sit
+ * in one row of it, and Add9 versus Major 9th got opposite corners of a
+ * four-cell grid with two holes in it.
+ */
+describe('buildDrillCells', () => {
+  const drill = (id: string) => {
+    const found = DRILLS.find((d) => d.id === id)
+    if (!found) throw new Error(`no drill ${id}`)
+    return found
+  }
+
+  it('gives a pair from opposite ends of the table one full row', () => {
+    // Add9 and Major 9th are five rows apart in the chord table.
+    const cells = buildDrillCells(drill('add9-major-9th'), [], null)
+
+    expect(cells).toEqual([
+      { id: 'add9', label: 'Add9', state: 'idle' },
+      { id: 'major-9th', label: 'Major 9th', state: 'idle' },
+    ])
+  })
+
+  it('gives every drill exactly one row, with no holes in it', () => {
+    // The property, rather than a case: whichever two chords a drill names,
+    // they are the whole grid.
+    for (const each of DRILLS) {
+      const cells = buildDrillCells(each, [], null)
+      expect(cells, each.id).toHaveLength(ANSWER_COLUMNS)
+      expect(cells.includes(null), each.id).toBe(false)
+    }
+  })
+
+  it('puts the chords in table order, not in the order the pair is written', () => {
+    // Which chord is on the left should be a fact about the two chords rather
+    // than a detail of how the drill list happens to be typed — and in table
+    // order it agrees with the main grid for every pair sharing a row there.
+    const written = drill('major-minor')
+    const cells = buildDrillCells(
+      { ...written, chords: ['minor', 'major'] },
+      [],
+      null,
+    )
+
+    expect(cells.map((cell) => cell?.label)).toEqual([
+      'Major Triad',
+      'Minor Triad',
+    ])
+  })
+
+  it('marks wrong guesses and the solved answer like any other grid', () => {
+    const cells = buildDrillCells(drill('major-minor'), ['minor'], 'major')
+
+    expect(cells[0]).toMatchObject({ label: 'Major Triad', state: 'correct' })
+    expect(cells[1]).toMatchObject({ label: 'Minor Triad', state: 'wrong' })
+  })
+
+  it('marks a revealed answer as given rather than as got right', () => {
+    const cells = buildDrillCells(drill('major-minor'), [], null, 'minor')
+
+    expect(cells[1]).toMatchObject({ state: 'revealed' })
   })
 })
 

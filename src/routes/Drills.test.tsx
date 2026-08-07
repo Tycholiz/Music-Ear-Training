@@ -114,6 +114,26 @@ describe('running a drill', () => {
     ).toBeNull()
   })
 
+  it('splits the grid between the two chords, wherever they sit in the table', async () => {
+    // Major against Minor filled the screen only because those two happen to
+    // share a row of the chord table. Add9 and Major 9th are five rows apart,
+    // and honouring the table gave them opposite corners of a four-cell grid
+    // with two holes in it — two small buttons for a screen showing two
+    // answers.
+    const user = userEvent.setup()
+    renderDrill('add9-major-9th')
+    await start(user)
+
+    const grid = screen.getByRole('button', { name: 'Add9' }).parentElement
+    expect(grid).not.toBeNull()
+
+    // Two children, both of them buttons: one row, no placeholders.
+    expect(grid!.children).toHaveLength(2)
+    expect([...grid!.children].every((cell) => cell.tagName === 'BUTTON')).toBe(
+      true,
+    )
+  })
+
   it('records to the drill store and leaves the chord record alone', async () => {
     // Ten forced repetitions of two chords are not a sample of how the user
     // hears chords in general.

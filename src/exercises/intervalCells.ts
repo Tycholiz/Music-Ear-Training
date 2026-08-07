@@ -1,12 +1,12 @@
-import type { AnswerCell } from '../components'
+import { dropEmptyRows, type AnswerCell } from '../components'
 import { INTERVALS } from '../theory'
 import type { IntervalQuestion } from './intervalQuestion'
 
 /**
  * The grid covers the interval table in order, with a blank cell wherever the
  * user has switched an interval off, so the buttons never reflow between
- * questions. Rows that are entirely blank — usually the compound intervals —
- * are trimmed rather than left as dead space.
+ * questions. Rows with nothing in them — the compound intervals, usually, but
+ * anywhere in the table — are dropped rather than left as dead space.
  */
 export function buildCells(
   enabled: readonly number[],
@@ -16,19 +16,17 @@ export function buildCells(
 ): AnswerCell[] {
   const chosen = new Set(enabled)
 
-  const cells: AnswerCell[] = INTERVALS.map((interval) => {
-    if (!chosen.has(interval.semitones)) return null
-    return {
-      id: String(interval.semitones),
-      label: interval.name,
-      state: stateFor(interval.semitones, wrong, solved, question),
-    }
-  })
-
-  while (cells.length > 0 && cells.at(-1) === null) cells.pop()
-  // Keep the two-column grid rectangular.
-  if (cells.length % 2 === 1) cells.push(null)
-  return cells
+  return dropEmptyRows(
+    INTERVALS.map((interval) =>
+      chosen.has(interval.semitones)
+        ? {
+            id: String(interval.semitones),
+            label: interval.name,
+            state: stateFor(interval.semitones, wrong, solved, question),
+          }
+        : null,
+    ),
+  )
 }
 
 function stateFor(

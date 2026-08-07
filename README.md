@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1400 tests across 52 files.** All of `npm run lint`, `npm run build`,
+**1427 tests across 52 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -424,6 +424,36 @@ instrument matters more than naming it, and how the statistics work. A test
 asserts the exercise pages do not re-explain the statistics, since a manual that
 says the same thing in five places goes out of date in four of them.
 
+### The answer grid: a blank cell holds a column, a blank row holds nothing
+
+Both identification exercises lay their buttons out on the theory table, two
+across, with a blank cell wherever the user has switched an answer off. The
+blanks are what keep a button in one place: someone who has learned the Major
+2nd is on the right and the Minor 2nd on the left should never find them
+swapped, so the grid does not repack around a gap.
+
+That argument only ever applied _across_ a row. **A row with nothing in it holds
+no position for anything** — it is dead height, and there was a lot of it. Three
+ninth chords out of thirty-five left fourteen empty rows on screen and three
+buttons too small to hit, staggered down a page of nothing.
+
+`dropEmptyRows` takes those out, and the rows that survive divide the height
+between them (`auto-rows-fr` is what makes the compaction worth anything).
+**Column is preserved by construction**, because a row is only ever kept or
+dropped whole. Closing the _holes_ instead would pack tighter still and swap the
+Major 2nd with the Minor 2nd the first time somebody switched a neighbour off.
+
+A lone button in a row stays half-width rather than spanning it. Growing it
+would arguably not betray anything — it covers its old position rather than
+moving away from it — but Chord Identification scores every press, so **an empty
+cell is a safe place to miss** and filling it makes a stray thumb cost a point.
+The price is a selection that sits all in one column leaving the other half of
+the screen empty, which is accepted.
+
+It replaced the trailing-blank trim and the pad-to-even that both builders ended
+with: a trailing blank row is just a row with nothing in it, so one rule does
+what two did and does it everywhere rather than only at the bottom.
+
 ### Drills: two chords, ten questions, nothing else
 
 The chord exercise asks about everything at once, which is right for practice
@@ -455,6 +485,22 @@ to be memoised**. An effect clears the round whenever the settings change, and a
 fresh object every render is a change every render: the question was thrown away
 as fast as it arrived, and the screen sat on Start forever. Un-memoise it and
 the test suite hangs rather than fails, which is the shape of that bug.
+
+**A drill lays its two chords out side by side, not on the chord table.** The
+reserved positions exist so a chord keeps its place among the other thirty-four;
+a drill has no other thirty-four, and honouring the table there made the layout
+depend on where the pair happened to land in a list the user cannot see. Major
+against Minor filled the screen because those two sit in one row of it; Add9
+against Major 9th got opposite corners of a four-cell grid with two holes in it.
+Two chords are two chords.
+
+Deliberately not folded into `buildChordCells` as "a pool of two goes side by
+side". Someone who has switched everything off but Major Triad and Minor 13th is
+still reading the chord table, and moving one of them out of its column to close
+a gap is the reflow the reserved positions exist to prevent. The pair is ordered
+by the chord table rather than by how the drill is written down, so which chord
+is on the left is a fact about the two chords — and it agrees with the main grid
+for every pair that shares a row there.
 
 **A pair the exercise has already seen you tell apart is marked solid without
 you ever opening it.** Being made to prove major against minor when you
@@ -876,9 +922,10 @@ place deliberately; remove it or revive it, but do not assume it is wired up.
   The row stays `disabled`; a tap still does nothing.
 
 - **New pads pack their buttons**, unlike `AnswerGrid` which holds empty
-  positions. For a _selection_ the gaps are the point — major pentatonic would
-  leave seven of twelve cells blank — and nothing can move mid-question because
-  changing the selection ends the round.
+  positions _within a row_. For a _selection_ the gaps are the point — major
+  pentatonic would leave seven of twelve cells blank — and nothing can move
+  mid-question because changing the selection ends the round. See
+  **The answer grid** above for what the gaps do and do not buy.
 
 ## Getting started
 
