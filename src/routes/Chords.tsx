@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate, useParams } from 'react-router'
 import {
   AnswerGrid,
   ExerciseHeader,
@@ -10,6 +10,7 @@ import {
 import { ChordSettingsMenu } from '../customize'
 import { piano, scheduleDurationMs } from '../audio'
 import {
+  chordDrillStatsStore,
   chordScoreStore,
   chordSettingsStore,
   chordStatsStore,
@@ -20,11 +21,17 @@ import {
 } from '../settings'
 import {
   CHORD_STATS_VIEW,
+  DRILL_LENGTH,
+  DRILL_NAMESPACE,
   buildChordCells,
   canGenerateChord,
   generateChordQuestion,
   groupsForChordPreview,
   groupsForChordQuestion,
+  drillById,
+  drillChords,
+  drillSettings,
+  type Drill,
   isChordCorrect,
   type ChordQuestion,
 } from '../exercises'
@@ -52,8 +59,31 @@ interface Round {
 
 export default function Chords() {
   const navigate = useNavigate()
-  const [settings] = usePersisted(chordSettingsStore)
+  const { drillId } = useParams()
+  const [stored] = usePersisted(chordSettingsStore)
   const [score, setScore, resetScore] = usePersisted(chordScoreStore)
+
+  /**
+   * The same screen, with the pool cut down to two chords.
+   *
+   * A drill is this exercise asked a narrower question, so it runs through the
+   * exercise rather than beside it — the audio, the grid, the reveal and the
+   * scoring are all things a drill wants exactly as they already are, and a
+   * second screen would be the same code with two chords in it.
+   */
+  const drill = drillId ? drillById(drillId) : null
+  // Memoised, and it has to be. An effect below clears the round whenever the
+  // settings change, and a fresh object every render is a change every render —
+  // in a drill that meant the question was thrown away as fast as it arrived
+  // and the screen never showed one at all.
+  const settings = useMemo(
+    () => (drill ? drillSettings(drill, stored) : stored),
+    [drill, stored],
+  )
+
+  /** How many questions of this drill have been answered. */
+  const [answered, setAnswered] = useState(0)
+  const finished = drill !== null && answered >= DRILL_LENGTH
 
   /** Whether this question has gone into the statistics — see Intervals.tsx. */
   const measured = useRef(false)
@@ -112,6 +142,42 @@ export default function Chords() {
     [],
   )
 
+  /**
+   * The one measurement a question gets, wherever it came from.
+   *
+   * **A drill records only to the drill store**, never to the chord record. Ten
+   * forced repetitions of the same two chords are not a sample of how the user
+   * hears chords in general — folded in, they would make those two the
+   * most-practised chords in the app and reweight what the exercise asks next,
+   * which is a measurement changing the thing it measures.
+   *
+   * The drill's own record is one entry per pair, one attempt per question, so
+   * `mastery` reads it exactly as it reads everything else.
+   */
+  const recordFirstPress = (correct: boolean, pressed?: string) => {
+    if (!round) return
+
+    if (drill) {
+      recordInStore(chordDrillStatsStore, [
+        { item: itemId(DRILL_NAMESPACE, drill.id), correct },
+      ])
+      setAnswered((count) => count + 1)
+      return
+    }
+
+    recordInStore(chordStatsStore, [
+      {
+        item: itemId('chord', round.question.chordId),
+        correct,
+        // Absent on a reveal: they did not confuse this chord with another,
+        // they had nothing.
+        answered: pressed,
+      },
+      { item: itemId('inversion', round.question.inversion), correct },
+      { item: itemId('mode', round.question.playMode), correct },
+    ])
+  }
+
   const handleAnswer = (chordId: string) => {
     if (!round) return
 
@@ -134,15 +200,7 @@ export default function Chords() {
 
     if (!measured.current) {
       measured.current = true
-      recordInStore(chordStatsStore, [
-        {
-          item: itemId('chord', round.question.chordId),
-          correct,
-          answered: chordId,
-        },
-        { item: itemId('inversion', round.question.inversion), correct },
-        { item: itemId('mode', round.question.playMode), correct },
-      ])
+      recordFirstPress(correct, chordId)
     }
 
     if (!correct) {
@@ -197,11 +255,7 @@ export default function Chords() {
     // nothing. Same reasoning as the self-graded root exercise.
     if (!measured.current) {
       measured.current = true
-      recordInStore(chordStatsStore, [
-        { item: itemId('chord', round.question.chordId), correct: false },
-        { item: itemId('inversion', round.question.inversion), correct: false },
-        { item: itemId('mode', round.question.playMode), correct: false },
-      ])
+      recordFirstPress(false)
     }
 
     advanceTimer.current = setTimeout(nextQuestion, REVEAL_ADVANCE_MS)
@@ -216,7 +270,16 @@ export default function Chords() {
         onMenu={() => setMenuOpen(true)}
       />
 
-      {round ? (
+      {finished ? (
+        <DrillSummary
+          drill={drill}
+          onAgain={() => {
+            setAnswered(0)
+            nextQuestion()
+          }}
+          onDone={() => navigate('/chords')}
+        />
+      ) : round ? (
         <>
           <div className="flex justify-center py-1">
             <ReplayButton
@@ -263,6 +326,11 @@ export default function Chords() {
           statsStore={chordStatsStore}
           statsView={CHORD_STATS_VIEW}
           about={CHORD_ABOUT}
+          onStartDrill={(id) => {
+            setMenuOpen(false)
+            setAnswered(0)
+            navigate(`/chords/drill/${id}`)
+          }}
           onResetScore={() => {
             resetScore()
             setMenuOpen(false)
@@ -270,6 +338,56 @@ export default function Chords() {
         />
       </ModalSheet>
     </main>
+  )
+}
+
+/**
+ * The end of a drill: how it went, and the two ways out.
+ *
+ * The score in the header already counts, so this does not repeat the number.
+ * What it adds is the one line the drill was about — a user who has just heard
+ * the same two chords ten times is in the best position they will ever be in to
+ * read what separates them.
+ */
+function DrillSummary({
+  drill,
+  onAgain,
+  onDone,
+}: {
+  drill: Drill
+  onAgain: () => void
+  onDone: () => void
+}) {
+  const [first, second] = drillChords(drill)
+
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-5 p-8 text-center">
+      <div className="flex flex-col gap-2">
+        <p className="text-lg font-semibold">
+          {first.name} vs {second.name}
+        </p>
+        <p className="text-sm leading-relaxed text-content-muted">
+          {drill.listenFor}
+        </p>
+      </div>
+
+      <div className="flex flex-col items-center gap-3">
+        <button
+          type="button"
+          onClick={onAgain}
+          className="rounded-full bg-accent px-8 py-3 text-lg font-medium active:opacity-80"
+        >
+          Again
+        </button>
+        <button
+          type="button"
+          onClick={onDone}
+          className="px-6 py-2 text-sm text-content-muted active:opacity-60"
+        >
+          Done
+        </button>
+      </div>
+    </div>
   )
 }
 

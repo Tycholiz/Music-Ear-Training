@@ -41,6 +41,7 @@ export type { Attempt, ExerciseStats, ItemStats, RecentAttempt } from './stats'
 export { createStore } from './store'
 export type { PersistedStore } from './store'
 export {
+  chordDrillStatsStore,
   chordScoreStore,
   chordSettingsStore,
   chordStatsStore,

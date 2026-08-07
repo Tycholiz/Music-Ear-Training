@@ -18,6 +18,7 @@ import { ChordsScreen } from './ChordsScreen'
 import { InversionsScreen } from './InversionsScreen'
 import { ChordPlayModeScreen } from './ChordPlayModeScreen'
 import { RangeScreen } from './RangeScreen'
+import { DrillsScreen } from './DrillsScreen'
 import { StatisticsScreen } from './StatisticsScreen'
 
 /**
@@ -34,6 +35,7 @@ export function ChordSettingsMenu({
   statsStore,
   statsView,
   about,
+  onStartDrill,
   onResetScore,
   availableChords = CHORDS,
 }: {
@@ -46,6 +48,14 @@ export function ChordSettingsMenu({
    * two exercises share this menu and neither's manual is the other's.
    */
   about: AboutContent
+  /**
+   * Start a drill, when this exercise has them.
+   *
+   * Only the chord exercise does. Chord root shares this menu and has no
+   * drills — the two chords of a pair have the same root, so a drill would be
+   * asking one question with one answer.
+   */
+  onStartDrill?: (drillId: string) => void
   onResetScore: () => void
   /** Narrower for the root exercise, which cannot use ambiguous chords. */
   availableChords?: readonly Chord[]
@@ -86,6 +96,18 @@ export function ChordSettingsMenu({
             })
           }
         />
+        {onStartDrill && (
+          <ListRow
+            label="Drills"
+            chevron
+            onClick={() =>
+              push({
+                title: 'Drills',
+                content: <DrillsScreen onStart={onStartDrill} />,
+              })
+            }
+          />
+        )}
         <ListRow
           label="About this exercise"
           chevron

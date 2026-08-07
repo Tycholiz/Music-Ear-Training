@@ -19,6 +19,7 @@ const router = createBrowserRouter([
       { index: true, element: <Home /> },
       { path: 'intervals', element: <Intervals /> },
       { path: 'chords', element: <Chords /> },
+      { path: 'chords/drill/:drillId', element: <Chords /> },
       { path: 'chord-root', element: <ChordRoot /> },
       { path: 'melody', element: <Melody /> },
       { path: 'progressions', element: <Progressions /> },

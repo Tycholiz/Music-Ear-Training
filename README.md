@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1355 tests across 50 files.** All of `npm run lint`, `npm run build`,
+**1372 tests across 52 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -380,6 +380,42 @@ five exercise pages: what the app is for, why playing what you hear on an
 instrument matters more than naming it, and how the statistics work. A test
 asserts the exercise pages do not re-explain the statistics, since a manual that
 says the same thing in five places goes out of date in four of them.
+
+### Drills: two chords, ten questions, nothing else
+
+The chord exercise asks about everything at once, which is right for practice
+and wrong for a specific confusion — someone who hears every dominant 9th as a
+dominant 7th meets that pair twice a session, buried among eight other chords.
+A drill puts the two side by side and nothing else.
+
+**The pairs are curated, not computed.** Shared notes is most of the story and
+not all of it: major and minor share everything but the third, so by that rule
+they would be one of the hardest pairs in the table, when they are one of the
+_easiest_ distinctions there is. Each pair carries a `rank` for how
+_fundamental_ it is rather than how similar the chords look, and the list is
+ordered by that — someone working down it builds on what they already have.
+
+A drill runs through the chord exercise itself rather than beside it: same
+audio, same grid, same reveal, with the pool cut to two. What it pins is
+everything else — root position, block, no adaptive weighting — because a drill
+exists to isolate one distinction, and a failed drill that could not say whether
+the pair or the voicing was the problem answers nothing.
+
+**Drills record to their own store.** Ten forced repetitions of two chords are
+not a sample of how someone hears chords in general; folded into the chord
+record they would make those two the most-practised chords in the app and
+reweight what the exercise asks next — a measurement changing the thing it
+measures.
+
+`Chords.tsx` derives its settings when a drill is running, and **that object has
+to be memoised**. An effect clears the round whenever the settings change, and a
+fresh object every render is a change every render: the question was thrown away
+as fast as it arrived, and the screen sat on Start forever. Un-memoise it and
+the test suite hangs rather than fails, which is the shape of that bug.
+
+Untried drills are listed separately rather than bucketed. An untried drill is
+not a weak one, and _needs work_ would be a verdict on evidence nobody has
+collected.
 
 ### Adaptive difficulty: same pool, different frequency
 
