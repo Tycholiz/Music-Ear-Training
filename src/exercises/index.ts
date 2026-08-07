@@ -22,7 +22,8 @@ export {
   drillProgress,
   drillSettings,
 } from './drills'
-export type { Drill, DrillProgress } from './drills'
+export { pairConfusionRate } from './drills'
+export type { Drill, DrillEvidence, DrillProgress } from './drills'
 export {
   MAX_WEIGHT_RATIO,
   chordKey,
