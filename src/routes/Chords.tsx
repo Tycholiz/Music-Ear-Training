@@ -86,6 +86,28 @@ export default function Chords() {
   const [answered, setAnswered] = useState(0)
   const finished = drill !== null && answered >= DRILL_LENGTH
 
+  /**
+   * How many of them were right — the drill's score, and nothing else's.
+   *
+   * **Kept apart from the exercise score, and in component state rather than
+   * in a store.** The chord score is a running total across every session and
+   * survives a reload; a drill is ten questions with a beginning and an end,
+   * and it starts again at nothing every time it is opened. Folding the two
+   * together was the visible half of the same mistake the statistics already
+   * avoid — ten forced repetitions of one pair are not a sample of how someone
+   * is doing at chords, so they should not move the number that claims to say.
+   *
+   * The total is `answered`, so there is nothing to keep in step: a drill
+   * scores exactly one attempt per question, which is what makes the pair of
+   * numbers a score rather than a tally of presses.
+   */
+  const [drillCorrect, setDrillCorrect] = useState(0)
+
+  const startDrillRun = useCallback(() => {
+    setAnswered(0)
+    setDrillCorrect(0)
+  }, [])
+
   /** Whether this question has gone into the statistics — see Intervals.tsx. */
   const measured = useRef(false)
 
@@ -179,6 +201,24 @@ export default function Chords() {
     ])
   }
 
+  /**
+   * Whether this question is over and a press can only replay a sound.
+   *
+   * **A drill question ends on the first press, right or wrong.** The ordinary
+   * exercise leaves a missed question open, because working out what it was is
+   * the exercise — but a drill has two buttons, so pressing the wrong one has
+   * already told the user which the answer was, and making them press the
+   * other to move on is a keystroke that teaches nothing. It also cannot be
+   * used to improve the drill's score, since only the first press counts.
+   *
+   * Which is why nothing needs revealing on a miss either: with a pool of two,
+   * a red button *is* the answer.
+   */
+  const over =
+    solvedId !== null ||
+    revealedId !== null ||
+    (drill !== null && wrong.length > 0)
+
   const handleAnswer = (chordId: string) => {
     if (!round) return
 
@@ -189,28 +229,36 @@ export default function Chords() {
     if (groups) void piano.play(groups)
 
     // Pressing an answer that has already been given — or any answer once the
-    // question is over, whether solved or revealed — replays its sound without
-    // scoring again.
-    if (solvedId || revealedId || wrong.includes(chordId)) return
+    // question is over — replays its sound without scoring again.
+    if (over || wrong.includes(chordId)) return
 
     // A question where several enabled chords share the same notes plays a
     // root reference tone first (see groupsForChordQuestion), so exactly one
     // chord is correct even then: the one that was actually generated.
     const correct = isChordCorrect(round.question, chordId)
-    setScore(recordGuess(score, correct))
+
+    // The two scores never both move. A drill is not practice at chords in
+    // general, so it leaves the exercise's running total exactly where it was.
+    if (drill) {
+      if (correct) setDrillCorrect((count) => count + 1)
+    } else {
+      setScore(recordGuess(score, correct))
+    }
 
     if (!measured.current) {
       measured.current = true
       recordFirstPress(correct, chordId)
     }
 
-    if (!correct) {
-      setWrong((current) => [...current, chordId])
-      return
-    }
+    if (correct) setSolvedId(chordId)
+    else setWrong((current) => [...current, chordId])
 
-    setSolvedId(chordId)
-    // Let the confirming chord finish before the next question interrupts it.
+    // A missed question in the ordinary exercise stays open to be retried; in
+    // a drill it is over, so both outcomes move on.
+    if (!correct && !drill) return
+
+    // Let the chord that just sounded finish before the next question
+    // interrupts it.
     const settle = groups
       ? Math.max(AUTO_ADVANCE_MS, scheduleDurationMs(groups) + ADVANCE_GAP_MS)
       : AUTO_ADVANCE_MS
@@ -232,21 +280,19 @@ export default function Chords() {
    *
    * The chord is marked `revealed` rather than `correct`. Green would tell the
    * user they got something they asked to be handed.
+   *
+   * **A drill has no Reveal**, and needs none: two buttons mean pressing either
+   * one settles the question, so the way out of a chord you cannot name is to
+   * guess — which costs the same as revealing did and leaves you having heard
+   * your guess against the answer.
    */
   const reveal = () => {
-    if (!round || solvedId || revealedId) return
+    if (!round || over) return
 
     void piano.play(groupsForChordQuestion(round.question, settings.chords))
     setRevealedId(round.question.chordId)
     setScore(recordGuess(score, false))
 
-    // Giving up is evidence too, and the guard means it only counts when the
-    // grid was never pressed. Without this a chord the user reveals every time
-    // would record nothing at all and read as untouched rather than as the
-    // hardest thing on the screen — which is exactly backwards.
-    //
-    // No `answered`: they did not confuse this chord with another, they had
-    // nothing. Same reasoning as the self-graded root exercise.
     // Giving up is evidence too, and the guard means it only counts when the
     // grid was never pressed. Without this a chord the user reveals every time
     // would record nothing at all and read as untouched rather than as the
@@ -264,9 +310,16 @@ export default function Chords() {
 
   return (
     <main className="flex h-full flex-col">
+      {/*
+        A drill shows its own score, not the exercise's. The number a user
+        watches while they work has to be the one about what they are doing —
+        a chord total in the hundreds does not move over ten questions, so it
+        read as though the drill were not being scored at all.
+      */}
       <ExerciseHeader
-        correct={score.correct}
-        total={score.total}
+        correct={drill ? drillCorrect : score.correct}
+        total={drill ? answered : score.total}
+        showAccuracy={drill === null}
         onBack={() => navigate('/')}
         onMenu={() => setMenuOpen(true)}
       />
@@ -274,8 +327,10 @@ export default function Chords() {
       {finished ? (
         <DrillSummary
           drill={drill}
+          correct={drillCorrect}
+          total={answered}
           onAgain={() => {
-            setAnswered(0)
+            startDrillRun()
             nextQuestion()
           }}
           onDone={() => navigate('/chords')}
@@ -305,16 +360,19 @@ export default function Chords() {
             }
             onAnswer={handleAnswer}
           />
-          <div className="flex shrink-0 justify-center pb-2">
-            <button
-              type="button"
-              onClick={reveal}
-              disabled={solvedId !== null || revealedId !== null}
-              className="rounded-full px-6 py-2 text-sm text-content-muted active:bg-surface disabled:opacity-30"
-            >
-              Reveal
-            </button>
-          </div>
+          {/* No Reveal in a drill — see `reveal`. Two buttons answer it. */}
+          {!drill && (
+            <div className="flex shrink-0 justify-center pb-2">
+              <button
+                type="button"
+                onClick={reveal}
+                disabled={over}
+                className="rounded-full px-6 py-2 text-sm text-content-muted active:bg-surface disabled:opacity-30"
+              >
+                Reveal
+              </button>
+            </div>
+          )}
         </>
       ) : (
         <StartPanel playable={playable} onStart={nextQuestion} />
@@ -332,7 +390,7 @@ export default function Chords() {
           about={CHORD_ABOUT}
           onStartDrill={(id) => {
             setMenuOpen(false)
-            setAnswered(0)
+            startDrillRun()
             navigate(`/chords/drill/${id}`)
           }}
           onResetScore={() => {
@@ -346,19 +404,28 @@ export default function Chords() {
 }
 
 /**
- * The end of a drill: how it went, and the two ways out.
+ * The end of a drill: what it was, how it went, and the two ways out.
  *
- * The score in the header already counts, so this does not repeat the number.
- * What it adds is the one line the drill was about — a user who has just heard
- * the same two chords ten times is in the best position they will ever be in to
- * read what separates them.
+ * **The score is the point of this screen**, so it is the biggest thing on it
+ * rather than left to the header. The header is chrome a user reads while they
+ * work; a run of ten that has just ended wants its result stated, and having
+ * to look back up at a small number in the corner to find out how you did is
+ * the screen declining to say.
+ *
+ * Out of the questions actually answered rather than out of `DRILL_LENGTH`.
+ * The two are the same at the end of a run, and writing the constant here
+ * would be a second claim about the length that could disagree with the first.
  */
 function DrillSummary({
   drill,
+  correct,
+  total,
   onAgain,
   onDone,
 }: {
   drill: Drill
+  correct: number
+  total: number
   onAgain: () => void
   onDone: () => void
 }) {
@@ -369,6 +436,12 @@ function DrillSummary({
       <div className="flex flex-col gap-2">
         <p className="text-lg font-semibold">
           {first.name} vs {second.name}
+        </p>
+        <p
+          aria-label="Drill score"
+          className="text-5xl font-semibold tabular-nums"
+        >
+          {correct}/{total}
         </p>
       </div>
 

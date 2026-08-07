@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1427 tests across 52 files.** All of `npm run lint`, `npm run build`,
+**1434 tests across 52 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -469,16 +469,45 @@ _fundamental_ it is rather than how similar the chords look, and the list is
 ordered by that — someone working down it builds on what they already have.
 
 A drill runs through the chord exercise itself rather than beside it: same
-audio, same grid, same reveal, with the pool cut to two. What it pins is
-everything else — root position, block, no adaptive weighting — because a drill
-exists to isolate one distinction, and a failed drill that could not say whether
-the pair or the voicing was the problem answers nothing.
+audio, same grid, with the pool cut to two. What it pins is everything else —
+root position, block, no adaptive weighting — because a drill exists to isolate
+one distinction, and a failed drill that could not say whether the pair or the
+voicing was the problem answers nothing.
 
 **Drills record to their own store.** Ten forced repetitions of two chords are
 not a sample of how someone hears chords in general; folded into the chord
 record they would make those two the most-practised chords in the app and
 reweight what the exercise asks next — a measurement changing the thing it
 measures.
+
+#### A pool of two changes what a question is
+
+Three things follow from there being two buttons, and all three came out of the
+exercise's behaviour rather than being added to it.
+
+**The question ends on the first press, right or wrong.** The ordinary exercise
+leaves a miss open because working out what it was is the exercise; here
+pressing one button has already said which the other was, so pressing it to be
+allowed to continue is a keystroke that teaches nothing. It also cannot change
+the score, since only the first press ever counted.
+
+**There is no Reveal**, for the same reason — with a pool of two, a red button
+_is_ the answer. Being told costs a miss and so does guessing, and guessing at
+least leaves you having heard your guess against what played.
+
+**The score is the drill's own**, kept in component state rather than a store,
+and the exercise's running total does not move while a drill is on. This is the
+visible half of the argument that already keeps the records apart: ten forced
+repetitions of one pair are not a sample of how someone is doing at chords, so
+they should not move the number that claims to say. It also read as though the
+drill were not scored at all, since a chord total in the hundreds does not
+visibly change over ten questions.
+
+No percentage beside it. Over ten questions the score already is the summary a
+percentage would be, and one question in it is either 0% or 100%. The summary
+screen states the final score outright rather than leaving the user to look
+back up at the header for it — out of the questions answered rather than out of
+`DRILL_LENGTH`, so there is only one claim about how long a drill is.
 
 `Chords.tsx` derives its settings when a drill is running, and **that object has
 to be memoised**. An effect clears the round whenever the settings change, and a
