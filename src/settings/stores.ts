@@ -419,3 +419,15 @@ export const chordStatsStore = statsStore('met.stats.chords')
 export const rootStatsStore = statsStore('met.stats.chordRoot')
 export const melodyStatsStore = statsStore('met.stats.melody')
 export const progressionStatsStore = statsStore('met.stats.progressions')
+
+/**
+ * How each chord drill has gone, keyed `drill:<id>`.
+ *
+ * Its own store rather than a namespace inside the chord statistics, because
+ * the two are sampled completely differently. A drill asks about two chords ten
+ * times running; the exercise asks about everything the user enabled. Folding
+ * ten forced repetitions of `major` into the chord record would make it the
+ * most-practised chord in the app and quietly reweight what the exercise asks
+ * next — a measurement changing the thing it measures.
+ */
+export const chordDrillStatsStore = statsStore('met.stats.chordDrills')

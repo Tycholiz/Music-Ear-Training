@@ -148,7 +148,7 @@ export function numeralLockWarning(
 
   return `${label(numeralId)} is the last chord holding the ${listNames(
     holding.map((cadence) => CADENCE_NAMES[cadence].toLowerCase()),
-  )} cadence together. Enable another cadence to free it.`
+  )} cadence together.`
 }
 
 /** Whether the range can hold the chords a progression is voiced across. */

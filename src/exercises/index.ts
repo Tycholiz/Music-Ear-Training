@@ -14,6 +14,16 @@ export {
 } from './statsView'
 export type { Mastery, StatsRow, StatsSection, StatsView } from './statsView'
 export {
+  DRILLS,
+  DRILL_LENGTH,
+  DRILL_NAMESPACE,
+  drillById,
+  drillChords,
+  drillProgress,
+  drillSettings,
+} from './drills'
+export type { Drill, DrillProgress } from './drills'
+export {
   MAX_WEIGHT_RATIO,
   chordKey,
   intervalKey,
