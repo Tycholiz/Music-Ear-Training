@@ -7,9 +7,12 @@ import {
   type PersistedStore,
 } from '../settings'
 import {
+  QUALITY_ROLLUP_TITLE,
   confusionsFor,
   hasAnyStats,
   mastery,
+  qualityConfusionLabel,
+  qualityConfusions,
   reportableRows,
   statsRows,
   type Mastery,
@@ -104,6 +107,8 @@ export function StatisticsScreen({
 
   return (
     <div className="flex flex-col gap-6 p-4">
+      {view.qualityRollUp && <QualityRollUp stats={stats} />}
+
       {view.sections.map((section) => (
         <Section
           key={section.namespace}
@@ -117,6 +122,54 @@ export function StatisticsScreen({
 
       <ListCard footer="Clears this exercise's record only. Your score is separate, and adaptive difficulty reads this — so resetting it also starts that over.">
         <ListRow label="Reset Statistics" destructive onClick={onReset} />
+      </ListCard>
+    </div>
+  )
+}
+
+/**
+ * The coarse habit, above everything the screen says chord by chord.
+ *
+ * The per-chord rows serve a user working on extensions — this Dominant 7th
+ * keeps coming out as a Dominant 9th. Someone earlier on has a coarser mistake
+ * than any single chord, hearing major as minor wherever it turns up, and it
+ * lands on a different minor chord each time, so every row it belongs to
+ * reports a share too small to name. This is where that sentence exists.
+ *
+ * **Rendered nothing at all when there is nothing to say**, which is what makes
+ * it safe to put first. A user without a quality-level habit never sees a
+ * heading for one, so the advanced reader still opens on the buckets.
+ *
+ * ## No accuracy, no bucket, and no swipe to reset
+ *
+ * Each of those is deliberate rather than missing. An accuracy per quality
+ * would be a fourth figure describing the same attempts the buckets already
+ * summarise. A bucket would be a second set of needs work / getting there /
+ * solid on one screen with nothing to say which was which. And a swipe would
+ * have to clear ten chords' records to clear one row — a per-row action doing
+ * something the user cannot see the extent of, when the row they meant is
+ * already swipeable in the section below.
+ */
+function QualityRollUp({ stats }: { stats: ExerciseStats }) {
+  const rows = qualityConfusions(stats)
+  if (rows.length === 0) return null
+
+  return (
+    <div className="flex flex-col gap-3">
+      <h2 className="px-1 text-base font-semibold">{QUALITY_ROLLUP_TITLE}</h2>
+      <ListCard footer="Counted across every chord of that kind at once, so a habit that runs through all of them shows up here before any single chord has been answered enough times to report.">
+        {rows.map((row) => (
+          <ListRow
+            key={`${row.from}-${row.to}`}
+            alignFirstLine
+            label={qualityConfusionLabel(row)}
+            value={
+              <span className="text-xs whitespace-nowrap tabular-nums">
+                {Math.round(row.share * 100)}% of the time
+              </span>
+            }
+          />
+        ))}
       </ListCard>
     </div>
   )

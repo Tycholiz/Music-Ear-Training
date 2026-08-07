@@ -4,12 +4,15 @@ import {
   INTERVAL_STATS_VIEW,
   MELODY_STATS_VIEW,
   MIN_ATTEMPTS_TO_REPORT,
+  MIN_QUALITY_ATTEMPTS_TO_REPORT,
   PROGRESSION_STATS_VIEW,
   ROOT_STATS_VIEW,
   bucketedSection,
   confusionsFor,
   hasAnyStats,
   mastery,
+  qualityConfusionLabel,
+  qualityConfusions,
   reportableRows,
   statsRows,
   type StatsSection,
@@ -636,6 +639,175 @@ describe('confusions', () => {
     const [row] = statsRows(stats, bucketedSection(ROOT_STATS_VIEW))
 
     expect(confusionsFor(row, bucketedSection(ROOT_STATS_VIEW))).toEqual([])
+  })
+})
+
+describe('the chord-quality roll-up', () => {
+  /** `times` misses on `item`, each answered as `answered`. */
+  function misses(item: string, answered: string, times: number): Attempt[] {
+    return repeat(`chord:${item}`, false, times).map((a) => ({
+      ...a,
+      answered,
+    }))
+  }
+
+  const named = (stats: ExerciseStats) =>
+    qualityConfusions(stats).map((c) => qualityConfusionLabel(c))
+
+  it('names a habit spread thin across several answers', () => {
+    // The case the per-chord list cannot reach. One chord, three different
+    // minor chords pressed instead, two attempts each — every answer sits at
+    // 10% of attempts, under the threshold, so the chord's own row names
+    // nothing while three in ten of its attempts went to a minor chord.
+    const stats = record(
+      ...misses('major-7th', 'minor-7th', 2),
+      ...misses('major-7th', 'minor-9th', 2),
+      ...misses('major-7th', 'minor-6th', 2),
+      ...repeat('chord:major-7th', true, 14),
+    )
+
+    const chords = bucketedSection(CHORD_STATS_VIEW)
+    expect(confusionsFor(statsRows(stats, chords)[0], chords)).toEqual([])
+
+    expect(qualityConfusions(stats)).toEqual([
+      { from: 'major', to: 'minor', share: 0.3 },
+    ])
+  })
+
+  it('speaks before any single chord has enough attempts to report', () => {
+    // Four major chords, four attempts each: every row is below
+    // `MIN_ATTEMPTS_TO_REPORT` and the screen shows none of them, while the
+    // sixteen attempts between them are four times the evidence any one row
+    // has. That is the beginner this section is for.
+    const stats = record(
+      ...['major', 'major-6th', 'major-7th', 'add9'].flatMap((chord) => [
+        ...misses(chord, 'minor', 1),
+        ...repeat(`chord:${chord}`, true, 3),
+      ]),
+    )
+
+    expect(
+      reportableRows(statsRows(stats, bucketedSection(CHORD_STATS_VIEW))),
+    ).toEqual([])
+
+    expect(named(stats)).toEqual(['Major chords answered as minor'])
+  })
+
+  it('says nothing on evidence too thin to pool', () => {
+    // Fourteen attempts, half of them wrong in the same direction — a glaring
+    // rate on a sample that is still two per chord across a family. The
+    // threshold on a pooled count has to be a pooled threshold.
+    const stats = record(
+      ...misses('major', 'minor', 7),
+      ...repeat('chord:major', true, 7),
+    )
+    expect(named(stats)).toEqual([])
+
+    // One more attempt, and the same habit is worth saying.
+    const enough = recordAttempts(stats, repeat('chord:major', true, 1), 2)
+    expect(named(enough)).toEqual(['Major chords answered as minor'])
+  })
+
+  it('drops a mistake inside one quality', () => {
+    // A Major 7th heard as a Major 9th is a real mistake and the per-chord
+    // list's business. Here it could only ever come out as "you hear major as
+    // major", which is not a finding about anything.
+    const stats = record(
+      ...misses('major-7th', 'major-9th', 10),
+      ...repeat('chord:major-7th', true, 10),
+    )
+
+    expect(qualityConfusions(stats)).toEqual([])
+  })
+
+  it('keeps the two directions apart', () => {
+    // Hearing major as minor and hearing minor as major are two habits, not
+    // one symmetrical one, and a user with the first should not be told they
+    // have both.
+    const stats = record(
+      ...misses('major', 'minor', 6),
+      ...repeat('chord:major', true, 14),
+      ...repeat('chord:minor', true, 20),
+    )
+
+    expect(named(stats)).toEqual(['Major chords answered as minor'])
+  })
+
+  it('puts the strongest habit first', () => {
+    // Worst-first, like every other section with no fixed list to mirror.
+    const stats = record(
+      ...misses('major', 'minor', 4),
+      ...misses('major', 'diminished', 8),
+      ...repeat('chord:major', true, 8),
+    )
+
+    expect(named(stats)).toEqual([
+      'Major chords answered as diminished',
+      'Major chords answered as minor',
+    ])
+  })
+
+  it('pools the answers as well as the chords', () => {
+    // Both axes at once: three major chords, each mistaken for a different
+    // minor chord, and neither grouping alone would find it. The answers are
+    // spread too thin to name and the chords are too thin to report.
+    const stats = record(
+      ...misses('major', 'minor', 1),
+      ...repeat('chord:major', true, 4),
+      ...misses('major-7th', 'minor-7th', 1),
+      ...repeat('chord:major-7th', true, 4),
+      ...misses('major-9th', 'minor-9th', 1),
+      ...repeat('chord:major-9th', true, 4),
+    )
+
+    expect(qualityConfusions(stats)).toEqual([
+      { from: 'major', to: 'minor', share: 0.2 },
+    ])
+  })
+
+  it('ignores records and answers naming a chord the table has dropped', () => {
+    // Both positions. An id with no chord behind it cannot be grouped, and
+    // guessing which family it belonged to would invent the finding.
+    const stats = record(
+      ...misses('no-such-chord', 'minor', 20),
+      ...misses('major', 'no-such-answer', 6),
+      ...repeat('chord:major', true, 14),
+    )
+
+    expect(qualityConfusions(stats)).toEqual([])
+  })
+
+  it('forgets a habit once it falls out of the window', () => {
+    // Same rule as the per-chord confusions: the roll-up describes where the
+    // user is, not where they have been.
+    let stats = record(
+      ...misses('major', 'minor', 6),
+      ...repeat('chord:major', true, 14),
+    )
+    expect(named(stats)).toEqual(['Major chords answered as minor'])
+
+    stats = recordAttempts(stats, repeat('chord:major', true, RECENT_WINDOW), 2)
+    expect(named(stats)).toEqual([])
+  })
+
+  it('is offered by the chord exercise alone', () => {
+    // Chord root shares the namespace and is self-graded, so it has no answers
+    // to group; nothing else has chords at all.
+    expect(CHORD_STATS_VIEW.qualityRollUp).toBe(true)
+    for (const view of ALL_VIEWS.filter((v) => v !== CHORD_STATS_VIEW)) {
+      expect(view.qualityRollUp).toBeFalsy()
+    }
+  })
+
+  it('never asks for more evidence than one chord can supply', () => {
+    // A user with a single major chord switched on tops out at one window of
+    // attempts. Set the floor above that and their roll-up could never appear,
+    // which is a section that is silent by construction rather than by
+    // evidence.
+    expect(MIN_QUALITY_ATTEMPTS_TO_REPORT).toBeLessThanOrEqual(RECENT_WINDOW)
+    expect(MIN_QUALITY_ATTEMPTS_TO_REPORT).toBeGreaterThan(
+      MIN_ATTEMPTS_TO_REPORT,
+    )
   })
 })
 

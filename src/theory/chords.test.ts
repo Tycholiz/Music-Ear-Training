@@ -2,13 +2,17 @@ import { describe, expect, it } from 'vitest'
 import {
   CHORDS,
   CHORD_CATEGORIES,
+  CHORD_QUALITIES,
+  QUALITY_NAMES,
   UNAMBIGUOUS_ROOT_CHORDS,
   UNAMBIGUOUS_ROOT_CHORD_IDS,
   hasAmbiguousRoot,
   chordById,
   chordNotes,
+  chordQuality,
   chordSpan,
   chordsInCategory,
+  chordsOfQuality,
   invert,
   maxInversion,
   voiceCount,
@@ -110,6 +114,128 @@ describe('CHORDS', () => {
 
   it('throws for an unknown id', () => {
     expect(() => chordById('nope')).toThrow(RangeError)
+  })
+})
+
+/**
+ * The quality of each chord is hand-written, so what these check is the
+ * curation rather than a function.
+ *
+ * They assert the rules the table would follow if it *were* derived, one
+ * quality at a time, which pins every entry that agrees with the obvious rule
+ * and leaves the two that deliberately do not to be named on their own. A
+ * mistyped quality on any of the other thirty-three fails here.
+ */
+describe('chord quality', () => {
+  /**
+   * Whether a chord has a voice at exactly this offset.
+   *
+   * Exactly, not by pitch class. These are close-position stacks, so a third
+   * sits at 3 or 4 and a voice at 15 is a ♯9 — the same pitch class as a minor
+   * third and a different note in the chord. Folding the octaves together
+   * would make the Dominant 7♯9 read as minor, which is precisely the reading
+   * the table is written out to avoid.
+   */
+  const has = (id: string, offset: number) =>
+    chordById(id).offsets.includes(offset)
+
+  it('only uses declared qualities, and every quality is populated', () => {
+    for (const chord of CHORDS) {
+      expect(CHORD_QUALITIES, chord.name).toContain(chord.quality)
+    }
+    for (const quality of CHORD_QUALITIES) {
+      expect(chordsOfQuality(quality).length, quality).toBeGreaterThan(0)
+    }
+  })
+
+  it('names every quality', () => {
+    for (const quality of CHORD_QUALITIES) {
+      expect(QUALITY_NAMES[quality], quality).toBeTruthy()
+    }
+  })
+
+  it('accounts for every chord exactly once', () => {
+    const grouped = CHORD_QUALITIES.flatMap((quality) =>
+      chordsOfQuality(quality),
+    )
+    expect(grouped).toHaveLength(CHORDS.length)
+  })
+
+  it('gives every major chord a major third and no flat seventh', () => {
+    // The flat seventh is what separates major from dominant. Without it a
+    // Major 7♯11 and a Dominant 7♯11 would land in the same group, which is
+    // the one distinction this roll-up exists to be able to make.
+    for (const chord of chordsOfQuality('major')) {
+      expect(has(chord.id, 4), chord.name).toBe(true)
+      expect(has(chord.id, 10), chord.name).toBe(false)
+    }
+  })
+
+  it('gives every minor chord a minor third and a perfect fifth', () => {
+    // The fifth is what separates minor from diminished: a minor 7th and a
+    // half-diminished 7th differ by that note alone.
+    for (const chord of chordsOfQuality('minor')) {
+      expect(has(chord.id, 3), chord.name).toBe(true)
+      expect(has(chord.id, 7), chord.name).toBe(true)
+    }
+  })
+
+  it('gives every dominant chord a flat seventh and never a minor third', () => {
+    // A Minor 7th has the flat seventh too, so the seventh alone is not
+    // enough — it is the flat seventh *without* a minor third under it.
+    for (const chord of chordsOfQuality('dominant')) {
+      expect(has(chord.id, 10), chord.name).toBe(true)
+      expect(has(chord.id, 3), chord.name).toBe(false)
+    }
+  })
+
+  it('gives every diminished chord a minor third and a flat fifth', () => {
+    for (const chord of chordsOfQuality('diminished')) {
+      expect(has(chord.id, 3), chord.name).toBe(true)
+      expect(has(chord.id, 6), chord.name).toBe(true)
+    }
+  })
+
+  it('gives every augmented chord a major third and a sharp fifth', () => {
+    for (const chord of chordsOfQuality('augmented')) {
+      expect(has(chord.id, 4), chord.name).toBe(true)
+      expect(has(chord.id, 8), chord.name).toBe(true)
+    }
+  })
+
+  it('leaves the suspended chords with no third at all', () => {
+    for (const chord of chordsOfQuality('suspended')) {
+      expect(has(chord.id, 3), chord.name).toBe(false)
+      expect(has(chord.id, 4), chord.name).toBe(false)
+    }
+  })
+
+  it('calls the Dominant 7th Sus4 a dominant despite having no third', () => {
+    // The chord a derivation from the offsets would get wrong, which is why
+    // the table is written out. There is no third to read, so the only rule
+    // that could reach it is "no third means suspended" — and the flat seventh
+    // is what the ear takes from this chord, not the missing third.
+    expect(chordQuality('dominant-7th-sus4')).toBe('dominant')
+    expect(has('dominant-7th-sus4', 3)).toBe(false)
+    expect(has('dominant-7th-sus4', 4)).toBe(false)
+  })
+
+  it('calls the Dominant 7♯9 a dominant, with its ♯9 an octave clear of the third', () => {
+    // The other chord a derivation could get wrong, and the reason `has`
+    // compares offsets rather than pitch classes: the ♯9 is a minor third
+    // twelve semitones up, sitting over a major third the chord also has. Read
+    // by pitch class this chord has both thirds and no rule can place it.
+    const chord = chordById('dominant-7th-sharp-9')
+    expect(chord.quality).toBe('dominant')
+    expect(has(chord.id, 4)).toBe(true)
+    expect(has(chord.id, 3)).toBe(false)
+    expect(chord.offsets).toContain(15)
+  })
+
+  it('returns null rather than throwing for a chord the table has dropped', () => {
+    // The statistics read ids out of a persisted record, so an id the table no
+    // longer has is an ordinary thing to meet rather than a bug.
+    expect(chordQuality('no-such-chord')).toBeNull()
   })
 })
 

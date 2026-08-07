@@ -3,16 +3,26 @@ export {
   INTERVAL_STATS_VIEW,
   MELODY_STATS_VIEW,
   MIN_ATTEMPTS_TO_REPORT,
+  MIN_QUALITY_ATTEMPTS_TO_REPORT,
   PROGRESSION_STATS_VIEW,
+  QUALITY_ROLLUP_TITLE,
   ROOT_STATS_VIEW,
   bucketedSection,
   confusionsFor,
   hasAnyStats,
   mastery,
+  qualityConfusionLabel,
+  qualityConfusions,
   reportableRows,
   statsRows,
 } from './statsView'
-export type { Mastery, StatsRow, StatsSection, StatsView } from './statsView'
+export type {
+  Mastery,
+  QualityConfusion,
+  StatsRow,
+  StatsSection,
+  StatsView,
+} from './statsView'
 export {
   DRILLS,
   DRILL_LENGTH,

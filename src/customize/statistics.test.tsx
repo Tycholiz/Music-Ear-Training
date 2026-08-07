@@ -370,6 +370,108 @@ describe('the accuracy column', () => {
   })
 })
 
+/**
+ * The coarse finding, for the user the per-chord rows cannot serve.
+ *
+ * Both halves are on screen at once and neither replaces the other: the
+ * quality roll-up is what a beginner needs, the per-chord confusions are what
+ * someone working on extensions needs, and a screen showing only one of them
+ * is wrong for half its users.
+ */
+describe('the chord-quality roll-up', () => {
+  it('names a habit before any single chord row can appear', async () => {
+    // Four major chords with four attempts each, one of them heard as a minor
+    // chord — a different minor chord every time. Every row is under the
+    // reporting threshold and the screen shows none of them, while a quarter
+    // of the sixteen attempts between them went to a minor chord.
+    recordInStore(chordStatsStore, [
+      ...times('chord:major', false, 1, 'minor'),
+      ...times('chord:major', true, 3),
+      ...times('chord:major-6th', false, 1, 'minor-6th'),
+      ...times('chord:major-6th', true, 3),
+      ...times('chord:major-7th', false, 1, 'minor-7th'),
+      ...times('chord:major-7th', true, 3),
+      ...times('chord:add9', false, 1, 'minor-add9'),
+      ...times('chord:add9', true, 3),
+    ])
+    const user = openMenu()
+    await openStatistics(user)
+
+    expect(screen.getByText('Major chords answered as minor')).toBeVisible()
+    expect(screen.getByText('25% of the time')).toBeVisible()
+    // Nothing chord by chord: this is the whole screen for this user, and
+    // before the roll-up existed it said only that four things were still
+    // being measured.
+    expect(screen.queryByText('often mistaken for:')).toBeNull()
+    expect(screen.queryByText('Major Triad')).toBeNull()
+  })
+
+  it('leads the screen, above what the chords say one at a time', async () => {
+    recordInStore(chordStatsStore, [
+      ...times('chord:major', false, 6, 'minor'),
+      ...times('chord:major', true, 14),
+    ])
+    const user = openMenu()
+    await openStatistics(user)
+
+    const shown = headings()
+    expect(shown[0]).toBe('Hearing one kind of chord as another')
+    expect(shown).toContain('Naming each chord')
+    // Both halves, on one screen. The roll-up says the habit runs through
+    // every major chord; the row below still says which one it was measured on.
+    expect(confusionsUnder('Major Triad')).toEqual(['Minor Triad'])
+  })
+
+  it('is not there at all for a user who has no such habit', async () => {
+    // Which is what makes it safe to put first. Someone past this stage opens
+    // the screen on the buckets, as they did before it existed.
+    recordInStore(chordStatsStore, [
+      ...times('chord:major', false, 6, 'major-7th'),
+      ...times('chord:major', true, 14),
+    ])
+    const user = openMenu()
+    await openStatistics(user)
+
+    expect(headings()[0]).toBe('Naming each chord')
+    expect(
+      screen.queryByRole('heading', {
+        name: 'Hearing one kind of chord as another',
+      }),
+    ).toBeNull()
+  })
+
+  it('offers no swipe to reset, having no single record behind it', async () => {
+    // A per-row action that would have to clear three chords' records to
+    // clear one row. The row the user means is swipeable in the section below.
+    recordInStore(chordStatsStore, [
+      ...times('chord:major', false, 6, 'minor'),
+      ...times('chord:major', true, 14),
+    ])
+    const user = openMenu()
+    await openStatistics(user)
+
+    expect(
+      screen.queryByRole('button', {
+        name: /Reset Major chords answered as minor/,
+      }),
+    ).toBeNull()
+    // The per-chord row still has one.
+    expect(
+      screen.getByRole('button', { name: 'Reset Major Triad' }),
+    ).toBeInTheDocument()
+  })
+
+  it('stays off the chord root screen, which is self-graded', async () => {
+    // Seeded with answers chord root cannot produce, so this fails if the
+    // roll-up reads the record instead of the view.
+    recordInStore(rootStatsStore, times('chord:major', false, 20, 'minor'))
+    const user = openMenu(ROOT_STATS_VIEW, rootStatsStore)
+    await openStatistics(user)
+
+    expect(screen.queryByText(/answered as minor/)).toBeNull()
+  })
+})
+
 describe('sections and the buckets inside them', () => {
   it('gives every section a heading, not just the bucketed one', async () => {
     // They are peers in the model and used to render a tier apart: the
