@@ -1,4 +1,5 @@
 import {
+  AboutPage,
   CheckRow,
   ListCard,
   ListRow,
@@ -36,6 +37,7 @@ import {
 } from '../exercises'
 import { RangeScreen } from './RangeScreen'
 import { StatisticsScreen } from './StatisticsScreen'
+import { PROGRESSION_ABOUT } from '../about/pages'
 import { afterGroupToggle, groupCanToggle, groupIsFull } from './bulkSelect'
 import { SelectAll } from './SelectAll'
 
@@ -79,6 +81,16 @@ export function ProgressionSettingsMenu({
                   onReset={() => progressionStatsStore.reset()}
                 />
               ),
+            })
+          }
+        />
+        <ListRow
+          label="About this exercise"
+          chevron
+          onClick={() =>
+            push({
+              title: 'About',
+              content: <AboutPage content={PROGRESSION_ABOUT} />,
             })
           }
         />

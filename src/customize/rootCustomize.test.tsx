@@ -12,6 +12,7 @@ import {
 } from '../settings'
 import { CHORDS, UNAMBIGUOUS_ROOT_CHORDS } from '../theory'
 import { CHORD_STATS_VIEW, ROOT_STATS_VIEW } from '../exercises'
+import { CHORD_ABOUT, ROOT_ABOUT } from '../about/pages'
 import { ChordSettingsMenu } from './ChordSettingsMenu'
 
 /**
@@ -28,6 +29,7 @@ function openRootMenu() {
         store={rootSettingsStore}
         statsStore={rootStatsStore}
         statsView={ROOT_STATS_VIEW}
+        about={ROOT_ABOUT}
         onResetScore={vi.fn()}
         availableChords={UNAMBIGUOUS_ROOT_CHORDS}
       />
@@ -192,6 +194,7 @@ describe('chords with no identifiable root are not offered', () => {
           store={chordSettingsStore}
           statsStore={chordStatsStore}
           statsView={CHORD_STATS_VIEW}
+          about={CHORD_ABOUT}
           onResetScore={vi.fn()}
         />
       </ModalSheet>,

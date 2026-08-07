@@ -50,7 +50,8 @@ describe('Home', () => {
 
   it('uses real links, so exercises can be opened in a new tab', () => {
     renderHome()
-    expect(screen.getAllByRole('link')).toHaveLength(5)
+    // Five exercises and the manual.
+    expect(screen.getAllByRole('link')).toHaveLength(6)
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 

@@ -280,11 +280,6 @@ export default function Melody() {
     }
   }, [entered, round, phase, scoreOnce, nextQuestion])
 
-  const undo = () => {
-    if (phase !== 'entering') return
-    setEntered((current) => current.slice(0, -1))
-  }
-
   /**
    * Give up on this melody and be told what it was.
    *
@@ -379,14 +374,6 @@ export default function Melody() {
                 disabled={phase !== 'entering'}
               />
               <div className="flex justify-center gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={undo}
-                  disabled={entered.length === 0 || phase !== 'entering'}
-                  className="rounded-full px-6 py-2 text-sm text-content-muted active:bg-surface disabled:opacity-30"
-                >
-                  Undo
-                </button>
                 <button
                   type="button"
                   onClick={reveal}

@@ -14,6 +14,7 @@ import {
   PROGRESSION_STATS_VIEW,
   ROOT_STATS_VIEW,
 } from '../exercises'
+import { CHORD_ABOUT } from '../about/pages'
 import { ChordSettingsMenu } from './ChordSettingsMenu'
 import { StatisticsScreen } from './StatisticsScreen'
 
@@ -25,6 +26,7 @@ function openMenu(view = CHORD_STATS_VIEW, statsStore = chordStatsStore) {
         store={chordSettingsStore}
         statsStore={statsStore}
         statsView={view}
+        about={CHORD_ABOUT}
         onResetScore={vi.fn()}
       />
     </ModalSheet>,

@@ -10,6 +10,7 @@ import {
 } from '../settings'
 import { CHORDS } from '../theory'
 import { CHORD_STATS_VIEW } from '../exercises'
+import { CHORD_ABOUT } from '../about/pages'
 import { ChordSettingsMenu } from './ChordSettingsMenu'
 
 function openMenu(onResetScore = vi.fn()) {
@@ -20,6 +21,7 @@ function openMenu(onResetScore = vi.fn()) {
         store={chordSettingsStore}
         statsStore={chordStatsStore}
         statsView={CHORD_STATS_VIEW}
+        about={CHORD_ABOUT}
         onResetScore={onResetScore}
       />
     </ModalSheet>,

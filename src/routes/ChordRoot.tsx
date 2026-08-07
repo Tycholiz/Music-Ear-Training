@@ -26,6 +26,7 @@ import {
   rootAnswer,
   type RootQuestion,
 } from '../exercises'
+import { ROOT_ABOUT } from '../about/pages'
 
 /** Pause on the graded answer before the next question starts. */
 const AUTO_ADVANCE_MS = 800
@@ -238,6 +239,7 @@ export default function ChordRoot() {
           store={rootSettingsStore}
           statsStore={rootStatsStore}
           statsView={ROOT_STATS_VIEW}
+          about={ROOT_ABOUT}
           availableChords={UNAMBIGUOUS_ROOT_CHORDS}
           onResetScore={() => {
             resetScore()

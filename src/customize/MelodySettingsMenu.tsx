@@ -1,4 +1,5 @@
 import {
+  AboutPage,
   CheckRow,
   ListCard,
   ListRow,
@@ -31,6 +32,7 @@ import {
 } from '../exercises'
 import { RangeScreen } from './RangeScreen'
 import { StatisticsScreen } from './StatisticsScreen'
+import { MELODY_ABOUT } from '../about/pages'
 
 /**
  * Hamburger menu for the melody exercise, and the Customize screen it pushes.
@@ -70,6 +72,16 @@ export function MelodySettingsMenu({
                   onReset={() => melodyStatsStore.reset()}
                 />
               ),
+            })
+          }
+        />
+        <ListRow
+          label="About this exercise"
+          chevron
+          onClick={() =>
+            push({
+              title: 'About',
+              content: <AboutPage content={MELODY_ABOUT} />,
             })
           }
         />

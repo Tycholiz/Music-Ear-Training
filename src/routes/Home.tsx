@@ -1,3 +1,4 @@
+import { Link } from 'react-router'
 import { ListCard, ListRow } from '../components'
 import { InstallCard } from '../pwa'
 
@@ -61,6 +62,20 @@ export default function Home() {
       </ListCard>
 
       <InstallCard />
+
+      {/*
+        Not a list row, deliberately. Everything above is an exercise, and a
+        sixth row with an icon would read as a sixth exercise — this is the
+        manual, so it is set apart and centred rather than dressed as one.
+      */}
+      <div className="mt-auto flex justify-center pt-6 pb-2">
+        <Link
+          to="/about"
+          className="px-4 py-2 text-center text-sm text-content-muted underline underline-offset-4 active:opacity-60"
+        >
+          How to use this app
+        </Link>
+      </div>
     </main>
   )
 }

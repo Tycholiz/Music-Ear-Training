@@ -156,7 +156,7 @@ describe('sanitizeSelection', () => {
     expect(sanitizeSelection(['c', 'a'], allowed, allowed)).toEqual(['a', 'c'])
   })
 
-  it('falls back when values were stored but none is recognised', () => {
+  it('falls back when values were stored but none is recognized', () => {
     // A stale blob — settings written before an option was removed. The
     // defaults are the only sensible answer, since the alternative is
     // silently switching the exercise off for something the user never did.

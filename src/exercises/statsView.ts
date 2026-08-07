@@ -97,7 +97,7 @@ export interface StatsSection {
    *
    * Everything is kept by default.
    */
-  recognises?: (value: string) => boolean
+  recognizes?: (value: string) => boolean
   /**
    * Whether "often mistaken for …" is worth showing here.
    *
@@ -208,7 +208,7 @@ export const INTERVAL_STATS_VIEW: StatsView = {
       // Ones naming an interval the app no longer has — every `interval:0`, now
       // that the Unison is gone — would otherwise fall through `safely` and
       // print their own raw id.
-      recognises: (value) => {
+      recognizes: (value) => {
         const { semitones, direction } = parseIntervalValue(value)
         return direction !== null && isKnownInterval(semitones)
       },
@@ -520,7 +520,7 @@ export function statsRows(
   section: StatsSection,
 ): StatsRow[] {
   return Object.entries(itemsInNamespace(stats, section.namespace))
-    .filter(([id]) => section.recognises?.(id) ?? true)
+    .filter(([id]) => section.recognizes?.(id) ?? true)
     .map(([id, item]) => {
       const seen = item.recent.length
       const right = item.recent.filter((a) => a.correct).length

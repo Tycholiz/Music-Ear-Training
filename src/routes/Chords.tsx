@@ -28,6 +28,7 @@ import {
   isChordCorrect,
   type ChordQuestion,
 } from '../exercises'
+import { CHORD_ABOUT } from '../about/pages'
 
 /** Minimum pause on the green button before the next question starts. */
 const AUTO_ADVANCE_MS = 800
@@ -261,6 +262,7 @@ export default function Chords() {
           store={chordSettingsStore}
           statsStore={chordStatsStore}
           statsView={CHORD_STATS_VIEW}
+          about={CHORD_ABOUT}
           onResetScore={() => {
             resetScore()
             setMenuOpen(false)

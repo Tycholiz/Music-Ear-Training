@@ -1,4 +1,10 @@
-import { CheckRow, ListCard, ListRow, useModalNav } from '../components'
+import {
+  AboutPage,
+  CheckRow,
+  ListCard,
+  ListRow,
+  useModalNav,
+} from '../components'
 import {
   intervalSettingsStore,
   intervalStatsStore,
@@ -10,6 +16,7 @@ import { IntervalsScreen } from './IntervalsScreen'
 import { PlayModeScreen } from './PlayModeScreen'
 import { RangeScreen } from './RangeScreen'
 import { StatisticsScreen } from './StatisticsScreen'
+import { INTERVAL_ABOUT } from '../about/pages'
 import { midiToName } from '../theory'
 
 function IntervalRangeScreen() {
@@ -55,6 +62,16 @@ export function IntervalMenu({ onResetScore }: { onResetScore: () => void }) {
                   onReset={() => intervalStatsStore.reset()}
                 />
               ),
+            })
+          }
+        />
+        <ListRow
+          label="About this exercise"
+          chevron
+          onClick={() =>
+            push({
+              title: 'About',
+              content: <AboutPage content={INTERVAL_ABOUT} />,
             })
           }
         />

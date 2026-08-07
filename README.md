@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1339 tests across 49 files.** All of `npm run lint`, `npm run build`,
+**1352 tests across 50 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -96,6 +96,7 @@ src/
   pitch/        pitch detection and microphone input (see "Dead code")
   exercises/    question generation, grading, validation — one file per exercise
   settings/     versioned localStorage stores and their sanitisers
+  about/        every word of written guidance, one file
   customize/    the settings screens inside each exercise's modal
   components/   shared UI kit
   routes/       one file per screen
@@ -281,7 +282,7 @@ what is left of it is a real question — whether the harmonic confirmation is
 doing any work — and nothing above it can answer that.
 
 Records written before direction was part of the identity are an average of two
-skills with no way to say now which they were, so `recognises` leaves them off
+skills with no way to say now which they were, so `recognizes` leaves them off
 rather than showing them beside the rows that replaced them. Only rows are
 filtered: a confusion naming a bare interval is still fine, since naming what was
 pressed claims nothing about direction.
@@ -355,6 +356,30 @@ leading with an anomaly reads as a finding about the user.
 Root and bass movement are the sections that stay worst-first. No Customize
 screen offers movements — they are a property of the progression that comes out,
 not something switched on — so there is no order to mirror.
+
+### The written pages are plain, and all in one file
+
+`src/about/pages.ts` holds every word of guidance in the app: five exercise
+pages reached from each menu, and a **How to use this app** page linked from the
+bottom of the home screen.
+
+Each page is a list of headings and paragraphs. Nothing is generated, nothing is
+shared between pages, and nothing reads any other part of the app — so any page
+can be rewritten on its own without knowing what else it touches. The first
+version generated half of each page from `StatsView` and interpolated the
+thresholds, which was clever, drift-proof and completely unmaintainable: nobody
+could edit a sentence without first working out where it came from. **Content is
+not a place to be efficient.**
+
+`*asterisks*` make italics and that is the whole markup vocabulary. It exists
+because the bucket names need it — _needs work_, _getting there_, _solid_ — and
+stops there.
+
+**Anything true of the whole app goes on the general page**, not repeated across
+five exercise pages: what the app is for, why playing what you hear on an
+instrument matters more than naming it, and how the statistics work. A test
+asserts the exercise pages do not re-explain the statistics, since a manual that
+says the same thing in five places goes out of date in four of them.
 
 ### Adaptive difficulty: same pool, different frequency
 

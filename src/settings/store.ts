@@ -2,7 +2,7 @@
  * Versioned localStorage backing.
  *
  * Settings will keep growing as tickets land, so every stored value carries a
- * version and goes through a sanitiser on the way out. Anything unrecognised,
+ * version and goes through a sanitiser on the way out. Anything unrecognized,
  * corrupt, or from a version we don't know falls back to defaults rather than
  * throwing — a bad settings blob should never stop the app from starting.
  */
@@ -149,7 +149,7 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
  *
  * The two are told apart by what arrived rather than by what survived. An empty
  * array is someone choosing nothing. An array with values in it where *none* is
- * recognised is a stale or corrupt blob — settings written before an option was
+ * recognized is a stale or corrupt blob — settings written before an option was
  * removed, say — and there the defaults are the only sensible answer, because
  * the alternative is silently switching the exercise off for something the user
  * never did.

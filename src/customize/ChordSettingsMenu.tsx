@@ -1,4 +1,11 @@
-import { CheckRow, ListCard, ListRow, useModalNav } from '../components'
+import {
+  AboutPage,
+  type AboutContent,
+  CheckRow,
+  ListCard,
+  ListRow,
+  useModalNav,
+} from '../components'
 import {
   usePersisted,
   type ChordSettings,
@@ -26,6 +33,7 @@ export function ChordSettingsMenu({
   store,
   statsStore,
   statsView,
+  about,
   onResetScore,
   availableChords = CHORDS,
 }: {
@@ -33,6 +41,11 @@ export function ChordSettingsMenu({
   statsStore: PersistedStore<ExerciseStats>
   /** Chords and chord root record the same namespaces but read differently. */
   statsView: StatsView
+  /**
+   * This exercise's About page. Passed in for the same reason `statsView` is:
+   * two exercises share this menu and neither's manual is the other's.
+   */
+  about: AboutContent
   onResetScore: () => void
   /** Narrower for the root exercise, which cannot use ambiguous chords. */
   availableChords?: readonly Chord[]
@@ -70,6 +83,16 @@ export function ChordSettingsMenu({
                   onReset={() => statsStore.reset()}
                 />
               ),
+            })
+          }
+        />
+        <ListRow
+          label="About this exercise"
+          chevron
+          onClick={() =>
+            push({
+              title: 'About',
+              content: <AboutPage content={about} />,
             })
           }
         />
