@@ -134,6 +134,70 @@ describe('running a drill', () => {
     )
   })
 
+  it('moves on from a wrong press instead of waiting for the right one', async () => {
+    // The ordinary exercise leaves a missed question open, because working out
+    // what it was is the exercise. A drill has two buttons, so pressing one
+    // has already said which the other was — and pressing it to be allowed to
+    // continue is a keystroke that teaches nothing and cannot change the score.
+    const user = userEvent.setup()
+    renderDrill()
+    await start(user)
+
+    const playsBefore = vi.mocked(piano.play).mock.calls.length
+    // The mocked question is always a Major Triad, so this is the wrong one.
+    await user.click(screen.getByRole('button', { name: 'Minor Triad' }))
+
+    await waitFor(
+      () => {
+        const record = chordDrillStatsStore.read()[`drill:${DRILL.id}`]
+        expect(record?.attempts).toBe(1)
+        expect(record?.correct).toBe(0)
+      },
+      { timeout: 15_000 },
+    )
+
+    // The next question arrives on its own — the next chord sounding is what
+    // says so, and nothing was pressed in between.
+    await waitFor(
+      () =>
+        expect(vi.mocked(piano.play).mock.calls.length).toBeGreaterThan(
+          playsBefore + 1,
+        ),
+      { timeout: 15_000 },
+    )
+  })
+
+  it('does not let the other button be pressed after a miss', async () => {
+    // The question is over, so the second press can only replay a sound. Left
+    // scoreable it would be a free retry: press one, and if it goes red press
+    // the other for a point.
+    const user = userEvent.setup()
+    renderDrill()
+    await start(user)
+
+    await user.click(screen.getByRole('button', { name: 'Minor Triad' }))
+    await waitFor(
+      () =>
+        expect(
+          chordDrillStatsStore.read()[`drill:${DRILL.id}`]?.attempts ?? 0,
+        ).toBe(1),
+      { timeout: 15_000 },
+    )
+    await user.click(screen.getByRole('button', { name: 'Major Triad' }))
+
+    const record = chordDrillStatsStore.read()[`drill:${DRILL.id}`]
+    expect(record?.attempts).toBe(1)
+    expect(record?.correct).toBe(0)
+  })
+
+  it('offers no Reveal, because two buttons already answer the question', async () => {
+    const user = userEvent.setup()
+    renderDrill()
+    await start(user)
+
+    expect(screen.queryByRole('button', { name: 'Reveal' })).toBeNull()
+  })
+
   it('records to the drill store and leaves the chord record alone', async () => {
     // Ten forced repetitions of two chords are not a sample of how the user
     // hears chords in general.
@@ -148,6 +212,73 @@ describe('running a drill', () => {
       ),
     )
     expect(chordStatsStore.read()).toEqual({})
+  })
+})
+
+/**
+ * A drill keeps its own score, and the exercise's is left where it was.
+ *
+ * Ten forced repetitions of one pair are not a sample of how someone is doing
+ * at chords — the same argument that keeps the statistics apart, applied to
+ * the number the user is actually watching while they work.
+ */
+describe('the score at the top', () => {
+  it('counts the drill, not the exercise total behind it', async () => {
+    chordScoreStore.write({ correct: 40, total: 50 })
+    const user = userEvent.setup()
+    renderDrill()
+    await start(user)
+
+    // Nothing answered yet, so the drill has nothing to show.
+    expect(screen.getByLabelText('Score')).toHaveTextContent('0/0')
+
+    await user.click(screen.getByRole('button', { name: 'Major Triad' }))
+    await waitFor(() =>
+      expect(screen.getByLabelText('Score')).toHaveTextContent('1/1'),
+    )
+  })
+
+  it('leaves the exercise score exactly where it was', async () => {
+    // The complaint that led here in its purest form: a chord total in the
+    // hundreds does not visibly move over ten questions, so the drill read as
+    // though it were not being scored at all — while still quietly moving it.
+    chordScoreStore.write({ correct: 40, total: 50 })
+    const user = userEvent.setup()
+    renderDrill()
+    await start(user)
+
+    await user.click(screen.getByRole('button', { name: 'Minor Triad' }))
+    await waitFor(() =>
+      expect(
+        chordDrillStatsStore.read()[`drill:${DRILL.id}`]?.attempts ?? 0,
+      ).toBe(1),
+    )
+
+    expect(chordScoreStore.read()).toEqual({ correct: 40, total: 50 })
+  })
+
+  it('shows no percentage for a run of ten', async () => {
+    // Over ten questions the score is already the summary a percentage would
+    // be, and one question in it is either 0% or 100%.
+    const user = userEvent.setup()
+    renderDrill()
+    await start(user)
+
+    expect(screen.queryByLabelText('Accuracy')).toBeNull()
+  })
+
+  it('still shows the percentage in the ordinary exercise', async () => {
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter initialEntries={['/chords']}>
+        <Routes>
+          <Route path="/chords" element={<Chords />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await start(user)
+
+    expect(screen.getByLabelText('Accuracy')).toBeVisible()
   })
 })
 
@@ -188,9 +319,23 @@ describe('finishing', () => {
     renderDrill()
     await start(user)
 
+    // Half right, so the score on the summary is a number that could be wrong
+    // in either direction. Ten out of ten would pass just as well if the
+    // screen were printing the question count twice.
+    const rightOn = (i: number) => i % 2 === 1
+    const expectedCorrect = Array.from(
+      { length: DRILL_LENGTH },
+      (_, i) => i,
+    ).filter(rightOn).length
+
     for (let i = 0; i < DRILL_LENGTH; i++) {
       const playsBefore = vi.mocked(piano.play).mock.calls.length
-      await user.click(screen.getByRole('button', { name: 'Major Triad' }))
+      // The mocked question is always a Major Triad.
+      await user.click(
+        screen.getByRole('button', {
+          name: rightOn(i) ? 'Major Triad' : 'Minor Triad',
+        }),
+      )
 
       // The advance timer clears a second per question, so the default
       // one-second wait is a coin flip.
@@ -202,9 +347,9 @@ describe('finishing', () => {
         { timeout: 15_000 },
       )
 
-      // A solved question ignores further presses until the next one arrives,
-      // and the next one arriving is the next chord being played. Pressing
-      // before that lands on a dead button and the loop stalls at one.
+      // An answered question ignores further presses until the next one
+      // arrives, and the next one arriving is the next chord being played.
+      // Pressing before that lands on a dead button and the loop stalls at one.
       if (i < DRILL_LENGTH - 1) {
         await waitFor(
           () =>
@@ -221,9 +366,17 @@ describe('finishing', () => {
     // Not an eleventh question after the tenth.
     expect(screen.queryByRole('button', { name: 'Minor Triad' })).toBeNull()
 
+    // The result, stated rather than left to the header.
+    expect(screen.getByLabelText('Drill score')).toHaveTextContent(
+      `${expectedCorrect}/${DRILL_LENGTH}`,
+    )
+
     await user.click(screen.getByRole('button', { name: 'Again' }))
     expect(
       await screen.findByRole('button', { name: 'Minor Triad' }),
     ).toBeVisible()
+    // A second run starts from nothing rather than carrying the first one's
+    // score into it.
+    expect(screen.getByLabelText('Score')).toHaveTextContent('0/0')
   }, 90_000)
 })

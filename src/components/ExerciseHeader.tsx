@@ -10,11 +10,21 @@ import { formatAccuracy } from './score'
 export function ExerciseHeader({
   correct,
   total,
+  showAccuracy = true,
   onBack,
   onMenu,
 }: {
   correct: number
   total: number
+  /**
+   * Whether the percentage is worth showing beside the score.
+   *
+   * Off for a drill, which is ten questions long. A percentage is a summary of
+   * a run too long to hold in your head, and over ten questions the score
+   * already is one — "7/10" needs no help. It would also lurch about early on,
+   * since one question in is either 0% or 100%.
+   */
+  showAccuracy?: boolean
   onBack: () => void
   onMenu: () => void
 }) {
@@ -43,12 +53,14 @@ export function ExerciseHeader({
         <span aria-label="Score" className="text-lg font-medium tabular-nums">
           {correct}/{total}
         </span>
-        <span
-          aria-label="Accuracy"
-          className="text-lg font-medium tabular-nums"
-        >
-          {formatAccuracy(correct, total)}
-        </span>
+        {showAccuracy && (
+          <span
+            aria-label="Accuracy"
+            className="text-lg font-medium tabular-nums"
+          >
+            {formatAccuracy(correct, total)}
+          </span>
+        )}
       </div>
 
       <button
