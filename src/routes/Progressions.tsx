@@ -9,6 +9,7 @@ import {
   type Flash,
 } from '../components'
 import { ProgressionSettingsMenu } from '../customize'
+import { useAutoAdvance } from './useAutoAdvance'
 import { buildProgressionSchedule, piano } from '../audio'
 import { numeralById, numeralsByDifficulty } from '../theory'
 import {
@@ -82,7 +83,6 @@ export default function Progressions() {
   const [entered, setEntered] = useState<string[]>([])
   const [phase, setPhase] = useState<Phase>('entering')
   const [flash, setFlash] = useState<Flash | null>(null)
-  const [menuOpen, setMenuOpen] = useState(false)
 
   /** Whether this progression has already gone into the score. */
   const graded = useRef(false)
@@ -103,7 +103,6 @@ export default function Progressions() {
    * beyond the previous failure is still counted. Reset with the question.
    */
   const furthestReached = useRef(0)
-  const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const replayRef = useRef<HTMLButtonElement>(null)
@@ -169,6 +168,11 @@ export default function Progressions() {
     }))
   }, [settings])
 
+  const { menuOpen, openMenu, closeMenu, advanceAfter } = useAutoAdvance(
+    nextQuestion,
+    round !== null,
+  )
+
   useEffect(() => {
     if (!round) return
     playProgression(round.question)
@@ -195,7 +199,7 @@ export default function Progressions() {
 
   useEffect(
     () => () => {
-      for (const timer of [advanceTimer, feedbackTimer, flashTimer]) {
+      for (const timer of [feedbackTimer, flashTimer]) {
         if (timer.current) clearTimeout(timer.current)
       }
       piano.stop()
@@ -360,7 +364,7 @@ export default function Progressions() {
     if (complete) {
       scoreOnce(true)
       setPhase('correct')
-      advanceTimer.current = setTimeout(nextQuestion, AUTO_ADVANCE_MS)
+      advanceAfter(AUTO_ADVANCE_MS)
     }
   }
 
@@ -390,7 +394,7 @@ export default function Progressions() {
         correct={score.correct}
         total={score.total}
         onBack={() => navigate('/')}
-        onMenu={() => setMenuOpen(true)}
+        onMenu={openMenu}
       />
 
       {round ? (
@@ -467,15 +471,11 @@ export default function Progressions() {
         <StartPanel playable={playable} onStart={nextQuestion} />
       )}
 
-      <ModalSheet
-        open={menuOpen}
-        onClose={() => setMenuOpen(false)}
-        title="Menu"
-      >
+      <ModalSheet open={menuOpen} onClose={closeMenu} title="Menu">
         <ProgressionSettingsMenu
           onResetScore={() => {
             resetScore()
-            setMenuOpen(false)
+            closeMenu()
           }}
         />
       </ModalSheet>

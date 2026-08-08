@@ -466,6 +466,13 @@ describe('finishing', () => {
     expect(screen.getByLabelText('Drill score')).toHaveTextContent(
       `${expectedCorrect}/${DRILL_LENGTH}`,
     )
+    // And no eleventh *chord* either. The advance timer from the last answer
+    // used to fire regardless, building a question nobody would ever see and
+    // sounding it over the summary — an unexplained chord at the end of every
+    // drill.
+    vi.mocked(piano.play).mockClear()
+    await new Promise((resolve) => setTimeout(resolve, 2500))
+    expect(piano.play).not.toHaveBeenCalled()
 
     await user.click(screen.getByRole('button', { name: 'Again' }))
     expect(

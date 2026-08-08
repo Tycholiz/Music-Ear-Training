@@ -100,7 +100,7 @@ src/
   about/        every word of written guidance, one file
   customize/    the settings screens inside each exercise's modal
   components/   shared UI kit
-  routes/       one file per screen
+  routes/       one file per screen, plus useAutoAdvance.ts (see Gotchas)
   pwa/          install offer, update prompt, standalone detection
 ```
 
@@ -821,6 +821,41 @@ left to be inferred. A revealed answer is styled `revealed`, not `correct`:
 green would tell the user they got something they asked to be handed.
 
 ## Gotchas
+
+### The advance timer is how audio escapes the screen
+
+Every exercise answers a question, waits a beat on the green button, then
+replaces it — and **a new question plays itself**, from an effect on the round.
+Those two facts together mean the timer can sound a chord at a moment nobody
+asked for one, and it did, twice, in ways that looked unrelated:
+
+- **A chord over the drill summary.** The tenth answer schedules the next
+  question exactly like the nine before it. By the time the timer fires the
+  drill is over and the summary is up, but the question was still built and the
+  play effect still sounded it — an unexplained chord at the end of every drill.
+- **A chord from behind the Customize sheet.** Answer a question and open the
+  menu inside the second or so before the next one is due, and the timer fires
+  anyway. It presented as a chord playing at random, because the window that
+  triggers it is narrow enough that nobody connects it to what they just did.
+
+Both are the same bug: **a pending advance outliving the thing it was for.**
+`useAutoAdvance` owns the timer for all five screens so the rule is stated once
+— open the menu and a pending advance is cancelled and remembered, close it and
+it is taken up again. It is not resumed if the question is gone, because
+changing a setting clears the round on purpose to send the user back to Start.
+
+Cancelling rather than muting: gating the _audio_ would leave the question
+being built and swapped in silently behind the sheet, so the user returns to a
+different question than the one they left.
+
+The drill's own case is cancelled when the summary appears rather than guarded
+where the timer is set, because the answer that ends a drill arrives by more
+than one route and a guard would have to be remembered at each.
+
+`advanceAfter` is memoised, and has to be. Melody and Progressions judge inside
+an effect and list what it calls in their dependencies, so a function rebuilt
+every render would re-run the effect that judges — the same shape as the
+settings-object bug in `Chords.tsx`.
 
 ### React batching loses presses
 
