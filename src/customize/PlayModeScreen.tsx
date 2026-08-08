@@ -18,13 +18,19 @@ export function PlayModeScreen() {
   const enabled = new Set(settings.playModes)
   const warning = playModesWarning(settings)
 
+  // Derived inside the updater, so two quick taps are two toggles rather than
+  // whichever one landed last. See `usePersisted`.
   const toggle = (mode: IntervalPlayMode, checked: boolean) => {
-    const next = checked
-      ? INTERVAL_PLAY_MODES.filter(
-          (option) => enabled.has(option) || option === mode,
-        )
-      : settings.playModes.filter((option) => option !== mode)
-    setSettings({ ...settings, playModes: [...next] })
+    setSettings((current) => ({
+      ...current,
+      playModes: checked
+        ? [
+            ...INTERVAL_PLAY_MODES.filter(
+              (option) => current.playModes.includes(option) || option === mode,
+            ),
+          ]
+        : current.playModes.filter((option) => option !== mode),
+    }))
   }
 
   return (

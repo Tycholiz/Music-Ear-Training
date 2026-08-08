@@ -208,12 +208,15 @@ function NumeralsScreen() {
       .filter((id) => wanted.has(id))
   }
 
+  // Derived inside the updater, so four quick taps are four toggles rather
+  // than whichever one landed last. See `usePersisted`.
   const toggle = (numeralId: string, checked: boolean) => {
-    const numerals = checked
-      ? inOrder([...settings.numerals, numeralId])
-      : settings.numerals.filter((id) => id !== numeralId)
-
-    setSettings({ ...settings, numerals })
+    setSettings((current) => ({
+      ...current,
+      numerals: checked
+        ? inOrder([...current.numerals, numeralId])
+        : current.numerals.filter((id) => id !== numeralId),
+    }))
   }
 
   /**
@@ -235,8 +238,12 @@ function NumeralsScreen() {
     }))
 
   const toggleGroup = (numerals: readonly RomanNumeral[]) => {
-    const next = afterGroupToggle(selectable(numerals), settings.numerals)
-    setSettings({ ...settings, numerals: inOrder(next) })
+    setSettings((current) => ({
+      ...current,
+      numerals: inOrder(
+        afterGroupToggle(selectable(numerals), current.numerals),
+      ),
+    }))
   }
 
   const selectAll = (numerals: readonly RomanNumeral[], of?: string) => (
@@ -325,26 +332,31 @@ function CadencesScreen() {
   const [settings, setSettings] = usePersisted(progressionSettingsStore)
   const chosen = new Set(settings.cadences)
 
+  // Derived inside the updater, so two quick taps are two toggles rather than
+  // whichever one landed last. See `usePersisted`.
   const toggle = (cadence: Cadence, checked: boolean) => {
-    if (!checked) {
-      const cadences = settings.cadences.filter((option) => option !== cadence)
-      setSettings({ ...settings, cadences })
-      return
-    }
+    setSettings((current) => {
+      if (!checked) {
+        return {
+          ...current,
+          cadences: current.cadences.filter((option) => option !== cadence),
+        }
+      }
 
-    // The chords come with it. Written in the same call rather than in two,
-    // because the store filters out a cadence whose chords are not enabled —
-    // saving the cadence first would have it stripped before the chords that
-    // justify it ever arrived.
-    const numerals = [
-      ...settings.numerals,
-      ...cadenceMissing(cadence, settings),
-    ]
-    const cadences = CADENCES.filter(
-      (option) => chosen.has(option) || option === cadence,
-    )
-
-    setSettings({ ...settings, numerals, cadences: [...cadences] })
+      // The chords come with it. Written in the same call rather than in two,
+      // because the store filters out a cadence whose chords are not enabled —
+      // saving the cadence first would have it stripped before the chords that
+      // justify it ever arrived.
+      return {
+        ...current,
+        numerals: [...current.numerals, ...cadenceMissing(cadence, current)],
+        cadences: [
+          ...CADENCES.filter(
+            (option) => current.cadences.includes(option) || option === cadence,
+          ),
+        ],
+      }
+    })
   }
 
   return (
@@ -399,7 +411,9 @@ function LengthScreen() {
               key={length}
               label={`${length} chords`}
               selected={length === settings.length}
-              onSelect={() => setSettings({ ...settings, length })}
+              onSelect={() =>
+                setSettings((current) => ({ ...current, length }))
+              }
             />
           ))}
         </RadioGroup>
@@ -411,7 +425,7 @@ function LengthScreen() {
         <CheckRow
           label="Up to"
           checked={settings.upTo}
-          onChange={(upTo) => setSettings({ ...settings, upTo })}
+          onChange={(upTo) => setSettings((current) => ({ ...current, upTo }))}
         />
       </ListCard>
     </div>
@@ -432,13 +446,17 @@ function InversionsScreen() {
   const chosen = new Set(settings.inversions)
 
   const toggle = (inversion: number, checked: boolean) => {
-    const inversions = checked
-      ? PROGRESSION_INVERSIONS.filter(
-          (option) => chosen.has(option) || option === inversion,
-        )
-      : settings.inversions.filter((option) => option !== inversion)
-
-    setSettings({ ...settings, inversions: [...inversions] })
+    setSettings((current) => ({
+      ...current,
+      inversions: checked
+        ? [
+            ...PROGRESSION_INVERSIONS.filter(
+              (option) =>
+                current.inversions.includes(option) || option === inversion,
+            ),
+          ]
+        : current.inversions.filter((option) => option !== inversion),
+    }))
   }
 
   return (
@@ -468,7 +486,7 @@ function ProgressionRangeScreen() {
     <RangeScreen
       range={settings.range}
       onChange={(range: ProgressionSettings['range']) =>
-        setSettings({ ...settings, range })
+        setSettings((current) => ({ ...current, range }))
       }
       footer="Every voice of every chord is placed inside this range."
       warning={progressionRangeWarning(settings)}
