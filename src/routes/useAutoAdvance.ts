@@ -94,6 +94,25 @@ export function useAutoAdvance(
     if (hasQuestion) nextQuestion()
   }
 
+  /**
+   * Close without taking the advance up again — for a close that goes
+   * somewhere else.
+   *
+   * Resuming is right when the sheet closes back onto the exercise, and wrong
+   * when it closes *because* the user chose to leave: starting a drill
+   * navigates, so the question the resume builds is thrown away by the
+   * navigation a moment later and the only trace of it is a chord played at
+   * someone who has already left the screen. Which is precisely the "a random
+   * chord played when I picked a drill" report.
+   *
+   * The pending advance is dropped rather than kept, because whatever the user
+   * is going to is bringing its own question.
+   */
+  const dismissMenu = () => {
+    due.current = false
+    setMenuOpen(false)
+  }
+
   useEffect(
     () => () => {
       cancelAdvance()
@@ -102,5 +121,12 @@ export function useAutoAdvance(
     [cancelAdvance],
   )
 
-  return { menuOpen, openMenu, closeMenu, advanceAfter, cancelAdvance }
+  return {
+    menuOpen,
+    openMenu,
+    closeMenu,
+    dismissMenu,
+    advanceAfter,
+    cancelAdvance,
+  }
 }

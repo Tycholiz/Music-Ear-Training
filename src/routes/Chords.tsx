@@ -144,8 +144,14 @@ export default function Chords() {
     }))
   }, [settings])
 
-  const { menuOpen, openMenu, closeMenu, advanceAfter, cancelAdvance } =
-    useAutoAdvance(nextQuestion, round !== null)
+  const {
+    menuOpen,
+    openMenu,
+    closeMenu,
+    dismissMenu,
+    advanceAfter,
+    cancelAdvance,
+  } = useAutoAdvance(nextQuestion, round !== null)
 
   useEffect(() => {
     if (!round) return
@@ -428,7 +434,10 @@ export default function Chords() {
           onStartDrill={(id) => {
             setOpenDrills(false)
             startDrillRun()
-            closeMenu()
+            // Dismissed, not closed: the navigation below brings its own
+            // question, so resuming here would only sound a chord from a
+            // screen the user has already left.
+            dismissMenu()
             navigate(`/chords/drill/${id}`)
           }}
           onResetScore={() => {

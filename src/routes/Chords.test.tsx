@@ -153,6 +153,27 @@ describe('the menu holds the exercise still', () => {
     )
   }, 20_000)
 
+  it('does not resume into a question on the way to somewhere else', async () => {
+    // Closing the sheet takes up a cancelled advance, which is right when the
+    // sheet closes back onto the exercise and wrong when it closes because the
+    // user picked a drill: the question they would be resumed into is about to
+    // be thrown away by the navigation, so all it does is play a chord at
+    // them from a screen they have already left.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await user.click(screen.getByRole('button', { name: 'Major Triad' }))
+    await user.click(screen.getByRole('button', { name: 'Menu' }))
+    await user.click(screen.getByRole('button', { name: /^Drills/ }))
+    vi.mocked(piano.play).mockClear()
+
+    await user.click(screen.getAllByRole('button', { name: /vs/ })[0])
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+
+    expect(piano.play).not.toHaveBeenCalled()
+  }, 20_000)
+
   it('stops a chord that is still sounding when the menu opens', async () => {
     const user = userEvent.setup()
     renderExercise()
