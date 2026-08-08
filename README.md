@@ -488,9 +488,16 @@ to see the one thing the run just produced.
 
 The sheet is opened with a flag rather than given a second entry point: the row
 and the shortcut push the same screen through one callback, so the list cannot
-drift into two versions of itself. The flag is cleared when the sheet closes,
-since it belongs to that one opening — left set, every later tap on the menu
-button would jump into Drills for the rest of the session.
+drift into two versions of itself.
+
+**The flag is spent when it is used, not when the sheet closes**, and that
+distinction is the whole of a bug it caused. `ModalSheet` renders a pushed
+screen _instead of_ its children, so the menu unmounts while the list is up and
+mounts again when Back pops it — which gives anything that opens the list on
+mount a second go at it on the way back. Back slid the list away and put an
+identical one in its place, forever. A ref cannot fix that, because the ref
+goes with the unmount; the flag has to mean "open onto Drills _this once_" and
+be put down by the thing that acts on it.
 
 #### A pool of two changes what a question is
 

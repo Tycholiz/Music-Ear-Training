@@ -373,9 +373,20 @@ describe('finishing', () => {
     expect(screen.queryByRole('button', { name: 'Again' })).toBeNull()
 
     // Pushed onto the stack rather than swapped in for the root, so the sheet
-    // offers Back where a root screen would offer Close.
+    // offers Back where a root screen would offer Close — and Back goes up to
+    // the menu, exactly as it does when the list is reached by tapping.
+    //
+    // The sheet renders the pushed screen *instead of* its children, so the
+    // menu unmounts while the list is up and mounts again when Back pops it.
+    // Anything that decides to open the list on mount therefore gets a second
+    // go at it on the way back, and the list re-opened itself over the menu
+    // for as long as the flag stayed set.
     const sheet = screen.getByRole('dialog', { name: 'Drills' })
-    expect(within(sheet).getByRole('button', { name: 'Back' })).toBeVisible()
+    await user.click(within(sheet).getByRole('button', { name: 'Back' }))
+    expect(
+      await screen.findByRole('dialog', { name: 'Menu' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Drills' })).toBeNull()
 
     // And the shortcut is spent. The sheet drops its stack when it closes and
     // the flag has to go with it, or every later tap on the menu button would

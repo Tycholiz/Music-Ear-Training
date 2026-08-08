@@ -38,6 +38,7 @@ export function ChordSettingsMenu({
   about,
   onStartDrill,
   openDrills = false,
+  onDrillsOpened,
   onResetScore,
   availableChords = CHORDS,
 }: {
@@ -68,6 +69,19 @@ export function ChordSettingsMenu({
    * see.
    */
   openDrills?: boolean
+  /**
+   * Called once the list has been opened, so the caller can put the flag down.
+   *
+   * **The sheet renders a pushed screen _instead of_ its children**, so this
+   * menu unmounts while the list is up and mounts again when Back pops it —
+   * and anything that decides to open the list on mount gets a second go at it
+   * on the way back. Guarding with a ref cannot help, because the ref goes
+   * with the unmount.
+   *
+   * So the flag is spent rather than remembered: it means "open onto Drills
+   * this once", and Back then lands on the menu like any other screen.
+   */
+  onDrillsOpened?: () => void
   onResetScore: () => void
   /** Narrower for the root exercise, which cannot use ambiguous chords. */
   availableChords?: readonly Chord[]
@@ -83,15 +97,17 @@ export function ChordSettingsMenu({
     })
   }, [onStartDrill, push])
 
-  // Pushed once, on the mount that opens the sheet — the sheet drops its
-  // navigation stack when it closes, so this runs afresh each time it is
-  // opened this way and never stacks a second copy on a re-render.
+  // Opened once and the flag put down — see `onDrillsOpened`. The ref is not
+  // the thing that makes it once: it survives a re-render and not the unmount
+  // that pushing a screen causes, which is exactly the case that matters. It
+  // is here for StrictMode, which runs an effect twice on the same instance.
   const pushed = useRef(false)
   useEffect(() => {
     if (!openDrills || pushed.current) return
     pushed.current = true
     openDrillsScreen()
-  }, [openDrills, openDrillsScreen])
+    onDrillsOpened?.()
+  }, [openDrills, openDrillsScreen, onDrillsOpened])
 
   return (
     <div className="p-4">

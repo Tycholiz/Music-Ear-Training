@@ -409,6 +409,7 @@ export default function Chords() {
           statsView={CHORD_STATS_VIEW}
           about={CHORD_ABOUT}
           openDrills={openDrills}
+          onDrillsOpened={() => setOpenDrills(false)}
           onStartDrill={(id) => {
             setMenuOpen(false)
             setOpenDrills(false)
