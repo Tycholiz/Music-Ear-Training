@@ -134,6 +134,26 @@ describe('starting', () => {
     )
   })
 
+  it('does not replay the progression when a setting changes', async () => {
+    // The same stray chord the chord screen had, wearing a different value:
+    // `playProgression` is rebuilt whenever the settings change, because the
+    // voicing depends on the allowed inversions — so listing it as a
+    // dependency of the play-on-new-question effect replayed the progression
+    // already on screen, from behind the sheet the user was changing it in.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    vi.mocked(piano.playSchedule).mockClear()
+
+    progressionSettingsStore.write({
+      ...progressionSettingsStore.read(),
+      inversions: [0, 1],
+    })
+
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    expect(piano.playSchedule).not.toHaveBeenCalled()
+  }, 20_000)
+
   it('explains itself when nothing can be generated', () => {
     // A narrow range, since the store repairs an empty cadence list back to
     // the defaults and so cannot be used to make this state.

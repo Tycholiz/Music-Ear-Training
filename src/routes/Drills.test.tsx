@@ -466,7 +466,15 @@ describe('finishing', () => {
     expect(screen.getByLabelText('Drill score')).toHaveTextContent(
       `${expectedCorrect}/${DRILL_LENGTH}`,
     )
+    // And no eleventh *chord* either. The advance timer from the last answer
+    // used to fire regardless, building a question nobody would ever see and
+    // sounding it over the summary — an unexplained chord at the end of every
+    // drill.
+    vi.mocked(piano.play).mockClear()
+    await new Promise((resolve) => setTimeout(resolve, 2500))
+    expect(piano.play).not.toHaveBeenCalled()
 
+    vi.mocked(piano.play).mockClear()
     await user.click(screen.getByRole('button', { name: 'Again' }))
     expect(
       await screen.findByRole('button', { name: 'Minor Triad' }),
@@ -474,5 +482,12 @@ describe('finishing', () => {
     // A second run starts from nothing rather than carrying the first one's
     // score into it.
     expect(screen.getByLabelText('Score')).toHaveTextContent('0/0')
+
+    // Again starts the next run, so it sounds the first question — once.
+    // Exactly once is the claim worth pinning: a cancelled advance that was
+    // merely postponed rather than dropped would arrive here as a second
+    // chord on top of it, which is what an extra chord on Again would mean.
+    await new Promise((resolve) => setTimeout(resolve, 2500))
+    expect(piano.play).toHaveBeenCalledTimes(1)
   }, 90_000)
 })

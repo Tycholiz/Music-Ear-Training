@@ -7,6 +7,7 @@ import {
   SilentSwitchHint,
 } from '../components'
 import { ChordSettingsMenu } from '../customize'
+import { useAutoAdvance } from './useAutoAdvance'
 import { piano } from '../audio'
 import { UNAMBIGUOUS_ROOT_CHORDS, chordById } from '../theory'
 import {
@@ -54,7 +55,6 @@ export default function ChordRoot() {
   const [round, setRound] = useState<Round | null>(null)
   const [revealed, setRevealed] = useState(false)
   const [graded, setGraded] = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
   /**
    * Whether this question has already been graded.
    *
@@ -64,7 +64,6 @@ export default function ChordRoot() {
    * the authority; the state exists only to grey the buttons out.
    */
   const gradedRef = useRef(false)
-  const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const replayRef = useRef<HTMLButtonElement>(null)
 
   const playable = canGenerateChord(settings)
@@ -82,6 +81,11 @@ export default function ChordRoot() {
       ),
     }))
   }, [settings])
+
+  const { menuOpen, openMenu, closeMenu, advanceAfter } = useAutoAdvance(
+    nextQuestion,
+    round !== null,
+  )
 
   const playChord = useCallback((question: RootQuestion) => {
     void piano.play(groupsForRootQuestion(question))
@@ -105,14 +109,6 @@ export default function ChordRoot() {
     if (!round) return
     replayRef.current?.focus()
   }, [round])
-
-  useEffect(
-    () => () => {
-      if (advanceTimer.current) clearTimeout(advanceTimer.current)
-      piano.stop()
-    },
-    [],
-  )
 
   const reveal = () => {
     if (!round) return
@@ -158,7 +154,7 @@ export default function ChordRoot() {
       { item: itemId('chord', round.question.chordId), correct },
       { item: itemId('inversion', round.question.inversion), correct },
     ])
-    advanceTimer.current = setTimeout(nextQuestion, AUTO_ADVANCE_MS)
+    advanceAfter(AUTO_ADVANCE_MS)
   }
 
   return (
@@ -167,7 +163,7 @@ export default function ChordRoot() {
         correct={score.correct}
         total={score.total}
         onBack={() => navigate('/')}
-        onMenu={() => setMenuOpen(true)}
+        onMenu={openMenu}
       />
 
       {round ? (
@@ -230,11 +226,7 @@ export default function ChordRoot() {
         <StartPanel playable={playable} onStart={nextQuestion} />
       )}
 
-      <ModalSheet
-        open={menuOpen}
-        onClose={() => setMenuOpen(false)}
-        title="Menu"
-      >
+      <ModalSheet open={menuOpen} onClose={closeMenu} title="Menu">
         <ChordSettingsMenu
           store={rootSettingsStore}
           statsStore={rootStatsStore}
@@ -243,7 +235,7 @@ export default function ChordRoot() {
           availableChords={UNAMBIGUOUS_ROOT_CHORDS}
           onResetScore={() => {
             resetScore()
-            setMenuOpen(false)
+            closeMenu()
           }}
         />
       </ModalSheet>

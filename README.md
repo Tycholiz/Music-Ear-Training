@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1435 tests across 52 files.** All of `npm run lint`, `npm run build`,
+**1442 tests across 52 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -100,7 +100,7 @@ src/
   about/        every word of written guidance, one file
   customize/    the settings screens inside each exercise's modal
   components/   shared UI kit
-  routes/       one file per screen
+  routes/       one file per screen, plus useAutoAdvance.ts (see Gotchas)
   pwa/          install offer, update prompt, standalone detection
 ```
 
@@ -821,6 +821,75 @@ left to be inferred. A revealed answer is styled `revealed`, not `correct`:
 green would tell the user they got something they asked to be handed.
 
 ## Gotchas
+
+### Two ways a chord escapes the screen, and they look identical
+
+"A chord just played at random" was reported twice and turned out to be two
+unrelated faults with the same symptom. Both come from the fact that **a new
+question plays itself**, from an effect on the round — so anything that makes
+that effect run, or makes a question appear, is a way for audio to arrive
+unannounced.
+
+**A settings change replayed the question.** The chord screen's play effect
+listed `settings.chords` among its dependencies, because
+`groupsForChordQuestion` needs the selection to decide whether a reference tone
+goes in front. So toggling one chord in Customize re-ran it against the question
+still on screen and sounded it from behind the sheet — every time, no timing
+required. Progressions had the same fault through `playProgression`, which is
+rebuilt whenever the settings change because the voicing depends on the allowed
+inversions.
+
+It was pointless as well as wrong: the very next effect clears the round on that
+same change, so the chord being replayed belonged to a question the screen was
+already throwing away. Both now read what they need through a ref kept in step
+by an effect declared above them, and depend on `round` alone. Intervals was
+always right, which is what the other two now match.
+
+**The rule:** the play effect fires on a _new question_, never on a change to
+how questions are made.
+
+### The advance timer is how audio escapes the screen
+
+Every exercise answers a question, waits a beat on the green button, then
+replaces it — and **a new question plays itself**, from an effect on the round.
+Those two facts together mean the timer can sound a chord at a moment nobody
+asked for one, and it did, twice, in ways that looked unrelated:
+
+- **A chord over the drill summary.** The tenth answer schedules the next
+  question exactly like the nine before it. By the time the timer fires the
+  drill is over and the summary is up, but the question was still built and the
+  play effect still sounded it — an unexplained chord at the end of every drill.
+- **A chord from behind the Customize sheet.** Answer a question and open the
+  menu inside the second or so before the next one is due, and the timer fires
+  anyway. It presented as a chord playing at random, because the window that
+  triggers it is narrow enough that nobody connects it to what they just did.
+
+Both are the same bug: **a pending advance outliving the thing it was for.**
+`useAutoAdvance` owns the timer for all five screens so the rule is stated once
+— open the menu and a pending advance is cancelled and remembered, close it and
+it is taken up again. It is not resumed if the question is gone, because
+changing a setting clears the round on purpose to send the user back to Start.
+
+Cancelling rather than muting: gating the _audio_ would leave the question
+being built and swapped in silently behind the sheet, so the user returns to a
+different question than the one they left.
+
+**A close that goes somewhere else does not resume.** Resuming is right when the
+sheet closes back onto the exercise and wrong when it closes _because_ the user
+chose to leave — starting a drill navigates, so the resumed question is thrown
+away a moment later and the only trace it leaves is a chord played at someone
+already on another screen. `dismissMenu` is that case, and starting a drill is
+the only one: every other close is a reset that stays put, where the question
+underneath is still there and still owed its advance.
+
+The drill's own case is cancelled when the summary appears rather than guarded
+where the timer is set, because the answer that ends a drill arrives by more
+than one route and a guard would have to be remembered at each.
+
+`advanceAfter` is memoised, and has to be. Melody and Progressions judge inside
+an effect and list what it calls in their dependencies, so a function rebuilt
+every render would re-run the effect that judges — the same shape as the
+settings-object bug in `Chords.tsx`.
 
 ### React batching loses presses
 

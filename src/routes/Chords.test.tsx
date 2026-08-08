@@ -103,6 +103,111 @@ describe('starting', () => {
   })
 })
 
+/**
+ * Nothing sounds while the user is somewhere else.
+ *
+ * An answered question schedules the next one on a timer, and a new question
+ * plays itself. Those two together mean the exercise can sound a chord from
+ * behind whatever the user has opened over it — which is what "a chord just
+ * randomly played while I was in Customize" turned out to be.
+ */
+describe('the menu holds the exercise still', () => {
+  const openMenu = (user: ReturnType<typeof userEvent.setup>) =>
+    user.click(screen.getByRole('button', { name: 'Menu' }))
+
+  it('does not play the next question behind an open menu', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    // Answer, then open the menu inside the window before the next question
+    // is due. This is a narrow window — a second or so — which is why it read
+    // as random rather than as something the user was doing.
+    await user.click(screen.getByRole('button', { name: 'Major Triad' }))
+    await openMenu(user)
+    vi.mocked(piano.play).mockClear()
+
+    await new Promise((resolve) => setTimeout(resolve, 2500))
+    expect(piano.play).not.toHaveBeenCalled()
+  }, 20_000)
+
+  it('carries on where it left off once the menu closes', async () => {
+    // The question was answered and locked, so leaving it there would strand
+    // the user on a grid that does nothing. Cancelling the advance means
+    // taking it up again on the way out.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await user.click(screen.getByRole('button', { name: 'Major Triad' }))
+    await openMenu(user)
+    await new Promise((resolve) => setTimeout(resolve, 2500))
+    vi.mocked(piano.play).mockClear()
+
+    await user.click(screen.getByRole('button', { name: 'Close' }))
+
+    await waitFor(() => expect(piano.play).toHaveBeenCalled())
+    // A fresh question, not the answered one still sitting there.
+    expect(screen.getByRole('button', { name: 'Major Triad' })).not.toHaveClass(
+      'bg-correct',
+    )
+  }, 20_000)
+
+  it('does not resume into a question on the way to somewhere else', async () => {
+    // Closing the sheet takes up a cancelled advance, which is right when the
+    // sheet closes back onto the exercise and wrong when it closes because the
+    // user picked a drill: the question they would be resumed into is about to
+    // be thrown away by the navigation, so all it does is play a chord at
+    // them from a screen they have already left.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await user.click(screen.getByRole('button', { name: 'Major Triad' }))
+    await user.click(screen.getByRole('button', { name: 'Menu' }))
+    await user.click(screen.getByRole('button', { name: /^Drills/ }))
+    vi.mocked(piano.play).mockClear()
+
+    await user.click(screen.getAllByRole('button', { name: /vs/ })[0])
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+
+    expect(piano.play).not.toHaveBeenCalled()
+  }, 20_000)
+
+  it('does not replay the question when a setting changes', async () => {
+    // The other stray chord, and the one that needs no timing at all: the
+    // play-on-new-question effect listed the enabled chords among its
+    // dependencies, so changing the selection re-ran it against the question
+    // still on screen. Toggling one chord in Customize sounded the question
+    // from behind the sheet, every time.
+    //
+    // Nothing has been answered here, so no advance is pending and the timer
+    // cannot account for anything that happens.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    await user.click(screen.getByRole('button', { name: 'Menu' }))
+    vi.mocked(piano.play).mockClear()
+
+    chordSettingsStore.write({
+      ...chordSettingsStore.read(),
+      chords: ['major', 'minor', 'diminished'],
+    })
+
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    expect(piano.play).not.toHaveBeenCalled()
+  }, 20_000)
+
+  it('stops a chord that is still sounding when the menu opens', async () => {
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    await openMenu(user)
+
+    expect(piano.stop).toHaveBeenCalled()
+  })
+})
+
 describe('answering', () => {
   it('turns a wrong answer red but keeps it pressable for replay', async () => {
     const user = userEvent.setup()

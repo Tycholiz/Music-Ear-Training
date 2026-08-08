@@ -8,6 +8,7 @@ import {
   SilentSwitchHint,
 } from '../components'
 import { ChordSettingsMenu } from '../customize'
+import { useAutoAdvance } from './useAutoAdvance'
 import { piano, scheduleDurationMs } from '../audio'
 import {
   chordDrillStatsStore,
@@ -115,7 +116,6 @@ export default function Chords() {
   const [wrong, setWrong] = useState<string[]>([])
   const [solvedId, setSolvedId] = useState<string | null>(null)
   const [revealedId, setRevealedId] = useState<string | null>(null)
-  const [menuOpen, setMenuOpen] = useState(false)
   /**
    * Whether the sheet should open on the Drills list instead of the root menu.
    *
@@ -125,7 +125,6 @@ export default function Chords() {
    * up. Dropping them on the root menu would make them walk back down to it.
    */
   const [openDrills, setOpenDrills] = useState(false)
-  const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const replayRef = useRef<HTMLButtonElement>(null)
 
   const playable = canGenerateChord(settings)
@@ -145,10 +144,48 @@ export default function Chords() {
     }))
   }, [settings])
 
+  const {
+    menuOpen,
+    openMenu,
+    closeMenu,
+    dismissMenu,
+    advanceAfter,
+    cancelAdvance,
+  } = useAutoAdvance(nextQuestion, round !== null)
+
+  /**
+   * The enabled chords, current but not a trigger.
+   *
+   * `groupsForChordQuestion` needs the selection to decide whether a question
+   * wants a root reference tone in front of it, so the effect below genuinely
+   * needs this value — it just must not *re-run* when it changes. Kept in step
+   * by an effect declared above the one that reads it, so on a commit where
+   * both change the ref is updated first.
+   */
+  const enabledChords = useRef(settings.chords)
+  useEffect(() => {
+    enabledChords.current = settings.chords
+  }, [settings.chords])
+
+  /**
+   * Play whenever a new question arrives — and *only* then.
+   *
+   * The enabled chords used to be a dependency here, which turned a settings
+   * change into a replay of the question already on screen: toggle one chord
+   * in Customize and the current question sounded from behind the sheet, with
+   * nothing pending and nothing to connect it to. That is the second of the
+   * two stray chords, and the one that needed no timing to reproduce.
+   *
+   * It was pointless as well as wrong. The effect below clears the round on
+   * that very same change, so the question being replayed is one the screen is
+   * in the middle of throwing away.
+   */
   useEffect(() => {
     if (!round) return
-    void piano.play(groupsForChordQuestion(round.question, settings.chords))
-  }, [round, settings.chords])
+    void piano.play(
+      groupsForChordQuestion(round.question, enabledChords.current),
+    )
+  }, [round])
 
   useEffect(() => {
     setRound(null)
@@ -166,13 +203,22 @@ export default function Chords() {
     replayRef.current?.focus()
   }, [round])
 
-  useEffect(
-    () => () => {
-      if (advanceTimer.current) clearTimeout(advanceTimer.current)
-      piano.stop()
-    },
-    [],
-  )
+  /**
+   * A finished drill has nothing to advance to.
+   *
+   * The tenth answer schedules the next question exactly like the nine before
+   * it, and by the time that timer fires the drill is over and the summary is
+   * on screen. It still built a question — one nobody would ever see — and the
+   * effect that plays a new round still sounded it. That was the unexplained
+   * chord at the end of every drill.
+   *
+   * Cancelled on the way into the summary rather than guarded where the timer
+   * is set, because the answer that ends a drill can arrive by more than one
+   * route and a guard would have had to be remembered at each of them.
+   */
+  useEffect(() => {
+    if (finished) cancelAdvance()
+  }, [finished, cancelAdvance])
 
   /**
    * The one measurement a question gets, wherever it came from.
@@ -271,7 +317,7 @@ export default function Chords() {
     const settle = groups
       ? Math.max(AUTO_ADVANCE_MS, scheduleDurationMs(groups) + ADVANCE_GAP_MS)
       : AUTO_ADVANCE_MS
-    advanceTimer.current = setTimeout(nextQuestion, settle)
+    advanceAfter(settle)
   }
 
   /**
@@ -314,7 +360,7 @@ export default function Chords() {
       recordFirstPress(false)
     }
 
-    advanceTimer.current = setTimeout(nextQuestion, REVEAL_ADVANCE_MS)
+    advanceAfter(REVEAL_ADVANCE_MS)
   }
 
   return (
@@ -330,7 +376,7 @@ export default function Chords() {
         total={drill ? answered : score.total}
         showAccuracy={drill === null}
         onBack={() => navigate('/')}
-        onMenu={() => setMenuOpen(true)}
+        onMenu={openMenu}
       />
 
       {finished ? (
@@ -349,7 +395,11 @@ export default function Chords() {
             // is over it.
             navigate('/chords')
             setOpenDrills(true)
-            setMenuOpen(true)
+            // Through the same door as every other open, so nothing is left
+            // sounding and no advance is left owed. There is none pending here
+            // — finishing the drill cancelled it — but the sheet should not
+            // have two ways in for that to depend on.
+            openMenu()
           }}
         />
       ) : round ? (
@@ -398,7 +448,7 @@ export default function Chords() {
       <ModalSheet
         open={menuOpen}
         onClose={() => {
-          setMenuOpen(false)
+          closeMenu()
           setOpenDrills(false)
         }}
         title="Menu"
@@ -411,14 +461,17 @@ export default function Chords() {
           openDrills={openDrills}
           onDrillsOpened={() => setOpenDrills(false)}
           onStartDrill={(id) => {
-            setMenuOpen(false)
             setOpenDrills(false)
             startDrillRun()
+            // Dismissed, not closed: the navigation below brings its own
+            // question, so resuming here would only sound a chord from a
+            // screen the user has already left.
+            dismissMenu()
             navigate(`/chords/drill/${id}`)
           }}
           onResetScore={() => {
             resetScore()
-            setMenuOpen(false)
+            closeMenu()
           }}
         />
       </ModalSheet>

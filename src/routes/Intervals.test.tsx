@@ -258,6 +258,22 @@ describe('menu', () => {
       expect(screen.getByLabelText('Score')).toHaveTextContent('0/0'),
     )
   })
+
+  it('does not play the next question from behind the sheet', async () => {
+    // The same guard as the chord screen, and asserted here too because the
+    // two share `useAutoAdvance` — a fix applied in one place should be
+    // provably applied in more than one.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+
+    await user.click(screen.getByRole('button', { name: 'Perfect 5th' }))
+    await user.click(screen.getByRole('button', { name: 'Menu' }))
+    vi.mocked(piano.play).mockClear()
+
+    await new Promise((resolve) => setTimeout(resolve, 2500))
+    expect(piano.play).not.toHaveBeenCalled()
+  }, 20_000)
 })
 
 describe('buildCells', () => {

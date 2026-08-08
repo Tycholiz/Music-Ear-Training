@@ -8,6 +8,7 @@ import {
   SilentSwitchHint,
 } from '../components'
 import { MelodySettingsMenu } from '../customize'
+import { useAutoAdvance } from './useAutoAdvance'
 import { buildMelodySchedule, piano } from '../audio'
 import { combinedDegrees, degreeLabel, type Degree } from '../theory'
 import {
@@ -80,7 +81,6 @@ export default function Melody() {
   const [round, setRound] = useState<Round | null>(null)
   const [entered, setEntered] = useState<Degree[]>([])
   const [phase, setPhase] = useState<Phase>('entering')
-  const [menuOpen, setMenuOpen] = useState(false)
 
   /**
    * Whether this melody has already gone into the score. A ref rather than
@@ -98,7 +98,6 @@ export default function Melody() {
    * correct it without any of them having to remember to.
    */
   const position = useRef(0)
-  const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const replayRef = useRef<HTMLButtonElement>(null)
 
@@ -150,6 +149,11 @@ export default function Melody() {
     }))
   }, [settings])
 
+  const { menuOpen, openMenu, closeMenu, advanceAfter } = useAutoAdvance(
+    nextQuestion,
+    round !== null,
+  )
+
   useEffect(() => {
     if (!round) return
     playMelody(round.question)
@@ -174,7 +178,7 @@ export default function Melody() {
 
   useEffect(
     () => () => {
-      for (const timer of [advanceTimer, feedbackTimer]) {
+      for (const timer of [feedbackTimer]) {
         if (timer.current) clearTimeout(timer.current)
       }
       piano.stop()
@@ -276,9 +280,9 @@ export default function Melody() {
     if (outcome.correct) {
       scoreOnce(true)
       setPhase('correct')
-      advanceTimer.current = setTimeout(nextQuestion, AUTO_ADVANCE_MS)
+      advanceAfter(AUTO_ADVANCE_MS)
     }
-  }, [entered, round, phase, scoreOnce, nextQuestion])
+  }, [entered, round, phase, scoreOnce, advanceAfter])
 
   /**
    * Give up on this melody and be told what it was.
@@ -316,7 +320,7 @@ export default function Melody() {
         correct={score.correct}
         total={score.total}
         onBack={() => navigate('/')}
-        onMenu={() => setMenuOpen(true)}
+        onMenu={openMenu}
       />
 
       {round ? (
@@ -390,15 +394,11 @@ export default function Melody() {
         <StartPanel playable={playable} onStart={nextQuestion} />
       )}
 
-      <ModalSheet
-        open={menuOpen}
-        onClose={() => setMenuOpen(false)}
-        title="Menu"
-      >
+      <ModalSheet open={menuOpen} onClose={closeMenu} title="Menu">
         <MelodySettingsMenu
           onResetScore={() => {
             resetScore()
-            setMenuOpen(false)
+            closeMenu()
           }}
         />
       </ModalSheet>
