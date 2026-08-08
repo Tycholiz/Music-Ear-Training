@@ -35,11 +35,15 @@ export function ChordsScreen({
       .map((chord) => chord.id)
   }
 
+  // Derived inside the updater rather than from `settings`, so four quick taps
+  // are four toggles rather than whichever one landed last. See `usePersisted`.
   const toggle = (id: string, checked: boolean) => {
-    const next = checked
-      ? inOrder([...settings.chords, id])
-      : settings.chords.filter((value) => value !== id)
-    setSettings({ ...settings, chords: next })
+    setSettings((current) => ({
+      ...current,
+      chords: checked
+        ? inOrder([...current.chords, id])
+        : current.chords.filter((value) => value !== id),
+    }))
   }
 
   /**
@@ -55,8 +59,10 @@ export function ChordsScreen({
     }))
 
   const toggleGroup = (chords: readonly Chord[]) => {
-    const next = afterGroupToggle(selectable(chords), settings.chords)
-    setSettings({ ...settings, chords: inOrder(next) })
+    setSettings((current) => ({
+      ...current,
+      chords: inOrder(afterGroupToggle(selectable(chords), current.chords)),
+    }))
   }
 
   const shownCategories = CHORD_CATEGORIES.filter((category) =>

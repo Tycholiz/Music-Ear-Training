@@ -24,13 +24,18 @@ export function InversionsScreen({
   const enabled = new Set(settings.inversions)
   const warning = inversionsWarning(settings)
 
+  // Derived inside the updater, so two quick taps are two toggles rather than
+  // whichever one landed last. See `usePersisted`.
   const toggle = (inversion: number, checked: boolean) => {
-    const next = checked
-      ? ALL_INVERSIONS.filter(
-          (option) => enabled.has(option) || option === inversion,
-        )
-      : settings.inversions.filter((option) => option !== inversion)
-    setSettings({ ...settings, inversions: next })
+    setSettings((current) => ({
+      ...current,
+      inversions: checked
+        ? ALL_INVERSIONS.filter(
+            (option) =>
+              current.inversions.includes(option) || option === inversion,
+          )
+        : current.inversions.filter((option) => option !== inversion),
+    }))
   }
 
   return (

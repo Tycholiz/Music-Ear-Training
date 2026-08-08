@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1442 tests across 52 files.** All of `npm run lint`, `npm run build`,
+**1446 tests across 52 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -898,10 +898,28 @@ with, so the second overwrites the first. This is **not** caught by
 `userEvent.click`, which awaits a render between presses — it needs
 `fireEvent.click` twice inside one `act`.
 
-Two separate manifestations: entered notes going missing (fixed with a
-functional state update), and both presses being graded against the same
-position (fixed with a `position` ref, resynced from state by an effect so undo,
-a cleared attempt and a new question all correct it without remembering to).
+Three separate manifestations: entered notes going missing (fixed with a
+functional state update), both presses being graded against the same position
+(fixed with a `position` ref, resynced from state by an effect so undo, a
+cleared attempt and a new question all correct it without remembering to), and
+**every checklist in Customize**.
+
+The third is the one that reached a user. Ticking four chords quickly left one
+or two of them still ticked, at random, because `setSettings({ ...settings, … })`
+reads the settings _that render was built with_ — so taps landing before React
+re-renders all start from the same value and the last one wins. Measured on the
+chord list before the fix: of four rapid taps, **one** registered.
+
+A store subscription does not save you. The store has the truth the instant it
+is written; it is the closure that is stale, and it stays stale until the render
+that replaces it. So `usePersisted` takes an updater, and the updater is applied
+to `store.read()` at write time — the same rule `recordInStore` follows, offered
+by the hook so that no screen has to remember it.
+
+**Derive the next settings inside the updater, never from the render.** Every
+write in `customize/` does, including the ones that only set a field: two
+different fields changed in one batch lose one of them just as readily, since
+both spread the same stale base.
 
 ### Tests that pass without guarding anything
 

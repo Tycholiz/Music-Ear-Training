@@ -22,11 +22,15 @@ export function IntervalsScreen() {
   const enabled = new Set(settings.intervals)
   const warning = intervalsWarning(settings)
 
+  // Derived inside the updater, so four quick taps are four toggles rather
+  // than whichever one landed last. See `usePersisted`.
   const toggle = (semitones: number, checked: boolean) => {
-    const next = checked
-      ? [...settings.intervals, semitones].sort((a, b) => a - b)
-      : settings.intervals.filter((value) => value !== semitones)
-    setSettings({ ...settings, intervals: next })
+    setSettings((current) => ({
+      ...current,
+      intervals: checked
+        ? [...current.intervals, semitones].sort((a, b) => a - b)
+        : current.intervals.filter((value) => value !== semitones),
+    }))
   }
 
   /**
@@ -42,14 +46,15 @@ export function IntervalsScreen() {
     }))
 
   const toggleGroup = (intervals: readonly Interval[]) => {
-    const next = afterGroupToggle(
-      selectable(intervals),
-      settings.intervals.map(String),
-    )
-    setSettings({
-      ...settings,
-      intervals: next.map(Number).sort((a, b) => a - b),
-    })
+    setSettings((current) => ({
+      ...current,
+      intervals: afterGroupToggle(
+        selectable(intervals),
+        current.intervals.map(String),
+      )
+        .map(Number)
+        .sort((a, b) => a - b),
+    }))
   }
 
   const selectAll = (intervals: readonly Interval[], of?: string) => (

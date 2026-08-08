@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ModalSheet } from '../components'
 import {
@@ -333,6 +340,33 @@ describe('navigation', () => {
       expect(
         screen.getByRole('button', { name: /Intervals/ }),
       ).toHaveTextContent('13 selected'),
+    )
+  })
+})
+
+/**
+ * The same batching guard as the chord checklist, on a different screen.
+ *
+ * The fix lives in `usePersisted`, so it holds for every settings screen at
+ * once — and a fix that holds everywhere should be asserted somewhere other
+ * than the one screen it was reported on.
+ */
+describe('tapping faster than the screen re-renders', () => {
+  it('keeps every toggle when several land in one batch', async () => {
+    write({ intervals: [1, 2, 3, 4, 5] })
+    const { user } = openMenu()
+    await goTo(user, 'Intervals')
+
+    act(() => {
+      for (const name of ['Minor 2nd', 'Major 2nd', 'Minor 3rd']) {
+        fireEvent.click(
+          screen.getByRole('checkbox', { name: new RegExp(name) }),
+        )
+      }
+    })
+
+    await waitFor(() =>
+      expect(intervalSettingsStore.read().intervals).toEqual([4, 5]),
     )
   })
 })

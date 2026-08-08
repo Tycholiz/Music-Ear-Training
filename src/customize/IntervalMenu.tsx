@@ -25,7 +25,7 @@ function IntervalRangeScreen() {
   return (
     <RangeScreen
       range={settings.range}
-      onChange={(range) => setSettings({ ...settings, range })}
+      onChange={(range) => setSettings((current) => ({ ...current, range }))}
       footer="Range determines the available pitches for both notes of the interval."
       warning={rangeWarning(settings)}
     />
@@ -119,7 +119,10 @@ function CustomizeScreen() {
           label="Focus on weak spots"
           checked={settings.adaptive}
           onChange={(adaptive) =>
-            intervalSettingsStore.write({ ...settings, adaptive })
+            intervalSettingsStore.write({
+              ...intervalSettingsStore.read(),
+              adaptive,
+            })
           }
         />
       </ListCard>

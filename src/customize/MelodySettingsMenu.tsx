@@ -177,17 +177,21 @@ function ScaleScreen() {
   const chosen = new Set(settings.scaleIds)
 
   const toggle = (scaleId: string, checked: boolean) => {
-    const scaleIds = checked
-      ? scalesByDifficulty()
-          .map((scale) => scale.id)
-          .filter((id) => chosen.has(id) || id === scaleId)
-      : settings.scaleIds.filter((id) => id !== scaleId)
+    // Derived inside the updater, so two quick taps are two toggles rather
+    // than whichever one landed last. See `usePersisted`.
+    setSettings((current) => {
+      const scaleIds = checked
+        ? scalesByDifficulty()
+            .map((scale) => scale.id)
+            .filter((id) => current.scaleIds.includes(id) || id === scaleId)
+        : current.scaleIds.filter((id) => id !== scaleId)
 
-    const shared = sharedDegrees(scaleIds.map(scaleById))
-    setSettings({
-      ...settings,
-      scaleIds,
-      featured: settings.featured.filter((degree) => shared.includes(degree)),
+      const shared = sharedDegrees(scaleIds.map(scaleById))
+      return {
+        ...current,
+        scaleIds,
+        featured: current.featured.filter((degree) => shared.includes(degree)),
+      }
     })
   }
 
@@ -232,11 +236,20 @@ function FeaturedScreen() {
   const offered = sharedDegrees(scales)
   const featured = new Set(settings.featured)
 
+  // Derived inside the updater, so four quick taps are four toggles rather
+  // than whichever one landed last. See `usePersisted`.
   const toggle = (degree: number, checked: boolean) => {
-    const next = checked
-      ? offered.filter((option) => featured.has(option) || option === degree)
-      : settings.featured.filter((option) => option !== degree)
-    setSettings({ ...settings, featured: [...next] })
+    setSettings((current) => ({
+      ...current,
+      featured: checked
+        ? [
+            ...offered.filter(
+              (option) =>
+                current.featured.includes(option) || option === degree,
+            ),
+          ]
+        : current.featured.filter((option) => option !== degree),
+    }))
   }
 
   return (
@@ -279,7 +292,9 @@ function LengthScreen() {
               key={length}
               label={`${length} notes`}
               selected={length === settings.length}
-              onSelect={() => setSettings({ ...settings, length })}
+              onSelect={() =>
+                setSettings((current) => ({ ...current, length }))
+              }
             />
           ))}
         </RadioGroup>
@@ -315,7 +330,9 @@ function BackingScreen() {
               label={BACKING_NAMES[backing]}
               description={BACKING_DESCRIPTIONS[backing]}
               selected={backing === settings.backing}
-              onSelect={() => setSettings({ ...settings, backing })}
+              onSelect={() =>
+                setSettings((current) => ({ ...current, backing }))
+              }
             />
           ))}
         </RadioGroup>
@@ -331,7 +348,7 @@ function MelodyRangeScreen() {
     <RangeScreen
       range={settings.range}
       onChange={(range: MelodySettings['range']) =>
-        setSettings({ ...settings, range })
+        setSettings((current) => ({ ...current, range }))
       }
       footer="Melodies are written across one octave, placed anywhere inside this range."
       warning={melodyRangeWarning(settings)}

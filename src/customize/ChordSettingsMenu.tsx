@@ -227,7 +227,7 @@ function CustomizeScreen({
         <CheckRow
           label="Focus on weak spots"
           checked={settings.adaptive}
-          onChange={(adaptive) => store.write({ ...settings, adaptive })}
+          onChange={(adaptive) => store.write({ ...store.read(), adaptive })}
         />
       </ListCard>
 
@@ -248,7 +248,7 @@ function ChordRangeScreen({ store }: { store: PersistedStore<ChordSettings> }) {
   return (
     <RangeScreen
       range={settings.range}
-      onChange={(range) => setSettings({ ...settings, range })}
+      onChange={(range) => setSettings((current) => ({ ...current, range }))}
       footer="Range determines the available pitches for all notes of the chord."
       warning={chordRangeWarning(settings)}
     />

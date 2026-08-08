@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ModalSheet } from '../components'
 import {
@@ -514,5 +521,80 @@ describe('selecting a whole group at once', () => {
     expect(chosen).not.toContain('minor-11th')
     // And the ones that do fit were all taken.
     expect(chosen).toContain('major-7th')
+  })
+})
+
+/**
+ * Two taps that land in one React batch.
+ *
+ * `userEvent.click` awaits a render between presses, so it can never produce
+ * this — it has to be `fireEvent.click` twice inside one `act`. That is the
+ * same shape as the entered-notes bug in the melody exercise, and the reason
+ * the README says to reach for `fireEvent` when testing for it.
+ */
+describe('tapping faster than the screen re-renders', () => {
+  const row = (name: string) =>
+    screen.getByRole('checkbox', { name: new RegExp(name) })
+
+  it('keeps both toggles when two rows are tapped in one batch', async () => {
+    write({ chords: ['major', 'minor', 'diminished', 'augmented'] })
+    const { user } = openMenu()
+    await goTo(user, 'Chords')
+
+    act(() => {
+      fireEvent.click(row('Major Triad'))
+      fireEvent.click(row('Minor Triad'))
+    })
+
+    await waitFor(() => {
+      const chosen = chordSettingsStore.read().chords
+      expect(chosen).not.toContain('major')
+      expect(chosen).not.toContain('minor')
+    })
+    // And nothing else moved.
+    expect(chordSettingsStore.read().chords).toEqual([
+      'diminished',
+      'augmented',
+    ])
+  })
+
+  it('keeps all four when a whole row of them is tapped off at once', async () => {
+    // The user's report: four in a row, and one or two stay checked.
+    write({
+      chords: ['major', 'minor', 'diminished', 'augmented', 'sus2'],
+    })
+    const { user } = openMenu()
+    await goTo(user, 'Chords')
+
+    act(() => {
+      for (const name of [
+        'Major Triad',
+        'Minor Triad',
+        'Diminished Triad',
+        'Augmented Triad',
+      ]) {
+        fireEvent.click(row(name))
+      }
+    })
+
+    await waitFor(() =>
+      expect(chordSettingsStore.read().chords).toEqual(['sus2']),
+    )
+  })
+
+  it('does not lose one field to another written in the same batch', async () => {
+    // Not only checklists: every write spreads the settings the render was
+    // built with, so two different fields changed together lose one of them.
+    write({ chords: ['major', 'minor'], adaptive: true })
+    const { user } = openMenu()
+    await goTo(user, 'Chords')
+
+    act(() => {
+      fireEvent.click(row('Major Triad'))
+      fireEvent.click(row('Minor Triad'))
+    })
+
+    await waitFor(() => expect(chordSettingsStore.read().chords).toEqual([]))
+    expect(chordSettingsStore.read().adaptive).toBe(true)
   })
 })
