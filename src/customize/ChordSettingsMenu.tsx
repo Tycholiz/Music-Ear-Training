@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef } from 'react'
 import {
   AboutPage,
   type AboutContent,
@@ -36,6 +37,8 @@ export function ChordSettingsMenu({
   statsView,
   about,
   onStartDrill,
+  openDrills = false,
+  onDrillsOpened,
   onResetScore,
   availableChords = CHORDS,
 }: {
@@ -56,11 +59,55 @@ export function ChordSettingsMenu({
    * asking one question with one answer.
    */
   onStartDrill?: (drillId: string) => void
+  /**
+   * Open straight onto the Drills list rather than the root menu.
+   *
+   * For the sheet opened by finishing a drill. "Done" means *back to where I
+   * chose this one*, and landing on the root menu would make the user find
+   * their way back down to the list they had just been in — with the bucket
+   * the drill they finished has moved into being the thing they most want to
+   * see.
+   */
+  openDrills?: boolean
+  /**
+   * Called once the list has been opened, so the caller can put the flag down.
+   *
+   * **The sheet renders a pushed screen _instead of_ its children**, so this
+   * menu unmounts while the list is up and mounts again when Back pops it —
+   * and anything that decides to open the list on mount gets a second go at it
+   * on the way back. Guarding with a ref cannot help, because the ref goes
+   * with the unmount.
+   *
+   * So the flag is spent rather than remembered: it means "open onto Drills
+   * this once", and Back then lands on the menu like any other screen.
+   */
+  onDrillsOpened?: () => void
   onResetScore: () => void
   /** Narrower for the root exercise, which cannot use ambiguous chords. */
   availableChords?: readonly Chord[]
 }) {
   const { push } = useModalNav()
+
+  /** One way to reach the Drills list, whether it is tapped or arrived at. */
+  const openDrillsScreen = useCallback(() => {
+    if (!onStartDrill) return
+    push({
+      title: 'Drills',
+      content: <DrillsScreen onStart={onStartDrill} />,
+    })
+  }, [onStartDrill, push])
+
+  // Opened once and the flag put down — see `onDrillsOpened`. The ref is not
+  // the thing that makes it once: it survives a re-render and not the unmount
+  // that pushing a screen causes, which is exactly the case that matters. It
+  // is here for StrictMode, which runs an effect twice on the same instance.
+  const pushed = useRef(false)
+  useEffect(() => {
+    if (!openDrills || pushed.current) return
+    pushed.current = true
+    openDrillsScreen()
+    onDrillsOpened?.()
+  }, [openDrills, openDrillsScreen, onDrillsOpened])
 
   return (
     <div className="p-4">
@@ -97,16 +144,7 @@ export function ChordSettingsMenu({
           }
         />
         {onStartDrill && (
-          <ListRow
-            label="Drills"
-            chevron
-            onClick={() =>
-              push({
-                title: 'Drills',
-                content: <DrillsScreen onStart={onStartDrill} />,
-              })
-            }
-          />
+          <ListRow label="Drills" chevron onClick={openDrillsScreen} />
         )}
         <ListRow
           label="About this exercise"

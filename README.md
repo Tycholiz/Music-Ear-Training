@@ -21,7 +21,7 @@ modal reached from the header's menu button.
 
 ## Status
 
-**1434 tests across 52 files.** All of `npm run lint`, `npm run build`,
+**1435 tests across 52 files.** All of `npm run lint`, `npm run build`,
 `npx tsc -b --noEmit`, `npm run format:check` and `npm test` pass on `main`.
 
 **All five exercises are complete**, each with its own generation, grading,
@@ -479,6 +479,25 @@ not a sample of how someone hears chords in general; folded into the chord
 record they would make those two the most-practised chords in the app and
 reweight what the exercise asks next — a measurement changing the thing it
 measures.
+
+**Done goes back to the Drills list, not to the exercise.** That list is both
+where the drill was chosen and where the result of the run turns up — a pair
+that has just moved out of _needs work_ says so there and nowhere else. Landing
+on the exercise, or on the root menu, would make the user walk back down to it
+to see the one thing the run just produced.
+
+The sheet is opened with a flag rather than given a second entry point: the row
+and the shortcut push the same screen through one callback, so the list cannot
+drift into two versions of itself.
+
+**The flag is spent when it is used, not when the sheet closes**, and that
+distinction is the whole of a bug it caused. `ModalSheet` renders a pushed
+screen _instead of_ its children, so the menu unmounts while the list is up and
+mounts again when Back pops it — which gives anything that opens the list on
+mount a second go at it on the way back. Back slid the list away and put an
+identical one in its place, forever. A ref cannot fix that, because the ref
+goes with the unmount; the flag has to mean "open onto Drills _this once_" and
+be put down by the thing that acts on it.
 
 #### A pool of two changes what a question is
 
