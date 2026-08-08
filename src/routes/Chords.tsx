@@ -153,10 +153,39 @@ export default function Chords() {
     cancelAdvance,
   } = useAutoAdvance(nextQuestion, round !== null)
 
+  /**
+   * The enabled chords, current but not a trigger.
+   *
+   * `groupsForChordQuestion` needs the selection to decide whether a question
+   * wants a root reference tone in front of it, so the effect below genuinely
+   * needs this value — it just must not *re-run* when it changes. Kept in step
+   * by an effect declared above the one that reads it, so on a commit where
+   * both change the ref is updated first.
+   */
+  const enabledChords = useRef(settings.chords)
+  useEffect(() => {
+    enabledChords.current = settings.chords
+  }, [settings.chords])
+
+  /**
+   * Play whenever a new question arrives — and *only* then.
+   *
+   * The enabled chords used to be a dependency here, which turned a settings
+   * change into a replay of the question already on screen: toggle one chord
+   * in Customize and the current question sounded from behind the sheet, with
+   * nothing pending and nothing to connect it to. That is the second of the
+   * two stray chords, and the one that needed no timing to reproduce.
+   *
+   * It was pointless as well as wrong. The effect below clears the round on
+   * that very same change, so the question being replayed is one the screen is
+   * in the middle of throwing away.
+   */
   useEffect(() => {
     if (!round) return
-    void piano.play(groupsForChordQuestion(round.question, settings.chords))
-  }, [round, settings.chords])
+    void piano.play(
+      groupsForChordQuestion(round.question, enabledChords.current),
+    )
+  }, [round])
 
   useEffect(() => {
     setRound(null)

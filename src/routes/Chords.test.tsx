@@ -174,6 +174,30 @@ describe('the menu holds the exercise still', () => {
     expect(piano.play).not.toHaveBeenCalled()
   }, 20_000)
 
+  it('does not replay the question when a setting changes', async () => {
+    // The other stray chord, and the one that needs no timing at all: the
+    // play-on-new-question effect listed the enabled chords among its
+    // dependencies, so changing the selection re-ran it against the question
+    // still on screen. Toggling one chord in Customize sounded the question
+    // from behind the sheet, every time.
+    //
+    // Nothing has been answered here, so no advance is pending and the timer
+    // cannot account for anything that happens.
+    const user = userEvent.setup()
+    renderExercise()
+    await start(user)
+    await user.click(screen.getByRole('button', { name: 'Menu' }))
+    vi.mocked(piano.play).mockClear()
+
+    chordSettingsStore.write({
+      ...chordSettingsStore.read(),
+      chords: ['major', 'minor', 'diminished'],
+    })
+
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    expect(piano.play).not.toHaveBeenCalled()
+  }, 20_000)
+
   it('stops a chord that is still sounding when the menu opens', async () => {
     const user = userEvent.setup()
     renderExercise()

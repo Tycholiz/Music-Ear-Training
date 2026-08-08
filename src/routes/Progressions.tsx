@@ -173,10 +173,27 @@ export default function Progressions() {
     round !== null,
   )
 
+  /**
+   * Play whenever a new question arrives — and *only* then.
+   *
+   * `playProgression` is rebuilt whenever the settings change, because the
+   * voicing depends on which inversions are allowed. Listed as a dependency,
+   * that made a settings change replay the progression already on screen, from
+   * behind the Customize sheet the user was changing it in — the same bug the
+   * chord screen had through `settings.chords`, wearing a different value.
+   *
+   * The ref is kept in step by an effect declared above this one, so a commit
+   * that changes both uses the new voicing rather than the old.
+   */
+  const playLatest = useRef(playProgression)
+  useEffect(() => {
+    playLatest.current = playProgression
+  }, [playProgression])
+
   useEffect(() => {
     if (!round) return
-    playProgression(round.question)
-  }, [round, playProgression])
+    playLatest.current(round.question)
+  }, [round])
 
   // Changing what is asked invalidates the question in progress.
   useEffect(() => {
