@@ -116,6 +116,15 @@ export default function Chords() {
   const [solvedId, setSolvedId] = useState<string | null>(null)
   const [revealedId, setRevealedId] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  /**
+   * Whether the sheet should open on the Drills list instead of the root menu.
+   *
+   * Set by Done on the drill summary. The user got here from that list, and
+   * the drill they have just finished has moved between its buckets — so the
+   * list is both where they came from and where the result of the run shows
+   * up. Dropping them on the root menu would make them walk back down to it.
+   */
+  const [openDrills, setOpenDrills] = useState(false)
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const replayRef = useRef<HTMLButtonElement>(null)
 
@@ -333,7 +342,15 @@ export default function Chords() {
             startDrillRun()
             nextQuestion()
           }}
-          onDone={() => navigate('/chords')}
+          onDone={() => {
+            // Back to the list this drill was chosen from, rather than to the
+            // exercise. Navigating first leaves the drill route, so the screen
+            // underneath is the ordinary chord exercise by the time the sheet
+            // is over it.
+            navigate('/chords')
+            setOpenDrills(true)
+            setMenuOpen(true)
+          }}
         />
       ) : round ? (
         <>
@@ -380,7 +397,10 @@ export default function Chords() {
 
       <ModalSheet
         open={menuOpen}
-        onClose={() => setMenuOpen(false)}
+        onClose={() => {
+          setMenuOpen(false)
+          setOpenDrills(false)
+        }}
         title="Menu"
       >
         <ChordSettingsMenu
@@ -388,8 +408,10 @@ export default function Chords() {
           statsStore={chordStatsStore}
           statsView={CHORD_STATS_VIEW}
           about={CHORD_ABOUT}
+          openDrills={openDrills}
           onStartDrill={(id) => {
             setMenuOpen(false)
+            setOpenDrills(false)
             startDrillRun()
             navigate(`/chords/drill/${id}`)
           }}

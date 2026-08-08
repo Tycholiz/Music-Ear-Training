@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import Chords from './Chords'
@@ -308,6 +315,84 @@ describe('the ordinary exercise is untouched', () => {
 })
 
 describe('finishing', () => {
+  /**
+   * Answer every question of a drill correctly, waiting for each to arrive.
+   *
+   * The next question arriving is the next chord being played — a solved
+   * question ignores further presses until then, so pressing on a timer rather
+   * than on that signal stalls the run at one answer.
+   */
+  async function playThrough(user: ReturnType<typeof userEvent.setup>) {
+    for (let i = 0; i < DRILL_LENGTH; i++) {
+      const playsBefore = vi.mocked(piano.play).mock.calls.length
+      await user.click(screen.getByRole('button', { name: 'Major Triad' }))
+
+      await waitFor(
+        () =>
+          expect(
+            chordDrillStatsStore.read()[`drill:${DRILL.id}`]?.attempts ?? 0,
+          ).toBe(i + 1),
+        { timeout: 15_000 },
+      )
+
+      if (i < DRILL_LENGTH - 1) {
+        await waitFor(
+          () =>
+            expect(vi.mocked(piano.play).mock.calls.length).toBeGreaterThan(
+              playsBefore + 1,
+            ),
+          { timeout: 15_000 },
+        )
+      }
+    }
+  }
+
+  /**
+   * Done goes back to the list the drill was chosen from.
+   *
+   * Both halves in one test so the ten rounds are paid for once, the same
+   * bargain the run below makes.
+   */
+  it('sends Done back to the Drills list, and only that once', async () => {
+    const user = userEvent.setup()
+    renderDrill()
+    await start(user)
+    await playThrough(user)
+
+    await user.click(await screen.findByRole('button', { name: 'Done' }))
+
+    // The Drills list itself, not the root menu it is nested under.
+    expect(
+      await screen.findByRole('dialog', { name: 'Drills' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /Major Triad vs Minor Triad/ }),
+    ).toBeVisible()
+    // The drill is over rather than merely covered: closing this sheet lands
+    // on the ordinary exercise.
+    expect(screen.queryByRole('button', { name: 'Again' })).toBeNull()
+
+    // Pushed onto the stack rather than swapped in for the root, so the sheet
+    // offers Back where a root screen would offer Close.
+    const sheet = screen.getByRole('dialog', { name: 'Drills' })
+    expect(within(sheet).getByRole('button', { name: 'Back' })).toBeVisible()
+
+    // And the shortcut is spent. The sheet drops its stack when it closes and
+    // the flag has to go with it, or every later tap on the menu button would
+    // jump into Drills for the rest of the session.
+    fireEvent.click(screen.getByTestId('modal-backdrop'))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    // The sheet drops its stack a beat after it has finished closing, so a
+    // reopen inside that beat would find the old one still there. That is the
+    // sheet's own behaviour and not what this test is about.
+    await new Promise((resolve) => setTimeout(resolve, 500))
+
+    await user.click(screen.getByRole('button', { name: 'Menu' }))
+    expect(
+      await screen.findByRole('dialog', { name: 'Menu' }),
+    ).toBeInTheDocument()
+  }, 90_000)
+
   it('stops after the drill length, and starts over on Again', async () => {
     // The one slow test here, and deliberately real-time. A solved question
     // advances on a timer, so ten questions is ten timers — and fake timers

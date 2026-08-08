@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef } from 'react'
 import {
   AboutPage,
   type AboutContent,
@@ -36,6 +37,7 @@ export function ChordSettingsMenu({
   statsView,
   about,
   onStartDrill,
+  openDrills = false,
   onResetScore,
   availableChords = CHORDS,
 }: {
@@ -56,11 +58,40 @@ export function ChordSettingsMenu({
    * asking one question with one answer.
    */
   onStartDrill?: (drillId: string) => void
+  /**
+   * Open straight onto the Drills list rather than the root menu.
+   *
+   * For the sheet opened by finishing a drill. "Done" means *back to where I
+   * chose this one*, and landing on the root menu would make the user find
+   * their way back down to the list they had just been in — with the bucket
+   * the drill they finished has moved into being the thing they most want to
+   * see.
+   */
+  openDrills?: boolean
   onResetScore: () => void
   /** Narrower for the root exercise, which cannot use ambiguous chords. */
   availableChords?: readonly Chord[]
 }) {
   const { push } = useModalNav()
+
+  /** One way to reach the Drills list, whether it is tapped or arrived at. */
+  const openDrillsScreen = useCallback(() => {
+    if (!onStartDrill) return
+    push({
+      title: 'Drills',
+      content: <DrillsScreen onStart={onStartDrill} />,
+    })
+  }, [onStartDrill, push])
+
+  // Pushed once, on the mount that opens the sheet — the sheet drops its
+  // navigation stack when it closes, so this runs afresh each time it is
+  // opened this way and never stacks a second copy on a re-render.
+  const pushed = useRef(false)
+  useEffect(() => {
+    if (!openDrills || pushed.current) return
+    pushed.current = true
+    openDrillsScreen()
+  }, [openDrills, openDrillsScreen])
 
   return (
     <div className="p-4">
@@ -97,16 +128,7 @@ export function ChordSettingsMenu({
           }
         />
         {onStartDrill && (
-          <ListRow
-            label="Drills"
-            chevron
-            onClick={() =>
-              push({
-                title: 'Drills',
-                content: <DrillsScreen onStart={onStartDrill} />,
-              })
-            }
-          />
+          <ListRow label="Drills" chevron onClick={openDrillsScreen} />
         )}
         <ListRow
           label="About this exercise"
